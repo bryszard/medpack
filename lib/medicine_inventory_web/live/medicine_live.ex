@@ -15,9 +15,9 @@ defmodule MedicineInventoryWeb.MedicineLive do
      |> assign(:search_query, "")
      |> assign(:show_form, false)
      |> assign(:uploaded_files, [])
-     |> allow_upload(:photo,
+     |> allow_upload(:photos,
        accept: ~w(.jpg .jpeg .png),
-       max_entries: 1,
+       max_entries: 3,
        max_file_size: 10_000_000
      )}
   end
@@ -38,8 +38,10 @@ defmodule MedicineInventoryWeb.MedicineLive do
   end
 
   def handle_event("save", %{"medicine" => medicine_params}, socket) do
-    photo_path = consume_uploaded_photo(socket)
-    medicine_params = Map.put(medicine_params, "photo_path", photo_path)
+    photo_paths = consume_uploaded_photos(socket)
+    # Store the first photo as the main photo_path for backwards compatibility
+    main_photo = List.first(photo_paths)
+    medicine_params = Map.put(medicine_params, "photo_path", main_photo)
 
     case Medicines.create_medicine(medicine_params) do
       {:ok, medicine} ->
@@ -84,7 +86,7 @@ defmodule MedicineInventoryWeb.MedicineLive do
   end
 
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :photo, ref)}
+    {:noreply, cancel_upload(socket, :photos, ref)}
   end
 
   @impl true
@@ -93,17 +95,16 @@ defmodule MedicineInventoryWeb.MedicineLive do
     {:noreply, assign(socket, medicines: medicines)}
   end
 
-  defp consume_uploaded_photo(socket) do
-    consume_uploaded_entries(socket, :photo, fn %{path: path}, _entry ->
-      dest =
-        Path.join([:code.priv_dir(:medicine_inventory), "static", "uploads", Path.basename(path)])
+  defp consume_uploaded_photos(socket) do
+    consume_uploaded_entries(socket, :photos, fn %{path: path}, entry ->
+      # Create a unique filename using the original name and timestamp
+      timestamp = System.system_time(:millisecond)
+      extension = Path.extname(entry.client_name)
+      filename = "#{timestamp}_#{Path.basename(entry.client_name, extension)}#{extension}"
 
+      dest = Path.join([:code.priv_dir(:medicine_inventory), "static", "uploads", filename])
       File.cp!(path, dest)
-      {:ok, "/uploads/" <> Path.basename(path)}
+      {:ok, "/uploads/#{filename}"}
     end)
-    |> case do
-      [photo_path] -> photo_path
-      [] -> nil
-    end
   end
 end

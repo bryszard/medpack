@@ -1,29 +1,3 @@
-==> castore
-Compiling 1 file (.ex)
-Generated castore app
-==> mint
-Compiling 1 file (.erl)
-Compiling 20 files (.ex)
-Generated mint app
-==> finch
-Compiling 14 files (.ex)
-Generated finch app
-==> req
-Compiling 18 files (.ex)
-Generated req app
-==> vix
-Downloading precompiled NIF to /root/.cache/elixir_make/vix-nif-2.17-x86_64-linux-gnu-0.33.1.tar.gz
-Compiling 28 files (.ex)
-Generated vix app
-==> swoosh
-Compiling 53 files (.ex)
-Generated swoosh app
-==> sweet_xml
-Compiling 2 files (.ex)
-Generated sweet_xml app
-==> image
-Compiling 70 files (.ex)
-Generated image app
 defmodule MedicineInventory.MixProject do
   use Mix.Project
 

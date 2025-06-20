@@ -146,8 +146,13 @@ defmodule MedicineInventoryWeb.MedicineLive do
     first_entry = List.first(socket.assigns.uploads.photos.entries)
 
     if first_entry do
-      # Get the temporary file path from the upload entry
-      temp_path = Phoenix.LiveView.Upload.path(socket.assigns.uploads.photos, first_entry)
+      # Use consume_uploaded_entries to get the temporary file path
+      temp_paths =
+        consume_uploaded_entries(socket, :photos, fn %{path: path}, _entry ->
+          {:ok, path}
+        end)
+
+      temp_path = List.first(temp_paths)
 
       if temp_path && File.exists?(temp_path) do
         image_data = File.read!(temp_path)

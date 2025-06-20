@@ -26,6 +26,12 @@ defmodule MedicineInventoryWeb.Endpoint do
     gzip: not code_reloading?,
     only: MedicineInventoryWeb.static_paths()
 
+  # Serve uploaded files
+  plug Plug.Static,
+    at: "/uploads",
+    from: Path.expand("../../priv/static/uploads", __DIR__),
+    gzip: false
+
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
   if code_reloading? do

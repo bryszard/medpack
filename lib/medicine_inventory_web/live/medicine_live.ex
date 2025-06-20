@@ -148,7 +148,7 @@ defmodule MedicineInventoryWeb.MedicineLive do
     if first_entry do
       # Get the temporary file path from the upload entry
       temp_path = Phoenix.LiveView.Upload.path(socket.assigns.uploads.photos, first_entry)
-      
+
       if temp_path && File.exists?(temp_path) do
         image_data = File.read!(temp_path)
         base64_image = Base.encode64(image_data)
@@ -161,7 +161,6 @@ defmodule MedicineInventoryWeb.MedicineLive do
     else
       %{}
     end
-  end
   end
 
   defp call_openai_vision_api(base64_image) do

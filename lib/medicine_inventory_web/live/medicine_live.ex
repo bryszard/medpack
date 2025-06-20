@@ -146,16 +146,22 @@ defmodule MedicineInventoryWeb.MedicineLive do
     first_entry = List.first(socket.assigns.uploads.photos.entries)
 
     if first_entry do
-      # Convert uploaded file to base64 for API
-      temp_path = first_entry.upload_config.upload_dir <> "/" <> first_entry.uuid
-      image_data = File.read!(temp_path)
-      base64_image = Base.encode64(image_data)
+      # Get the temporary file path from the upload entry
+      temp_path = Phoenix.LiveView.Upload.path(socket.assigns.uploads.photos, first_entry)
+      
+      if temp_path && File.exists?(temp_path) do
+        image_data = File.read!(temp_path)
+        base64_image = Base.encode64(image_data)
 
-      # Call OpenAI GPT-4 Vision API
-      call_openai_vision_api(base64_image)
+        # Call OpenAI GPT-4 Vision API
+        call_openai_vision_api(base64_image)
+      else
+        %{}
+      end
     else
       %{}
     end
+  end
   end
 
   defp call_openai_vision_api(base64_image) do

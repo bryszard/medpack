@@ -141,10 +141,8 @@ defmodule MedicineInventoryWeb.MedicineLive do
     {:noreply, assign(socket, medicines: medicines)}
   end
 
-  end
-
   defp simulate_ai_analysis do
-    # Simulate AI analysis results for demo\
+    # Simulate AI analysis results for demo
     %{
       "name" => "Medicine Name (Demo mode - real analysis needs file access)",
       "type" => "Tablet",

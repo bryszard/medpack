@@ -20,8 +20,7 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
        accept: ~w(.jpg .jpeg .png),
        max_entries: 20,
        max_file_size: 10_000_000
-     )
-     |> assign_upload_refs_to_entries()}
+     )}
   end
 
   @impl true
@@ -43,37 +42,31 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     {:noreply, assign(socket, entries: updated_entries)}
   end
 
-  def handle_event("upload_photo", %{"entry_id" => entry_id}, socket) do
-    # Handle individual photo upload for specific entry
-    case find_upload_for_entry(socket, entry_id) do
-      nil ->
-        {:noreply, put_flash(socket, :error, "No photo uploaded for this entry")}
-
-      entry ->
-        updated_entries =
-          Enum.map(socket.assigns.entries, fn batch_entry ->
-            if batch_entry.id == entry_id do
-              %{batch_entry | photo_uploaded: true, photo_entry: entry}
-            else
-              batch_entry
-            end
-          end)
-
-        {:noreply, assign(socket, entries: updated_entries)}
-    end
-  end
-
   def handle_event("analyze_all", _params, socket) do
-    entries_with_photos = Enum.filter(socket.assigns.entries, & &1.photo_uploaded)
+    # Get all uploaded files from the upload entries
+    uploaded_files = socket.assigns.uploads.batch_photos.entries
 
-    if entries_with_photos == [] do
+    if uploaded_files == [] do
       {:noreply, put_flash(socket, :error, "Please upload at least one photo first")}
     else
+      # Mark entries as having photos based on uploaded files
+      updated_entries =
+        socket.assigns.entries
+        |> Enum.with_index()
+        |> Enum.map(fn {entry, index} ->
+          if index < length(uploaded_files) do
+            %{entry | photo_uploaded: true, photo_entry: Enum.at(uploaded_files, index)}
+          else
+            entry
+          end
+        end)
+
       {:noreply,
        socket
+       |> assign(:entries, updated_entries)
        |> assign(:analyzing, true)
        |> assign(:analysis_progress, 0)
-       |> start_async(:analyze_batch, fn -> analyze_batch_photos(entries_with_photos) end)}
+       |> start_async(:analyze_batch, fn -> analyze_batch_photos(updated_entries) end)}
     end
   end
 
@@ -207,15 +200,10 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     end)
   end
 
-  defp find_upload_for_entry(socket, entry_id) do
-    # This would find the uploaded file for the specific entry
-    # For now, return the first uploaded entry
-    List.first(socket.assigns.uploads.batch_photos.entries)
-  end
-
   defp analyze_batch_photos(entries) do
     # Analyze each entry with a photo
     entries
+    |> Enum.filter(& &1.photo_uploaded)
     |> Enum.map(fn entry ->
       ai_results = simulate_ai_analysis_for_entry(entry)
       {entry.id, ai_results}
@@ -370,10 +358,4 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   def ai_results_summary(_), do: "No analysis data"
-
-  defp assign_upload_refs_to_entries(socket) do
-    # For now, just return the socket as-is
-    # In a full implementation, this would assign specific upload refs to each entry
-    socket
-  end
 end

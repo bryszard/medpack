@@ -27,6 +27,29 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   @impl true
+  def handle_event("validate_upload", %{"_target" => [upload_name]}, socket) do
+    # Extract entry number from upload name (e.g., "entry_1_photos" -> "1")
+    entry_number =
+      upload_name
+      |> String.replace("entry_", "")
+      |> String.replace("_photos", "")
+      |> String.to_integer()
+
+    # Update the entry to mark it as having an uploaded file
+    updated_entries =
+      Enum.map(socket.assigns.entries, fn entry ->
+        if entry.number == entry_number do
+          upload_key = String.to_atom(upload_name)
+          uploads = Map.get(socket.assigns.uploads, upload_key, %{entries: []})
+          %{entry | photo_uploaded: uploads.entries != []}
+        else
+          entry
+        end
+      end)
+
+    {:noreply, assign(socket, entries: updated_entries)}
+  end
+
   def handle_event("add_entries", %{"count" => count_str}, socket) do
     count = String.to_integer(count_str)
     current_entries = socket.assigns.entries
@@ -260,7 +283,8 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
       allow_upload(acc_socket, upload_key,
         accept: ~w(.jpg .jpeg .png),
         max_entries: 1,
-        max_file_size: 10_000_000
+        max_file_size: 10_000_000,
+        auto_upload: true
       )
     end)
   end

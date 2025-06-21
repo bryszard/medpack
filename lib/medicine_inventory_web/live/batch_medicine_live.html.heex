@@ -220,7 +220,7 @@
                 <!-- Photo Upload Section -->
                 <div class="mb-6">
                   <h4 class="font-semibold text-blue-900 mb-3">Photo Upload:</h4>
-                  <%= if entry.photo_uploaded do %>
+                  <%= if entry_has_uploaded_files?(entry, @uploads) do %>
                     <div class="text-center">
                       <div class="w-32 h-32 bg-blue-100 rounded-lg mx-auto mb-3 flex items-center justify-center">
                         <span class="text-4xl">📸</span>
@@ -326,9 +326,9 @@
                 <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
                   <h4 class="font-semibold text-blue-900 mb-2">🤖 AI Analysis Results:</h4>
                   <%= cond do %>
-                    <% entry.ai_analysis_status == :pending and not entry.photo_uploaded -> %>
+                    <% entry.ai_analysis_status == :pending and not entry_has_uploaded_files?(entry, @uploads) -> %>
                       <p class="text-blue-600">⏳ Waiting for photo...</p>
-                    <% entry.ai_analysis_status == :pending and entry.photo_uploaded -> %>
+                    <% entry.ai_analysis_status == :pending and entry_has_uploaded_files?(entry, @uploads) -> %>
                       <p class="text-blue-600">❌ Not analyzed yet</p>
                     <% entry.ai_analysis_status == :failed -> %>
                       <p class="text-red-600">⚠️ Analysis failed</p>

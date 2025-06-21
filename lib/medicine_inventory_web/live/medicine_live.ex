@@ -153,11 +153,10 @@ defmodule MedicineInventoryWeb.MedicineLive do
     {:noreply, assign(socket, medicines: medicines)}
   end
 
-
-            _ ->
-              {:error, "File upload not complete"}
-          end
-        end
+  defp get_upload_temp_path(socket, entry) do
+    case Map.fetch(entry, :path) do
+      {:ok, path} when is_binary(path) ->
+        {:ok, path}
 
       _ ->
         {:error, "Invalid upload entry"}

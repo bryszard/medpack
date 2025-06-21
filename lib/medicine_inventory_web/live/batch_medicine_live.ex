@@ -428,4 +428,18 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   def get_upload_key_for_entry(entry) do
     String.to_atom("entry_#{entry.number}_photos")
   end
+
+  # Check if entry has uploaded files
+  def entry_has_uploaded_files?(entry, uploads) do
+    upload_key = get_upload_key_for_entry(entry)
+    upload_config = Map.get(uploads, upload_key, %{entries: []})
+    upload_config.entries != []
+  end
+
+  # Get upload entries for a specific entry
+  def get_upload_entries_for_entry(entry, uploads) do
+    upload_key = get_upload_key_for_entry(entry)
+    upload_config = Map.get(uploads, upload_key, %{entries: []})
+    upload_config.entries
+  end
 end

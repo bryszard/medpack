@@ -44,6 +44,10 @@ defmodule MedicineInventory.Medicine do
   end
 
   @doc false
+  def create_changeset(attrs \\ %{}) do
+    %__MODULE__{} |> changeset(attrs)
+  end
+
   def changeset(medicine, attrs) do
     medicine
     |> cast(attrs, [

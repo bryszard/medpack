@@ -141,24 +141,6 @@ defmodule MedicineInventoryWeb.MedicineLive do
     {:noreply, assign(socket, medicines: medicines)}
   end
 
-  defp analyze_medicine_photos(socket) do
-    # Get the first uploaded photo for analysis
-    first_entry = List.first(socket.assigns.uploads.photos.entries)
-
-    if first_entry && first_entry.done? do
-      # Create a temporary file from the entry data
-      temp_dir = System.tmp_dir!()
-      temp_path = Path.join(temp_dir, "medicine_#{System.unique_integer()}.jpg")
-
-      # Copy the uploaded file data to temp file
-      File.write!(temp_path, first_entry.client_name)
-
-      # For now, simulate AI analysis since we can't access the actual file
-      # In production, you would read the actual uploaded file
-      simulate_ai_analysis()
-    else
-      %{}
-    end
   end
 
   defp simulate_ai_analysis do

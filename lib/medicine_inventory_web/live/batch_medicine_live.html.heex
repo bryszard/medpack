@@ -225,12 +225,19 @@
                       <div class="w-32 h-32 bg-blue-100 rounded-lg mx-auto mb-3 flex items-center justify-center">
                         <span class="text-4xl">📸</span>
                       </div>
-                      <button class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm transition duration-200">
+                      <button
+                        phx-click="remove_photo"
+                        phx-value-id={entry.id}
+                        class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm transition duration-200"
+                      >
                         Delete Photo
                       </button>
                     </div>
                   <% else %>
-                    <div class="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center hover:border-blue-400 transition duration-200">
+                    <div
+                      phx-drop-target={@uploads.batch_photos.ref}
+                      class="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center hover:border-blue-400 transition duration-200"
+                    >
                       <div class="text-blue-600 mb-2">
                         <svg
                           class="mx-auto h-12 w-12"
@@ -247,13 +254,59 @@
                           </path>
                         </svg>
                       </div>
-                      <p class="text-blue-700 font-semibold">
-                        📸 Drop photo here or click to upload
-                      </p>
+                      <label for={@uploads.batch_photos.ref} class="cursor-pointer">
+                        <span class="text-blue-700 font-semibold hover:text-blue-600">
+                          📸 Drop photo here or click to upload
+                        </span>
+                        <.live_file_input upload={@uploads.batch_photos} class="sr-only" />
+                      </label>
                       <p class="text-blue-500 text-sm mt-1">JPG, PNG up to 10MB</p>
                     </div>
                   <% end %>
                 </div>
+                
+<!-- Photo Previews for this entry -->
+                <%= for entry_upload <- @uploads.batch_photos.entries do %>
+                  <div class="flex items-center space-x-4 bg-white p-4 rounded-lg border border-blue-200 mb-3">
+                    <div class="flex-shrink-0">
+                      <.live_img_preview
+                        entry={entry_upload}
+                        class="h-20 w-20 object-cover rounded-lg border-2 border-blue-300"
+                      />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-lg font-semibold text-blue-900 truncate">
+                        {entry_upload.client_name}
+                      </p>
+                      <p class="text-blue-600">
+                        {Float.round(entry_upload.client_size / 1_048_576, 2)} MB
+                      </p>
+                      <div class="w-full bg-blue-200 rounded-full h-3 mt-2">
+                        <div
+                          class="bg-blue-500 h-3 rounded-full transition-all duration-300"
+                          style={"width: #{entry_upload.progress}%"}
+                        >
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      phx-click="cancel_upload"
+                      phx-value-ref={entry_upload.ref}
+                      class="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition duration-200"
+                    >
+                      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M6 18L18 6M6 6l12 12"
+                        >
+                        </path>
+                      </svg>
+                    </button>
+                  </div>
+                <% end %>
                 
 <!-- Status Display -->
                 <div class="mb-4">

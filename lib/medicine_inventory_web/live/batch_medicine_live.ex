@@ -20,6 +20,8 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
        accept: ~w(.jpg .jpeg .png),
        max_entries: 20,
        max_file_size: 10_000_000
+     )
+     |> assign_upload_refs_to_entries()
      )}
   end
 

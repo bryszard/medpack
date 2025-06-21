@@ -146,8 +146,10 @@ defmodule MedicineInventory.Medicine do
   end
 
   def usage_percentage(%__MODULE__{} = medicine) do
-    if medicine.total_quantity > 0 do
-      (medicine.remaining_quantity / medicine.total_quantity * 100) |> Float.round(1)
+    if Decimal.to_float(medicine.total_quantity) > 0 do
+      (Decimal.to_float(medicine.remaining_quantity) / Decimal.to_float(medicine.total_quantity) *
+         100)
+      |> Float.round(1)
     else
       0.0
     end

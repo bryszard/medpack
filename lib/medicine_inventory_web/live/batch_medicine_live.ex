@@ -366,4 +366,10 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   def ai_results_summary(_), do: "No analysis data"
+
+  defp assign_upload_refs_to_entries(socket) do
+    # For now, just return the socket as-is
+    # In a full implementation, this would assign specific upload refs to each entry
+    socket
+  end
 end

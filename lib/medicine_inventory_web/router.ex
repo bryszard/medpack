@@ -18,6 +18,7 @@ defmodule MedicineInventoryWeb.Router do
     pipe_through :browser
 
     live "/", MedicineLive
+    live "/batch", BatchMedicineLive
   end
 
   # Other scopes may use custom stacks.

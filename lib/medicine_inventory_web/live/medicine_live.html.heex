@@ -21,116 +21,109 @@
       
 <!-- Add Medicine Form -->
       <%= if @show_form do %>
-        <div class="bg-white rounded-xl shadow-xl p-6 mb-8 border border-orange-200">
-          <h2 class="text-2xl font-bold text-orange-900 mb-6">Add New Medicine</h2>
+        <div class="bg-white rounded-xl shadow-xl p-8 mb-8 border border-orange-200 max-w-4xl mx-auto">
+          <h2 class="text-3xl font-bold text-orange-900 mb-8 text-center">Add New Medicine</h2>
 
           <.form
             for={@form}
             id="medicine-form"
             phx-change="validate"
             phx-submit="save"
-            class="space-y-6"
+            class="space-y-8"
           >
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <!-- Basic Information -->
-              <div class="space-y-4">
-                <h3 class="text-lg font-semibold text-orange-800 border-b border-orange-200 pb-2">
-                  Basic Information
-                </h3>
+            <!-- Essential Information - Always Visible -->
+            <div class="bg-orange-50 rounded-lg p-6 border border-orange-200">
+              <h3 class="text-xl font-semibold text-orange-900 mb-6 flex items-center">
+                <span class="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">
+                  1
+                </span>
+                Essential Information
+              </h3>
 
-                <.input
-                  field={@form[:name]}
-                  type="text"
-                  label="Medicine Name"
-                  placeholder="e.g., Tylenol, Aspirin"
-                  class="rounded-lg bg-orange-50 text-orange-900 placeholder:text-orange-500 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
-                  error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
-                />
-
-                <.input
-                  field={@form[:brand_name]}
-                  type="text"
-                  label="Brand Name"
-                  placeholder="e.g., Tylenol"
-                  class="rounded-lg bg-orange-50 text-orange-900 placeholder:text-orange-500 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
-                  error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
-                />
-
-                <.input
-                  field={@form[:generic_name]}
-                  type="text"
-                  label="Generic Name"
-                  placeholder="e.g., Acetaminophen"
-                  class="rounded-lg bg-orange-50 text-orange-900 placeholder:text-orange-500 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
-                  error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
-                />
-
-                <.input
-                  field={@form[:manufacturer]}
-                  type="text"
-                  label="Manufacturer"
-                  placeholder="e.g., Johnson & Johnson"
-                  class="rounded-lg bg-orange-50 text-orange-900 placeholder:text-orange-500 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
-                  error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
-                />
-              </div>
-              
-<!-- Dosage & Form -->
-              <div class="space-y-4">
-                <h3 class="text-lg font-semibold text-orange-800 border-b border-orange-200 pb-2">
-                  Dosage & Form
-                </h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="md:col-span-2">
+                  <.input
+                    field={@form[:name]}
+                    type="text"
+                    label="Medicine Name *"
+                    placeholder="e.g., Tylenol Extra Strength"
+                    class="rounded-lg bg-white text-orange-900 placeholder:text-orange-400 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3 text-lg font-medium"
+                    error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                  />
+                </div>
 
                 <.input
                   field={@form[:dosage_form]}
                   type="select"
-                  label="Dosage Form"
+                  label="Form *"
                   options={[
                     {"Select form...", ""},
-                    {"Tablet", "tablet"},
-                    {"Capsule", "capsule"},
-                    {"Syrup", "syrup"},
-                    {"Suspension", "suspension"},
-                    {"Solution", "solution"},
-                    {"Cream", "cream"},
-                    {"Ointment", "ointment"},
-                    {"Gel", "gel"},
-                    {"Lotion", "lotion"},
-                    {"Drops", "drops"},
-                    {"Injection", "injection"},
-                    {"Inhaler", "inhaler"},
-                    {"Spray", "spray"},
-                    {"Patch", "patch"},
-                    {"Suppository", "suppository"}
+                    {"💊 Tablet", "tablet"},
+                    {"💊 Capsule", "capsule"},
+                    {"🥤 Syrup", "syrup"},
+                    {"🥤 Suspension", "suspension"},
+                    {"🧴 Solution", "solution"},
+                    {"🧴 Cream", "cream"},
+                    {"🧴 Ointment", "ointment"},
+                    {"🧴 Gel", "gel"},
+                    {"🧴 Lotion", "lotion"},
+                    {"💧 Drops", "drops"},
+                    {"💉 Injection", "injection"},
+                    {"🌬️ Inhaler", "inhaler"},
+                    {"💨 Spray", "spray"},
+                    {"🩹 Patch", "patch"},
+                    {"🔸 Suppository", "suppository"}
                   ]}
-                  class="rounded-lg bg-orange-50 text-orange-900 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
+                  class="rounded-lg bg-white text-orange-900 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
                   error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
                 />
 
                 <.input
-                  field={@form[:active_ingredient]}
-                  type="text"
-                  label="Active Ingredient"
-                  placeholder="e.g., Acetaminophen"
-                  class="rounded-lg bg-orange-50 text-orange-900 placeholder:text-orange-500 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
+                  field={@form[:expiration_date]}
+                  type="date"
+                  label="Expiration Date *"
+                  class="rounded-lg bg-white text-orange-900 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
                   error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
                 />
+              </div>
+            </div>
+            
+<!-- Strength & Dosage -->
+            <div class="bg-blue-50 rounded-lg p-6 border border-blue-200">
+              <h3 class="text-xl font-semibold text-blue-900 mb-6 flex items-center">
+                <span class="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">
+                  2
+                </span>
+                Strength & Active Ingredient
+              </h3>
 
-                <div class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="md:col-span-2">
+                  <.input
+                    field={@form[:active_ingredient]}
+                    type="text"
+                    label="Active Ingredient *"
+                    placeholder="e.g., Acetaminophen, Ibuprofen"
+                    class="rounded-lg bg-white text-blue-900 placeholder:text-blue-400 border-blue-300 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 px-4 py-3"
+                    error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                  />
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
                   <.input
                     field={@form[:strength_value]}
                     type="number"
-                    label="Strength Amount"
+                    label="Strength Amount *"
                     placeholder="500"
                     step="0.001"
-                    class="rounded-lg bg-orange-50 text-orange-900 placeholder:text-orange-500 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
+                    class="rounded-lg bg-white text-blue-900 placeholder:text-blue-400 border-blue-300 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 px-4 py-3"
                     error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
                   />
 
                   <.input
                     field={@form[:strength_unit]}
                     type="select"
-                    label="Strength Unit"
+                    label="Unit *"
                     options={[
                       {"Select unit...", ""},
                       {"mg", "mg"},
@@ -139,23 +132,24 @@
                       {"mcg", "mcg"},
                       {"IU", "IU"},
                       {"mg/ml", "mg/ml"},
+                      {"mg/5ml", "mg/5ml"},
                       {"mg/g", "mg/g"},
                       {"% w/w", "% w/w"},
                       {"% w/v", "% w/v"}
                     ]}
-                    class="rounded-lg bg-orange-50 text-orange-900 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
+                    class="rounded-lg bg-white text-blue-900 border-blue-300 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 px-4 py-3"
                     error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
                   />
                 </div>
 
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-3">
                   <.input
                     field={@form[:strength_denominator_value]}
                     type="number"
                     label="Per Amount (optional)"
                     placeholder="5"
                     step="0.001"
-                    class="rounded-lg bg-orange-50 text-orange-900 placeholder:text-orange-500 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
+                    class="rounded-lg bg-white text-blue-900 placeholder:text-blue-400 border-blue-300 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 px-4 py-3"
                     error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
                   />
 
@@ -171,133 +165,99 @@
                       {"capsule", "capsule"},
                       {"dose", "dose"}
                     ]}
-                    class="rounded-lg bg-orange-50 text-orange-900 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
+                    class="rounded-lg bg-white text-blue-900 border-blue-300 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 px-4 py-3"
                     error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
                   />
                 </div>
               </div>
             </div>
+            
+<!-- Quantity & Container -->
+            <div class="bg-green-50 rounded-lg p-6 border border-green-200">
+              <h3 class="text-xl font-semibold text-green-900 mb-6 flex items-center">
+                <span class="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">
+                  3
+                </span>
+                Container & Quantity
+              </h3>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <!-- Container Information -->
-              <div class="space-y-4">
-                <h3 class="text-lg font-semibold text-orange-800 border-b border-orange-200 pb-2">
-                  Container Information
-                </h3>
-
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <.input
                   field={@form[:container_type]}
                   type="select"
-                  label="Container Type"
+                  label="Container Type *"
                   options={[
                     {"Select container...", ""},
-                    {"Bottle", "bottle"},
-                    {"Box", "box"},
-                    {"Tube", "tube"},
-                    {"Vial", "vial"},
-                    {"Inhaler", "inhaler"},
-                    {"Blister Pack", "blister_pack"},
-                    {"Sachet", "sachet"},
-                    {"Ampoule", "ampoule"}
+                    {"🍼 Bottle", "bottle"},
+                    {"📦 Box", "box"},
+                    {"🧴 Tube", "tube"},
+                    {"🧪 Vial", "vial"},
+                    {"🌬️ Inhaler", "inhaler"},
+                    {"📋 Blister Pack", "blister_pack"},
+                    {"📄 Sachet", "sachet"},
+                    {"💉 Ampoule", "ampoule"}
                   ]}
-                  class="rounded-lg bg-orange-50 text-orange-900 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
+                  class="rounded-lg bg-white text-green-900 border-green-300 focus:border-green-500 focus:ring focus:ring-green-200 focus:ring-opacity-50 px-4 py-3"
                   error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
                 />
 
-                <div class="grid grid-cols-3 gap-2">
-                  <.input
-                    field={@form[:total_quantity]}
-                    type="number"
-                    label="Total Quantity"
-                    placeholder="100"
-                    step="0.001"
-                    class="rounded-lg bg-orange-50 text-orange-900 placeholder:text-orange-500 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
-                    error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
-                  />
+                <.input
+                  field={@form[:total_quantity]}
+                  type="number"
+                  label="Total Quantity *"
+                  placeholder="100"
+                  step="0.001"
+                  class="rounded-lg bg-white text-green-900 placeholder:text-green-400 border-green-300 focus:border-green-500 focus:ring focus:ring-green-200 focus:ring-opacity-50 px-4 py-3"
+                  error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                />
 
-                  <.input
-                    field={@form[:remaining_quantity]}
-                    type="number"
-                    label="Remaining"
-                    placeholder="80"
-                    step="0.001"
-                    class="rounded-lg bg-orange-50 text-orange-900 placeholder:text-orange-500 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
-                    error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
-                  />
-
-                  <.input
-                    field={@form[:quantity_unit]}
-                    type="select"
-                    label="Unit"
-                    options={[
-                      {"Select unit...", ""},
-                      {"tablets", "tablets"},
-                      {"capsules", "capsules"},
-                      {"ml", "ml"},
-                      {"g", "g"},
-                      {"doses", "doses"},
-                      {"patches", "patches"},
-                      {"suppositories", "suppositories"}
-                    ]}
-                    class="rounded-lg bg-orange-50 text-orange-900 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
-                    error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
-                  />
-                </div>
+                <.input
+                  field={@form[:remaining_quantity]}
+                  type="number"
+                  label="Remaining *"
+                  placeholder="80"
+                  step="0.001"
+                  class="rounded-lg bg-white text-green-900 placeholder:text-green-400 border-green-300 focus:border-green-500 focus:ring focus:ring-green-200 focus:ring-opacity-50 px-4 py-3"
+                  error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                />
               </div>
-              
-<!-- Dates & Tracking -->
-              <div class="space-y-4">
-                <h3 class="text-lg font-semibold text-orange-800 border-b border-orange-200 pb-2">
-                  Dates & Tracking
-                </h3>
 
+              <div class="mt-4">
                 <.input
-                  field={@form[:expiration_date]}
-                  type="date"
-                  label="Expiration Date"
-                  class="rounded-lg bg-orange-50 text-orange-900 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
-                  error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
-                />
-
-                <.input
-                  field={@form[:date_opened]}
-                  type="date"
-                  label="Date Opened (optional)"
-                  class="rounded-lg bg-orange-50 text-orange-900 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
-                  error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
-                />
-
-                <.input
-                  field={@form[:purchase_date]}
-                  type="date"
-                  label="Purchase Date (optional)"
-                  class="rounded-lg bg-orange-50 text-orange-900 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
-                  error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
-                />
-
-                <.input
-                  field={@form[:lot_number]}
-                  type="text"
-                  label="Lot Number (optional)"
-                  placeholder="LOT12345"
-                  class="rounded-lg bg-orange-50 text-orange-900 placeholder:text-orange-500 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
+                  field={@form[:quantity_unit]}
+                  type="select"
+                  label="Quantity Unit *"
+                  options={[
+                    {"Select unit...", ""},
+                    {"tablets", "tablets"},
+                    {"capsules", "capsules"},
+                    {"ml", "ml"},
+                    {"g", "g"},
+                    {"doses", "doses"},
+                    {"patches", "patches"},
+                    {"suppositories", "suppositories"}
+                  ]}
+                  class="rounded-lg bg-white text-green-900 border-green-300 focus:border-green-500 focus:ring focus:ring-green-200 focus:ring-opacity-50 px-4 py-3 max-w-xs"
                   error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
                 />
               </div>
             </div>
             
 <!-- Photo Upload Section -->
-            <div class="space-y-4">
-              <h3 class="text-lg font-semibold text-orange-800 border-b border-orange-200 pb-2">
-                Photos
+            <div class="bg-purple-50 rounded-lg p-6 border border-purple-200">
+              <h3 class="text-xl font-semibold text-purple-900 mb-6 flex items-center">
+                <span class="bg-purple-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">
+                  4
+                </span>
+                Photos & AI Analysis
               </h3>
               
 <!-- Upload Area -->
-              <div class="bg-orange-50 border-2 border-dashed border-orange-300 rounded-lg p-6">
+              <div class="bg-white border-2 border-dashed border-purple-300 rounded-lg p-8 mb-6">
                 <div phx-drop-target={@uploads.photos.ref} class="text-center space-y-4">
-                  <div class="text-orange-600">
+                  <div class="text-purple-600">
                     <svg
-                      class="mx-auto h-12 w-12"
+                      class="mx-auto h-16 w-16"
                       stroke="currentColor"
                       fill="none"
                       viewBox="0 0 48 48"
@@ -312,32 +272,37 @@
                   </div>
                   <div>
                     <label for={@uploads.photos.ref} class="cursor-pointer">
-                      <span class="text-orange-700 font-medium hover:text-orange-600">
-                        Drop photos here or click to upload
+                      <span class="text-purple-700 font-semibold hover:text-purple-600 text-lg">
+                        📸 Drop photos here or click to upload
                       </span>
                       <.live_file_input upload={@uploads.photos} class="sr-only" />
                     </label>
-                    <p class="text-orange-500 text-sm">JPG, PNG up to 10MB • Maximum 3 photos</p>
+                    <p class="text-purple-500 text-sm mt-2">
+                      JPG, PNG up to 10MB • Maximum 3 photos
+                    </p>
                   </div>
                 </div>
               </div>
               
 <!-- Photo Previews -->
               <%= for entry <- @uploads.photos.entries do %>
-                <div class="flex items-center space-x-4 bg-white p-4 rounded-lg border border-orange-200">
+                <div class="flex items-center space-x-4 bg-white p-4 rounded-lg border border-purple-200 mb-3">
                   <div class="flex-shrink-0">
-                    <.live_img_preview entry={entry} class="h-16 w-16 object-cover rounded-lg" />
+                    <.live_img_preview
+                      entry={entry}
+                      class="h-20 w-20 object-cover rounded-lg border-2 border-purple-300"
+                    />
                   </div>
                   <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-orange-900 truncate">
+                    <p class="text-lg font-semibold text-purple-900 truncate">
                       {entry.client_name}
                     </p>
-                    <p class="text-sm text-orange-600">
+                    <p class="text-purple-600">
                       {Float.round(entry.client_size / 1_048_576, 2)} MB
                     </p>
-                    <div class="w-full bg-orange-200 rounded-full h-2 mt-2">
+                    <div class="w-full bg-purple-200 rounded-full h-3 mt-2">
                       <div
-                        class="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                        class="bg-purple-500 h-3 rounded-full transition-all duration-300"
                         style={"width: #{entry.progress}%"}
                       >
                       </div>
@@ -347,9 +312,9 @@
                     type="button"
                     phx-click="cancel_upload"
                     phx-value-ref={entry.ref}
-                    class="text-red-500 hover:text-red-700 p-1"
+                    class="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition duration-200"
                   >
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         stroke-linecap="round"
                         stroke-linejoin="round"
@@ -364,12 +329,12 @@
               
 <!-- AI Analysis Button -->
               <%= if @uploads.photos.entries != [] do %>
-                <div class="text-center">
+                <div class="text-center mb-4">
                   <button
                     type="button"
                     phx-click="analyze_with_ai"
                     disabled={@analyzing}
-                    class="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                    class="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105"
                   >
                     {if @analyzing, do: "🔍 Analyzing...", else: "🤖 Analyze with AI"}
                   </button>
@@ -378,13 +343,13 @@
               
 <!-- AI Results -->
               <%= if @ai_results do %>
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 class="font-semibold text-blue-900 mb-2">AI Analysis Results:</h4>
-                  <pre class="text-sm text-blue-800 whitespace-pre-wrap"><%= @ai_results %></pre>
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                  <h4 class="font-bold text-blue-900 mb-4 text-lg">🤖 AI Analysis Results:</h4>
+                  <pre class="text-sm text-blue-800 whitespace-pre-wrap bg-white p-4 rounded border"><%= @ai_results %></pre>
                   <button
                     type="button"
                     phx-click="apply_ai_suggestions"
-                    class="mt-3 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                    class="mt-4 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105"
                   >
                     ✨ Apply Suggestions
                   </button>
@@ -392,45 +357,118 @@
               <% end %>
             </div>
             
-<!-- Additional Information -->
-            <div class="space-y-4">
-              <h3 class="text-lg font-semibold text-orange-800 border-b border-orange-200 pb-2">
-                Additional Information
-              </h3>
+<!-- Optional Information - Collapsible -->
+            <details class="bg-gray-50 rounded-lg border border-gray-200">
+              <summary class="cursor-pointer p-6 text-xl font-semibold text-gray-700 hover:text-gray-900 transition duration-200 flex items-center">
+                <span class="bg-gray-400 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">
+                  5
+                </span>
+                Additional Information (Optional)
+                <svg
+                  class="ml-auto h-5 w-5 transform transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 9l-7 7-7-7"
+                  >
+                  </path>
+                </svg>
+              </summary>
 
-              <.input
-                field={@form[:indication]}
-                type="textarea"
-                label="What is this medicine for?"
-                placeholder="e.g., Pain relief, Headaches, High blood pressure"
-                rows="2"
-                class="rounded-lg bg-orange-50 text-orange-900 placeholder:text-orange-500 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
-                error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
-              />
+              <div class="px-6 pb-6 space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <.input
+                    field={@form[:brand_name]}
+                    type="text"
+                    label="Brand Name"
+                    placeholder="e.g., Tylenol"
+                    class="rounded-lg bg-white text-gray-900 placeholder:text-gray-400 border-gray-300 focus:border-gray-500 focus:ring focus:ring-gray-200 focus:ring-opacity-50 px-4 py-3"
+                    error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                  />
 
-              <.input
-                field={@form[:notes]}
-                type="textarea"
-                label="Notes"
-                placeholder="Any additional notes about this medicine..."
-                rows="3"
-                class="rounded-lg bg-orange-50 text-orange-900 placeholder:text-orange-500 border-orange-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:ring-opacity-50 px-4 py-3"
-                error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
-              />
-            </div>
+                  <.input
+                    field={@form[:generic_name]}
+                    type="text"
+                    label="Generic Name"
+                    placeholder="e.g., Acetaminophen"
+                    class="rounded-lg bg-white text-gray-900 placeholder:text-gray-400 border-gray-300 focus:border-gray-500 focus:ring focus:ring-gray-200 focus:ring-opacity-50 px-4 py-3"
+                    error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                  />
+
+                  <.input
+                    field={@form[:manufacturer]}
+                    type="text"
+                    label="Manufacturer"
+                    placeholder="e.g., Johnson & Johnson"
+                    class="rounded-lg bg-white text-gray-900 placeholder:text-gray-400 border-gray-300 focus:border-gray-500 focus:ring focus:ring-gray-200 focus:ring-opacity-50 px-4 py-3"
+                    error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                  />
+
+                  <.input
+                    field={@form[:lot_number]}
+                    type="text"
+                    label="Lot Number"
+                    placeholder="LOT12345"
+                    class="rounded-lg bg-white text-gray-900 placeholder:text-gray-400 border-gray-300 focus:border-gray-500 focus:ring focus:ring-gray-200 focus:ring-opacity-50 px-4 py-3"
+                    error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                  />
+
+                  <.input
+                    field={@form[:date_opened]}
+                    type="date"
+                    label="Date Opened"
+                    class="rounded-lg bg-white text-gray-900 border-gray-300 focus:border-gray-500 focus:ring focus:ring-gray-200 focus:ring-opacity-50 px-4 py-3"
+                    error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                  />
+
+                  <.input
+                    field={@form[:purchase_date]}
+                    type="date"
+                    label="Purchase Date"
+                    class="rounded-lg bg-white text-gray-900 border-gray-300 focus:border-gray-500 focus:ring focus:ring-gray-200 focus:ring-opacity-50 px-4 py-3"
+                    error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                  />
+                </div>
+
+                <.input
+                  field={@form[:indication]}
+                  type="textarea"
+                  label="What is this medicine for?"
+                  placeholder="e.g., Pain relief, Headaches, High blood pressure"
+                  rows="2"
+                  class="rounded-lg bg-white text-gray-900 placeholder:text-gray-400 border-gray-300 focus:border-gray-500 focus:ring focus:ring-gray-200 focus:ring-opacity-50 px-4 py-3"
+                  error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                />
+
+                <.input
+                  field={@form[:notes]}
+                  type="textarea"
+                  label="Notes"
+                  placeholder="Any additional notes about this medicine..."
+                  rows="3"
+                  class="rounded-lg bg-white text-gray-900 placeholder:text-gray-400 border-gray-300 focus:border-gray-500 focus:ring focus:ring-gray-200 focus:ring-opacity-50 px-4 py-3"
+                  error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                />
+              </div>
+            </details>
             
 <!-- Form Actions -->
-            <div class="flex justify-end space-x-4 pt-6">
+            <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
               <button
                 type="button"
                 phx-click="toggle_form"
-                class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-semibold py-2 px-6 rounded-lg transition duration-200"
+                class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-semibold py-3 px-8 rounded-lg transition duration-200 shadow-md"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-6 rounded-lg transition duration-200"
+                class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-8 rounded-lg transition duration-200 shadow-lg transform hover:scale-105"
               >
                 💾 Save Medicine
               </button>

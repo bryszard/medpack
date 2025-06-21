@@ -1,0 +1,385 @@
+<Layouts.app flash={@flash}>
+  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-blue-900 mb-2">🏥 Batch Medicine Processing</h1>
+        <p class="text-lg text-blue-700">
+          Process multiple medicines at once with AI-powered batch analysis
+        </p>
+      </div>
+      
+<!-- Navigation -->
+      <div class="flex justify-center space-x-4 mb-8">
+        <.link
+          navigate={~p"/"}
+          class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+        >
+          🔄 Switch to Single Mode
+        </.link>
+        <.link
+          navigate={~p"/"}
+          class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+        >
+          📊 View Inventory
+        </.link>
+      </div>
+      
+<!-- Batch Controls -->
+      <div class="bg-white rounded-xl shadow-lg p-6 mb-8 border border-blue-200">
+        <div class="flex flex-wrap justify-center gap-4">
+          <button
+            phx-click="add_entries"
+            phx-value-count="3"
+            class="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105"
+          >
+            ➕ Add 3 More Entries
+          </button>
+
+          <button
+            phx-click="analyze_all"
+            disabled={@analyzing}
+            class="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105"
+          >
+            {if @analyzing, do: "🔍 Analyzing...", else: "🤖 Analyze All Photos"}
+          </button>
+
+          <button
+            phx-click="approve_all"
+            class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105"
+          >
+            ✅ Approve All
+          </button>
+
+          <button
+            phx-click="save_approved"
+            class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105"
+          >
+            💾 Save All Approved
+          </button>
+
+          <button
+            phx-click="clear_rejected"
+            class="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105"
+          >
+            🗑️ Clear Rejected
+          </button>
+        </div>
+      </div>
+      
+<!-- Results Grid Toggle -->
+      <%= if @show_results_grid do %>
+        <div class="mb-8">
+          <button
+            phx-click="toggle_results_grid"
+            class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+          >
+            📋 Switch to Card View
+          </button>
+        </div>
+        
+<!-- Results Grid View -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-8 border border-blue-200">
+          <div class="px-6 py-4 bg-blue-100 border-b border-blue-200">
+            <h3 class="text-xl font-bold text-blue-900">
+              🤖 AI Analysis Results - Review & Approve
+            </h3>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-blue-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-blue-900">#</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-blue-900">Photo</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-blue-900">
+                    AI Analysis Results
+                  </th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-blue-900">Status</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-blue-900">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-blue-100">
+                <%= for entry <- @entries do %>
+                  <tr class="hover:bg-blue-50">
+                    <td class="px-4 py-4 text-sm font-medium text-blue-900">{entry.number}</td>
+                    <td class="px-4 py-4">
+                      <%= if entry.photo_uploaded do %>
+                        <div class="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <span class="text-2xl">📸</span>
+                        </div>
+                      <% else %>
+                        <div class="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <span class="text-gray-400 text-sm">No photo</span>
+                        </div>
+                      <% end %>
+                    </td>
+                    <td class="px-4 py-4">
+                      <div class="text-sm text-blue-900">
+                        {ai_results_summary(entry.ai_results)}
+                      </div>
+                    </td>
+                    <td class="px-4 py-4">
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
+                        {entry_status_icon(entry)} {entry_status_text(entry)}
+                      </span>
+                    </td>
+                    <td class="px-4 py-4">
+                      <div class="flex space-x-2">
+                        <%= if entry.ai_analysis_status == :complete and entry.approval_status == :pending do %>
+                          <button
+                            phx-click="approve_entry"
+                            phx-value-id={entry.id}
+                            class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition duration-200"
+                          >
+                            ✅
+                          </button>
+                          <button
+                            phx-click="edit_entry"
+                            phx-value-id={entry.id}
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition duration-200"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            phx-click="reject_entry"
+                            phx-value-id={entry.id}
+                            class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition duration-200"
+                          >
+                            ❌
+                          </button>
+                        <% end %>
+                        <%= if entry.approval_status == :approved do %>
+                          <span class="text-green-600 font-semibold">✅ Approved</span>
+                        <% end %>
+                        <%= if entry.approval_status == :rejected do %>
+                          <span class="text-red-600 font-semibold">❌ Rejected</span>
+                        <% end %>
+                      </div>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="px-6 py-4 bg-blue-50 border-t border-blue-200">
+            <div class="text-sm text-blue-700">
+              Summary: {Enum.count(@entries, &(&1.approval_status == :approved))} Approved • {Enum.count(
+                @entries,
+                &(&1.approval_status == :pending and &1.ai_analysis_status == :complete)
+              )} Pending • {Enum.count(@entries, &(&1.ai_analysis_status == :failed))} Failed
+            </div>
+          </div>
+        </div>
+      <% end %>
+      
+<!-- Card View (Default) -->
+      <%= if not @show_results_grid do %>
+        <%= if @analyzing do %>
+          <div class="bg-white rounded-xl shadow-lg p-6 mb-8 border border-blue-200 text-center">
+            <div class="text-blue-900 mb-4">
+              <span class="text-2xl">🔍</span>
+              <h3 class="text-xl font-bold">AI Analysis in Progress...</h3>
+            </div>
+            <div class="w-full bg-blue-200 rounded-full h-3">
+              <div
+                class="bg-blue-500 h-3 rounded-full transition-all duration-300"
+                style="width: {@analysis_progress}%"
+              >
+              </div>
+            </div>
+          </div>
+        <% end %>
+        
+<!-- Medicine Entry Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <%= for entry <- @entries do %>
+            <div class="bg-white rounded-xl shadow-lg border border-blue-200 overflow-hidden hover:shadow-xl transition duration-300">
+              <!-- Entry Header -->
+              <div class="bg-blue-100 px-6 py-4 border-b border-blue-200 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-blue-900">Medicine Entry #{entry.number}</h3>
+                <button
+                  phx-click="remove_entry"
+                  phx-value-id={entry.id}
+                  class="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition duration-200"
+                >
+                  <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    >
+                    </path>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="p-6">
+                <!-- Photo Upload Section -->
+                <div class="mb-6">
+                  <h4 class="font-semibold text-blue-900 mb-3">Photo Upload:</h4>
+                  <%= if entry.photo_uploaded do %>
+                    <div class="text-center">
+                      <div class="w-32 h-32 bg-blue-100 rounded-lg mx-auto mb-3 flex items-center justify-center">
+                        <span class="text-4xl">📸</span>
+                      </div>
+                      <button class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm transition duration-200">
+                        Delete Photo
+                      </button>
+                    </div>
+                  <% else %>
+                    <div class="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center hover:border-blue-400 transition duration-200">
+                      <div class="text-blue-600 mb-2">
+                        <svg
+                          class="mx-auto h-12 w-12"
+                          stroke="currentColor"
+                          fill="none"
+                          viewBox="0 0 48 48"
+                        >
+                          <path
+                            d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                          </path>
+                        </svg>
+                      </div>
+                      <p class="text-blue-700 font-semibold">
+                        📸 Drop photo here or click to upload
+                      </p>
+                      <p class="text-blue-500 text-sm mt-1">JPG, PNG up to 10MB</p>
+                    </div>
+                  <% end %>
+                </div>
+                
+<!-- Status Display -->
+                <div class="mb-4">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-2xl">{entry_status_icon(entry)}</span>
+                    <span class="text-blue-900 font-semibold">{entry_status_text(entry)}</span>
+                  </div>
+                </div>
+                
+<!-- AI Analysis Results -->
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <h4 class="font-semibold text-blue-900 mb-2">🤖 AI Analysis Results:</h4>
+                  <%= cond do %>
+                    <% entry.ai_analysis_status == :pending and not entry.photo_uploaded -> %>
+                      <p class="text-blue-600">⏳ Waiting for photo...</p>
+                    <% entry.ai_analysis_status == :pending and entry.photo_uploaded -> %>
+                      <p class="text-blue-600">❌ Not analyzed yet</p>
+                    <% entry.ai_analysis_status == :failed -> %>
+                      <p class="text-red-600">⚠️ Analysis failed</p>
+                      <button
+                        phx-click="retry_analysis"
+                        phx-value-id={entry.id}
+                        class="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition duration-200"
+                      >
+                        🔄 Retry
+                      </button>
+                    <% entry.ai_analysis_status == :complete -> %>
+                      <div class="space-y-1">
+                        <%= if Map.get(entry.ai_results, "name") do %>
+                          <p class="text-blue-900">
+                            <strong>Name:</strong> {Map.get(entry.ai_results, "name")}
+                          </p>
+                        <% end %>
+                        <%= if Map.get(entry.ai_results, "dosage_form") do %>
+                          <p class="text-blue-900">
+                            <strong>Form:</strong> {String.capitalize(
+                              Map.get(entry.ai_results, "dosage_form")
+                            )}
+                          </p>
+                        <% end %>
+                        <%= if Map.get(entry.ai_results, "strength_value") do %>
+                          <p class="text-blue-900">
+                            <strong>Strength:</strong> {Map.get(
+                              entry.ai_results,
+                              "strength_value"
+                            )}{Map.get(entry.ai_results, "strength_unit")}
+                          </p>
+                        <% end %>
+                      </div>
+
+                      <%= if entry.approval_status == :pending do %>
+                        <div class="flex space-x-2 mt-4">
+                          <button
+                            phx-click="approve_entry"
+                            phx-value-id={entry.id}
+                            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm transition duration-200 flex-1"
+                          >
+                            ✅ Approve
+                          </button>
+                          <button
+                            phx-click="edit_entry"
+                            phx-value-id={entry.id}
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm transition duration-200 flex-1"
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            phx-click="reject_entry"
+                            phx-value-id={entry.id}
+                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm transition duration-200 flex-1"
+                          >
+                            ❌ Reject
+                          </button>
+                        </div>
+                      <% end %>
+
+                      <%= if entry.approval_status == :approved do %>
+                        <div class="mt-4 p-3 bg-green-100 border border-green-200 rounded-lg">
+                          <p class="text-green-800 font-semibold">✅ Approved for saving</p>
+                        </div>
+                      <% end %>
+
+                      <%= if entry.approval_status == :rejected do %>
+                        <div class="mt-4 p-3 bg-red-100 border border-red-200 rounded-lg">
+                          <p class="text-red-800 font-semibold">❌ Rejected</p>
+                        </div>
+                      <% end %>
+                    <% true -> %>
+                      <p class="text-blue-600">⏳ Ready for analysis</p>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+        
+<!-- Show Results Grid Button -->
+        <%= if Enum.any?(@entries, &(&1.ai_analysis_status == :complete)) do %>
+          <div class="text-center mt-8">
+            <button
+              phx-click="toggle_results_grid"
+              class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105"
+            >
+              📊 Switch to Results Grid
+            </button>
+          </div>
+        <% end %>
+      <% end %>
+      
+<!-- Empty State -->
+      <%= if @entries == [] do %>
+        <div class="text-center py-12">
+          <span class="text-8xl block mb-4">📋</span>
+          <h3 class="text-2xl font-bold text-blue-900 mb-2">No entries yet</h3>
+          <p class="text-blue-700 mb-6">
+            Start by adding some medicine entries for batch processing!
+          </p>
+          <button
+            phx-click="add_entries"
+            phx-value-count="3"
+            class="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105"
+          >
+            ➕ Add 3 Entries
+          </button>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</Layouts.app>

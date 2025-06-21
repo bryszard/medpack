@@ -161,6 +161,10 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     {:noreply, assign(socket, entries: updated_entries)}
   end
 
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :batch_photos, ref)}
+  end
+
   def handle_event("toggle_results_grid", _params, socket) do
     {:noreply, assign(socket, show_results_grid: not socket.assigns.show_results_grid)}
   end

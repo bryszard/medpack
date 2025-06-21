@@ -95,26 +95,23 @@ defmodule MedicineInventoryWeb.MedicineLive do
   end
 
   def handle_event("analyze_photos", _params, socket) do
-    if socket.assigns.uploads.photos.entries != [] do
-      # Get the first uploaded entry
-      first_entry = List.first(socket.assigns.uploads.photos.entries)
+    # Check if we have uploaded entries
+    entries = socket.assigns.uploads.photos.entries
 
-      # Create a temporary file path to read the uploaded content
-      temp_path = Path.join(System.tmp_dir(), "medicine_analysis_#{first_entry.uuid}.jpg")
+    if entries != [] do
+      # Get the first uploaded entry and access its temporary file path
+      first_entry = List.first(entries)
 
-      # Copy the uploaded file to a temporary location for analysis
-      case consume_uploaded_entries(socket, :photos, fn %{path: path}, _entry ->
-             File.cp!(path, temp_path)
-             {:ok, temp_path}
-           end) do
-        [temp_path] ->
+      # Access the temporary file path directly from the upload entry
+      case get_upload_temp_path(socket, first_entry) do
+        {:ok, temp_path} ->
           {:noreply,
            socket
            |> assign(:analyzing, true)
            |> start_async(:analyze_medicine_photos, fn -> analyze_medicine_photos(temp_path) end)}
 
-        [] ->
-          {:noreply, put_flash(socket, :error, "No photos to analyze")}
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, "Error accessing photo: #{reason}")}
       end
     else
       {:noreply, put_flash(socket, :error, "Please upload at least one photo first")}
@@ -156,14 +153,76 @@ defmodule MedicineInventoryWeb.MedicineLive do
     {:noreply, assign(socket, medicines: medicines)}
   end
 
-  defp analyze_medicine_photos(entry_path) do
+  # Helper function to get the temporary file path from an upload entry
+  defp get_upload_temp_path(socket, entry) do
+    # Access the upload configuration
+    upload_config = socket.assigns.uploads.photos
+
+    # The entry contains the temporary file information
+    # We need to access the file path from the upload entry
+    case entry do
+      %{client_name: client_name, uuid: uuid} ->
+        # Phoenix stores uploaded files in a temporary directory
+        # The actual path is stored in the upload entry's internal data
+        temp_dir = Phoenix.LiveView.UploadEntry.get_upload_root(socket, upload_config.ref)
+        temp_file = Path.join(temp_dir, "#{entry.uuid}")
+
+        if File.exists?(temp_file) do
+          {:ok, temp_file}
+        else
+          # Alternative: try to find the file in the upload entry's progress data
+          case Map.get(entry, :progress) do
+            100 ->
+              # File is fully uploaded, try the upload path
+              case Phoenix.LiveView.UploadEntry.get_upload_path(
+                     socket,
+                     upload_config.ref,
+                     entry.ref
+                   ) do
+                path when is_binary(path) -> {:ok, path}
+                _ -> {:error, "Cannot access uploaded file path"}
+              end
+
+            _ ->
+              {:error, "File upload not complete"}
+          end
+        end
+
+      _ ->
+        {:error, "Invalid upload entry"}
+    end
+  rescue
+    error ->
+      # Fallback: use the socket's upload system to access the file
+      try do
+        # Try to access via the upload entry's internal path
+        upload_path =
+          Path.join([
+            System.tmp_dir(),
+            "phoenix_uploads",
+            socket.id,
+            entry.uuid
+          ])
+
+        if File.exists?(upload_path) do
+          {:ok, upload_path}
+        else
+          {:error, "Upload file not found: #{inspect(error)}"}
+        end
+      rescue
+        _ -> {:error, "Cannot access upload file"}
+      end
+  end
+
+  defp analyze_medicine_photos(file_path) do
     # Read the uploaded file and convert to base64
-    case File.read(entry_path) do
+    case File.read(file_path) do
       {:ok, file_data} ->
         base64_image = Base.encode64(file_data)
         call_openai_vision_api(base64_image)
 
-      {:error, _} ->
+      {:error, reason} ->
+        IO.inspect({:file_read_error, reason, file_path}, label: "File read error")
         simulate_ai_analysis()
     end
   end

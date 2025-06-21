@@ -96,6 +96,30 @@ defmodule MedicineInventoryWeb.MedicineLive do
 
   def handle_event("analyze_photos", _params, socket) do
     if socket.assigns.uploads.photos.entries != [] do
+      # Get the first uploaded entry
+      first_entry = List.first(socket.assigns.uploads.photos.entries)
+      
+      # Create a temporary file path to read the uploaded content
+      temp_path = Path.join(System.tmp_dir(), "medicine_analysis_#{first_entry.uuid}.jpg")
+      
+      # Copy the uploaded file to a temporary location for analysis
+      case consume_uploaded_entries(socket, :photos, fn %{path: path}, _entry ->
+        File.cp!(path, temp_path)
+        {:ok, temp_path}
+      end) do
+        [temp_path] ->
+          {:noreply,
+           socket
+           |> assign(:analyzing, true)
+           |> start_async(:analyze_medicine_photos, fn -> analyze_medicine_photos(temp_path) end)}
+        [] ->
+          {:noreply, put_flash(socket, :error, "No photos to analyze")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Please upload at least one photo first")}
+    end
+  end
+    if socket.assigns.uploads.photos.entries != [] do
       # Extract data we need to avoid copying the whole socket
       first_entry = List.first(socket.assigns.uploads.photos.entries)
       entry_path = first_entry.path
@@ -103,7 +127,6 @@ defmodule MedicineInventoryWeb.MedicineLive do
       {:noreply,
        socket
        |> assign(:analyzing, true)
-       |> start_async(:analyze_medicine_photos, fn -> analyze_medicine_photos(entry_path) end)}
     else
       {:noreply, put_flash(socket, :error, "Please upload at least one photo first")}
     end

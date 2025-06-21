@@ -153,35 +153,6 @@ defmodule MedicineInventoryWeb.MedicineLive do
     {:noreply, assign(socket, medicines: medicines)}
   end
 
-  # Helper function to get the temporary file path from an upload entry
-  defp get_upload_temp_path(socket, entry) do
-    # Access the upload configuration
-    upload_config = socket.assigns.uploads.photos
-
-    # The entry contains the temporary file information
-    # We need to access the file path from the upload entry
-    case entry do
-      %{client_name: client_name, uuid: uuid} ->
-        # Phoenix stores uploaded files in a temporary directory
-        # The actual path is stored in the upload entry's internal data
-        temp_dir = Phoenix.LiveView.UploadEntry.get_upload_root(socket, upload_config.ref)
-        temp_file = Path.join(temp_dir, "#{entry.uuid}")
-
-        if File.exists?(temp_file) do
-          {:ok, temp_file}
-        else
-          # Alternative: try to find the file in the upload entry's progress data
-          case Map.get(entry, :progress) do
-            100 ->
-              # File is fully uploaded, try the upload path
-              case Phoenix.LiveView.UploadEntry.get_upload_path(
-                     socket,
-                     upload_config.ref,
-                     entry.ref
-                   ) do
-                path when is_binary(path) -> {:ok, path}
-                _ -> {:error, "Cannot access uploaded file path"}
-              end
 
             _ ->
               {:error, "File upload not complete"}

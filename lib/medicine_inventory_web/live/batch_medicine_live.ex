@@ -8,19 +8,17 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     # Start with 3 empty entries
     initial_entries = create_empty_entries(3)
 
+    # Configure individual uploads for each entry
+    socket_with_uploads = configure_uploads_for_entries(socket, initial_entries)
+
     {:ok,
-     socket
+     socket_with_uploads
      |> assign(:entries, initial_entries)
      |> assign(:batch_status, :ready)
      |> assign(:selected_for_edit, nil)
      |> assign(:analyzing, false)
      |> assign(:analysis_progress, 0)
-     |> assign(:show_results_grid, false)
-     |> allow_upload(:batch_photos,
-       accept: ~w(.jpg .jpeg .png),
-       max_entries: 20,
-       max_file_size: 10_000_000
-     )}
+     |> assign(:show_results_grid, false)}
   end
 
   @impl true
@@ -31,31 +29,51 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   @impl true
   def handle_event("add_entries", %{"count" => count_str}, socket) do
     count = String.to_integer(count_str)
-    new_entries = create_empty_entries(count)
-    updated_entries = socket.assigns.entries ++ new_entries
+    current_entries = socket.assigns.entries
+    new_entries = create_empty_entries(count, length(current_entries))
+    updated_entries = current_entries ++ new_entries
 
-    {:noreply, assign(socket, entries: updated_entries)}
+    # Reconfigure uploads for new entries
+    socket_with_uploads = configure_uploads_for_entries(socket, updated_entries)
+
+    {:noreply,
+     socket_with_uploads
+     |> assign(:entries, updated_entries)}
   end
 
   def handle_event("remove_entry", %{"id" => entry_id}, socket) do
     updated_entries = Enum.reject(socket.assigns.entries, &(&1.id == entry_id))
-    {:noreply, assign(socket, entries: updated_entries)}
+
+    # Reconfigure uploads for remaining entries
+    socket_with_uploads = configure_uploads_for_entries(socket, updated_entries)
+
+    {:noreply,
+     socket_with_uploads
+     |> assign(:entries, updated_entries)}
   end
 
   def handle_event("analyze_all", _params, socket) do
-    # Get all uploaded files from the upload entries
-    uploaded_files = socket.assigns.uploads.batch_photos.entries
+    # Check if any entries have uploaded files
+    entries_with_files =
+      socket.assigns.entries
+      |> Enum.filter(fn entry ->
+        upload_key = String.to_atom("entry_#{entry.number}_photos")
+        uploads = Map.get(socket.assigns.uploads, upload_key, %{entries: []})
+        uploads.entries != []
+      end)
 
-    if uploaded_files == [] do
+    if entries_with_files == [] do
       {:noreply, put_flash(socket, :error, "Please upload at least one photo first")}
     else
-      # Mark entries as having photos based on uploaded files
+      # Mark entries as having photos and start analysis
       updated_entries =
         socket.assigns.entries
-        |> Enum.with_index()
-        |> Enum.map(fn {entry, index} ->
-          if index < length(uploaded_files) do
-            %{entry | photo_uploaded: true, photo_entry: Enum.at(uploaded_files, index)}
+        |> Enum.map(fn entry ->
+          upload_key = String.to_atom("entry_#{entry.number}_photos")
+          uploads = Map.get(socket.assigns.uploads, upload_key, %{entries: []})
+
+          if uploads.entries != [] do
+            %{entry | photo_uploaded: true, photo_entry: List.first(uploads.entries)}
           else
             entry
           end
@@ -102,6 +120,32 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
 
   def handle_event("cancel_edit", _params, socket) do
     {:noreply, assign(socket, selected_for_edit: nil)}
+  end
+
+  def handle_event("retry_analysis", %{"id" => entry_id}, socket) do
+    updated_entries =
+      Enum.map(socket.assigns.entries, fn entry ->
+        if entry.id == entry_id do
+          %{entry | ai_analysis_status: :pending}
+        else
+          entry
+        end
+      end)
+
+    {:noreply, assign(socket, entries: updated_entries)}
+  end
+
+  def handle_event("remove_photo", %{"id" => entry_id}, socket) do
+    updated_entries =
+      Enum.map(socket.assigns.entries, fn entry ->
+        if entry.id == entry_id do
+          %{entry | photo_uploaded: false, photo_entry: nil}
+        else
+          entry
+        end
+      end)
+
+    {:noreply, assign(socket, entries: updated_entries)}
   end
 
   def handle_event(
@@ -155,7 +199,15 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :batch_photos, ref)}
+    # Find which upload this ref belongs to and cancel it
+    socket_updated =
+      socket.assigns.entries
+      |> Enum.reduce(socket, fn entry, acc_socket ->
+        upload_key = String.to_atom("entry_#{entry.number}_photos")
+        cancel_upload(acc_socket, upload_key, ref)
+      end)
+
+    {:noreply, socket_updated}
   end
 
   def handle_event("toggle_results_grid", _params, socket) do
@@ -183,8 +235,8 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
 
   # Private functions
 
-  defp create_empty_entries(count) do
-    1..count
+  defp create_empty_entries(count, start_number \\ 0) do
+    (start_number + 1)..(start_number + count)
     |> Enum.map(fn i ->
       %{
         id: "entry_#{System.unique_integer([:positive])}",
@@ -197,6 +249,19 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
         approval_status: :pending,
         validation_errors: []
       }
+    end)
+  end
+
+  defp configure_uploads_for_entries(socket, entries) do
+    entries
+    |> Enum.reduce(socket, fn entry, acc_socket ->
+      upload_key = String.to_atom("entry_#{entry.number}_photos")
+
+      allow_upload(acc_socket, upload_key,
+        accept: ~w(.jpg .jpeg .png),
+        max_entries: 1,
+        max_file_size: 10_000_000
+      )
     end)
   end
 
@@ -358,4 +423,9 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   def ai_results_summary(_), do: "No analysis data"
+
+  # Helper to get upload key for an entry
+  def get_upload_key_for_entry(entry) do
+    String.to_atom("entry_#{entry.number}_photos")
+  end
 end

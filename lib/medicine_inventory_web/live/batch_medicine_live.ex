@@ -27,27 +27,19 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   @impl true
-  def handle_event("validate_upload", %{"_target" => [upload_name]}, socket) do
-    # Extract entry number from upload name (e.g., "entry_1_photos" -> "1")
-    entry_number =
-      upload_name
-      |> String.replace("entry_", "")
-      |> String.replace("_photos", "")
-      |> String.to_integer()
-
-    # Update the entry to mark it as having an uploaded file
-    updated_entries =
-      Enum.map(socket.assigns.entries, fn entry ->
-        if entry.number == entry_number do
-          upload_key = String.to_atom(upload_name)
-          uploads = Map.get(socket.assigns.uploads, upload_key, %{entries: []})
-          %{entry | photo_uploaded: uploads.entries != []}
+  def handle_event("validate", %{"_target" => target} = params, socket) do
+    # Check if this is an upload field validation
+    case target do
+      [upload_name] when is_binary(upload_name) ->
+        if String.contains?(upload_name, "entry_") and String.contains?(upload_name, "_photos") do
+          handle_upload_change(socket, upload_name)
         else
-          entry
+          {:noreply, socket}
         end
-      end)
 
-    {:noreply, assign(socket, entries: updated_entries)}
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   def handle_event("add_entries", %{"count" => count_str}, socket) do
@@ -76,7 +68,7 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   def handle_event("analyze_all", _params, socket) do
-    # Check if any entries have uploaded files
+    # Check if any entries have uploaded files by checking the actual upload state
     entries_with_files =
       socket.assigns.entries
       |> Enum.filter(fn entry ->
@@ -88,7 +80,7 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     if entries_with_files == [] do
       {:noreply, put_flash(socket, :error, "Please upload at least one photo first")}
     else
-      # Mark entries as having photos and start analysis
+      # Update entries to reflect their current upload status
       updated_entries =
         socket.assigns.entries
         |> Enum.map(fn entry ->
@@ -257,6 +249,35 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   # Private functions
+
+  defp handle_upload_change(socket, upload_name) do
+    # Extract entry number from upload name (e.g., "entry_1_photos" -> "1")
+    entry_number =
+      upload_name
+      |> String.replace("entry_", "")
+      |> String.replace("_photos", "")
+      |> String.to_integer()
+
+    # Update the entry to mark it as having an uploaded file
+    updated_entries =
+      Enum.map(socket.assigns.entries, fn entry ->
+        if entry.number == entry_number do
+          upload_key = String.to_atom(upload_name)
+          uploads = Map.get(socket.assigns.uploads, upload_key, %{entries: []})
+          has_files = uploads.entries != []
+
+          %{
+            entry
+            | photo_uploaded: has_files,
+              photo_entry: if(has_files, do: List.first(uploads.entries), else: nil)
+          }
+        else
+          entry
+        end
+      end)
+
+    {:noreply, assign(socket, entries: updated_entries)}
+  end
 
   defp create_empty_entries(count, start_number \\ 0) do
     (start_number + 1)..(start_number + count)

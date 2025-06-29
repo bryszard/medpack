@@ -241,12 +241,10 @@ defmodule MedicineInventory.AI.ImageAnalyzer do
       "strength_unit": "Unit of strength (mg, ml, g, etc.)",
       "container_type": "Type of container - MUST be one of: bottle, box, tube, vial, inhaler, blister_pack, sachet, ampoule",
       "total_quantity": "Total quantity in container (numeric)",
-      "remaining_quantity": "Estimated remaining quantity (numeric, same as total if unopened)",
       "quantity_unit": "Unit for quantities (tablets, ml, capsules, etc.)",
       "manufacturer": "Manufacturer name if visible",
       "lot_number": "Lot number if visible",
-      "expiration_date": "Expiration date if visible (YYYY-MM-DD format)",
-      "ndc_code": "NDC code if visible"
+      "expiration_date": "Expiration date if visible (YYYY-MM-DD format) - MUST be a valid future date, do not include if date is unclear, past, or cannot be clearly read"
     }
 
     Guidelines:
@@ -260,6 +258,7 @@ defmodule MedicineInventory.AI.ImageAnalyzer do
     - Identify dosage form based on visual cues across all images
     - Translate foreign terms to English (e.g., "Lösung" in small bottles → "drops", "Tabletten" → "tablet", "Flasche" → "bottle")
     - Extract any visible information from any of the images, even if incomplete
+    - DO NOT try to estimate remaining quantity - this will be managed manually by the user
     - If you cannot identify ANY medicine information clearly from any image, return {"error": "Unable to identify medicine clearly"}
 
     Return only the JSON object, no additional text.
@@ -280,12 +279,10 @@ defmodule MedicineInventory.AI.ImageAnalyzer do
       "strength_unit": "Unit of strength (mg, ml, g, etc.)",
       "container_type": "Type of container - MUST be one of: bottle, box, tube, vial, inhaler, blister_pack, sachet, ampoule",
       "total_quantity": "Total quantity in container (numeric)",
-      "remaining_quantity": "Estimated remaining quantity (numeric, same as total if unopened)",
       "quantity_unit": "Unit for quantities (tablets, ml, capsules, etc.)",
       "manufacturer": "Manufacturer name if visible",
       "lot_number": "Lot number if visible",
-      "expiration_date": "Expiration date if visible (YYYY-MM-DD format)",
-      "ndc_code": "NDC code if visible"
+      "expiration_date": "Expiration date if visible (YYYY-MM-DD format) - MUST be a valid future date, do not include if date is unclear, past, or cannot be clearly read"
     }
 
     Guidelines:
@@ -298,6 +295,7 @@ defmodule MedicineInventory.AI.ImageAnalyzer do
     - Identify dosage form based on visual cues: small bottles with droppers/caps = "drops", larger bottles with syrup = "syrup", pill bottles = "tablet" or "capsule"
     - Translate foreign terms to English (e.g., "Lösung" in small bottles → "drops", "Tabletten" → "tablet", "Flasche" → "bottle")
     - Extract any visible information, even if incomplete
+    - DO NOT try to estimate remaining quantity - this will be managed manually by the user
     - If you cannot identify ANY medicine information clearly, return {"error": "Unable to identify medicine clearly"}
 
     Return only the JSON object, no additional text.
@@ -362,7 +360,7 @@ defmodule MedicineInventory.AI.ImageAnalyzer do
   end
 
   defp convert_numeric_fields(data) do
-    numeric_fields = ["strength_value", "total_quantity", "remaining_quantity"]
+    numeric_fields = ["strength_value", "total_quantity"]
 
     Enum.reduce(numeric_fields, data, fn field, acc ->
       case Map.get(acc, field) do
@@ -390,12 +388,10 @@ defmodule MedicineInventory.AI.ImageAnalyzer do
       "strength_unit",
       "container_type",
       "total_quantity",
-      "remaining_quantity",
       "quantity_unit",
       "manufacturer",
       "lot_number",
-      "expiration_date",
-      "ndc_code"
+      "expiration_date"
     ])
     |> Enum.reduce(%{}, fn {key, value}, acc ->
       case value do

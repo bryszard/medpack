@@ -7,7 +7,6 @@ defmodule MedicineInventory.Medicine do
     field :name, :string
     field :brand_name, :string
     field :generic_name, :string
-    field :ndc_code, :string
     field :lot_number, :string
 
     # FHIR Medication.form - dosage form
@@ -54,7 +53,6 @@ defmodule MedicineInventory.Medicine do
       :name,
       :brand_name,
       :generic_name,
-      :ndc_code,
       :lot_number,
       :dosage_form,
       :active_ingredient,
@@ -135,7 +133,7 @@ defmodule MedicineInventory.Medicine do
     total = get_field(changeset, :total_quantity)
     remaining = get_field(changeset, :remaining_quantity)
 
-    if total && remaining && remaining > total do
+    if total && remaining && Decimal.gt?(remaining, total) do
       add_error(changeset, :remaining_quantity, "cannot be greater than total quantity")
     else
       changeset

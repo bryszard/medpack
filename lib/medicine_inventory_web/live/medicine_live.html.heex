@@ -25,115 +25,239 @@
         </.link>
       </div>
       
-<!-- Search Bar -->
+<!-- Search Bar and View Toggle -->
       <div class="mb-8">
-        <div class="relative max-w-md mx-auto">
-          <input
-            type="text"
-            placeholder="🔍 Search medicines..."
-            phx-change="search"
-            phx-value-query={@search_query}
-            value={@search_query}
-            class="w-full pl-4 pr-10 py-3 rounded-lg border border-orange-300 bg-white text-orange-900 placeholder:text-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-          />
+        <div class="flex flex-col items-center space-y-4">
+          <div class="relative max-w-md">
+            <input
+              type="text"
+              placeholder="🔍 Search medicines..."
+              phx-change="search"
+              phx-value-query={@search_query}
+              value={@search_query}
+              class="w-full pl-4 pr-10 py-3 rounded-lg border border-orange-300 bg-white text-orange-900 placeholder:text-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            />
+          </div>
+          
+<!-- View Mode Toggle -->
+          <button
+            phx-click="toggle_view"
+            class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+          >
+            <%= if @view_mode == :cards do %>
+              📋 Switch to Table View
+            <% else %>
+              🗃️ Switch to Card View
+            <% end %>
+          </button>
         </div>
       </div>
       
-<!-- Medicine Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <%= for medicine <- @medicines do %>
-          <.link navigate={~p"/medicine/#{medicine.id}"} class="block">
-            <div class="bg-white rounded-xl shadow-lg border border-orange-200 overflow-hidden hover:shadow-xl transition duration-300 cursor-pointer">
-              <!-- Medicine Photo -->
-              <%= if medicine.photo_paths != [] and hd(medicine.photo_paths) do %>
-                <div class="h-48 bg-orange-100 flex items-center justify-center">
-                  <img
-                    src={"/uploads/" <> hd(medicine.photo_paths)}
-                    alt={medicine.name}
-                    class="h-full w-full object-cover"
-                  />
-                </div>
-              <% else %>
-                <div class="h-48 bg-orange-100 flex items-center justify-center">
-                  <span class="text-6xl">💊</span>
-                </div>
-              <% end %>
-              
-<!-- Medicine Info -->
-              <div class="p-6">
-                <h3 class="text-xl font-bold text-orange-900 mb-2">{medicine.name}</h3>
-
-                <%= if medicine.brand_name do %>
-                  <p class="text-orange-700 mb-1">
-                    <strong>Brand:</strong> {medicine.brand_name}
-                  </p>
-                <% end %>
-
-                <p class="text-orange-700 mb-1">
-                  <strong>Form:</strong> {String.capitalize(medicine.dosage_form)}
-                </p>
-                <p class="text-orange-700 mb-1">
-                  <strong>Strength:</strong> {MedicineInventory.Medicine.strength_display(
-                    medicine
-                  )}
-                </p>
-                <p class="text-orange-700 mb-1">
-                  <strong>Container:</strong> {String.capitalize(
-                    String.replace(medicine.container_type, "_", " ")
-                  )}
-                </p>
-                <p class="text-orange-700 mb-3">
-                  <strong>Quantity:</strong> {MedicineInventory.Medicine.quantity_display(
-                    medicine
-                  )}
-                </p>
-                
-<!-- Usage Progress Bar -->
-                <div class="mb-3">
-                  <div class="flex justify-between text-sm text-orange-600 mb-1">
-                    <span>Usage</span>
-                    <span>
-                      {MedicineInventory.Medicine.usage_percentage(medicine)}% remaining
-                    </span>
+<!-- Medicine Display -->
+      <%= if @view_mode == :cards do %>
+        <!-- Card View -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <%= for medicine <- @medicines do %>
+            <.link navigate={~p"/medicine/#{medicine.id}"} class="block">
+              <div class="bg-white rounded-xl shadow-lg border border-orange-200 overflow-hidden hover:shadow-xl transition duration-300 cursor-pointer h-full flex flex-col">
+                <!-- Medicine Photo -->
+                <%= if medicine.photo_paths != [] and hd(medicine.photo_paths) do %>
+                  <div class="h-48 bg-orange-100 flex items-center justify-center">
+                    <img
+                      src={"/uploads/" <> hd(medicine.photo_paths)}
+                      alt={medicine.name}
+                      class="h-full w-full object-cover"
+                    />
                   </div>
-                  <div class="w-full bg-orange-200 rounded-full h-2">
-                    <div
-                      class="bg-orange-500 h-2 rounded-full transition-all duration-300"
-                      style={"width: #{MedicineInventory.Medicine.usage_percentage(medicine)}%"}
-                    >
+                <% else %>
+                  <div class="h-48 bg-orange-100 flex items-center justify-center">
+                    <span class="text-6xl">💊</span>
+                  </div>
+                <% end %>
+                
+<!-- Medicine Info -->
+                <div class="p-6 flex-1 flex flex-col">
+                  <h3 class="text-xl font-bold text-orange-900 mb-2">{medicine.name}</h3>
+
+                  <%= if medicine.brand_name do %>
+                    <p class="text-orange-700 mb-1">
+                      <strong>Brand:</strong> {medicine.brand_name}
+                    </p>
+                  <% end %>
+
+                  <p class="text-orange-700 mb-1">
+                    <strong>Form:</strong> {String.capitalize(medicine.dosage_form)}
+                  </p>
+                  <p class="text-orange-700 mb-1">
+                    <strong>Strength:</strong> {MedicineInventory.Medicine.strength_display(
+                      medicine
+                    )}
+                  </p>
+                  <p class="text-orange-700 mb-1">
+                    <strong>Container:</strong> {String.capitalize(
+                      String.replace(medicine.container_type, "_", " ")
+                    )}
+                  </p>
+                  <p class="text-orange-700 mb-3">
+                    <strong>Quantity:</strong> {MedicineInventory.Medicine.quantity_display(
+                      medicine
+                    )}
+                  </p>
+                  
+<!-- Spacer to push content to bottom -->
+                  <div class="flex-1"></div>
+                  
+<!-- Usage Progress Bar -->
+                  <div class="mb-3">
+                    <div class="flex justify-between text-sm text-orange-600 mb-1">
+                      <span>Usage</span>
+                      <span>
+                        {MedicineInventory.Medicine.usage_percentage(medicine)}% remaining
+                      </span>
+                    </div>
+                    <div class="w-full bg-orange-200 rounded-full h-2">
+                      <div
+                        class="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                        style={"width: #{MedicineInventory.Medicine.usage_percentage(medicine)}%"}
+                      >
+                      </div>
                     </div>
                   </div>
-                </div>
-                
+                  
 <!-- Expiration Status -->
-                <%= if medicine.expiration_date do %>
                   <div class="flex items-center space-x-2">
-                    <%= cond do %>
-                      <% Date.diff(medicine.expiration_date, Date.utc_today()) < 0 -> %>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                          ⚠️ Expired
-                        </span>
-                      <% Date.diff(medicine.expiration_date, Date.utc_today()) <= 30 -> %>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          ⏰ Expires Soon
-                        </span>
-                      <% true -> %>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          ✅ Good
-                        </span>
+                    <%= if medicine.expiration_date do %>
+                      <%= cond do %>
+                        <% Date.diff(medicine.expiration_date, Date.utc_today()) < 0 -> %>
+                          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            ⚠️ Expired
+                          </span>
+                        <% Date.diff(medicine.expiration_date, Date.utc_today()) <= 30 -> %>
+                          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            ⏰ Expires Soon
+                          </span>
+                        <% true -> %>
+                          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            ✅ Good
+                          </span>
+                      <% end %>
+                      <span class="text-sm text-orange-600">Exp: {medicine.expiration_date}</span>
+                    <% else %>
+                      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                        ❓ Unknown
+                      </span>
+                      <span class="text-sm text-orange-600">Exp: Not available</span>
                     <% end %>
-                    <span class="text-sm text-orange-600">Exp: {medicine.expiration_date}</span>
                   </div>
-                <% end %>
 
-                <%= if medicine.indication do %>
-                  <p class="text-sm text-orange-600 mt-2 italic">{medicine.indication}</p>
-                <% end %>
+                  <%= if medicine.indication do %>
+                    <p class="text-sm text-orange-600 mt-2 italic">{medicine.indication}</p>
+                  <% end %>
+                </div>
               </div>
-            </div>
-          </.link>
-        <% end %>
-      </div>
+            </.link>
+          <% end %>
+        </div>
+      <% else %>
+        <!-- Table View -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-orange-200">
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-orange-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">Photo</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">Name</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">Form</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">
+                    Strength
+                  </th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">
+                    Quantity
+                  </th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">Usage</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">
+                    Expiration
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-orange-100">
+                <%= for medicine <- @medicines do %>
+                  <tr
+                    class="hover:bg-orange-50 cursor-pointer"
+                    phx-click={JS.navigate(~p"/medicine/#{medicine.id}")}
+                  >
+                    <td class="px-4 py-4">
+                      <%= if medicine.photo_paths != [] and hd(medicine.photo_paths) do %>
+                        <img
+                          src={"/uploads/" <> hd(medicine.photo_paths)}
+                          alt={medicine.name}
+                          class="w-12 h-12 object-cover rounded-lg"
+                        />
+                      <% else %>
+                        <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                          <span class="text-lg">💊</span>
+                        </div>
+                      <% end %>
+                    </td>
+                    <td class="px-4 py-4">
+                      <div class="font-semibold text-orange-900">{medicine.name}</div>
+                      <%= if medicine.brand_name do %>
+                        <div class="text-sm text-orange-600">{medicine.brand_name}</div>
+                      <% end %>
+                    </td>
+                    <td class="px-4 py-4 text-orange-700">
+                      {String.capitalize(medicine.dosage_form)}
+                    </td>
+                    <td class="px-4 py-4 text-orange-700">
+                      {MedicineInventory.Medicine.strength_display(medicine)}
+                    </td>
+                    <td class="px-4 py-4 text-orange-700">
+                      {MedicineInventory.Medicine.quantity_display(medicine)}
+                    </td>
+                    <td class="px-4 py-4">
+                      <div class="flex items-center space-x-2">
+                        <div class="w-16 bg-orange-200 rounded-full h-2">
+                          <div
+                            class="bg-orange-500 h-2 rounded-full"
+                            style={"width: #{MedicineInventory.Medicine.usage_percentage(medicine)}%"}
+                          >
+                          </div>
+                        </div>
+                        <span class="text-xs text-orange-600">
+                          {MedicineInventory.Medicine.usage_percentage(medicine)}%
+                        </span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4">
+                      <%= if medicine.expiration_date do %>
+                        <div class="flex flex-col space-y-1">
+                          <%= cond do %>
+                            <% Date.diff(medicine.expiration_date, Date.utc_today()) < 0 -> %>
+                              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                ⚠️ Expired
+                              </span>
+                            <% Date.diff(medicine.expiration_date, Date.utc_today()) <= 30 -> %>
+                              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                ⏰ Soon
+                              </span>
+                            <% true -> %>
+                              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                ✅ Good
+                              </span>
+                          <% end %>
+                          <span class="text-xs text-orange-600">{medicine.expiration_date}</span>
+                        </div>
+                      <% else %>
+                        <span class="text-xs text-gray-400">No date</span>
+                      <% end %>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      <% end %>
       
 <!-- Empty State -->
       <%= if @medicines == [] do %>

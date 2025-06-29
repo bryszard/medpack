@@ -6,7 +6,7 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    # Start with 3 empty entries
+    # Start with 2 empty entries + 1 ghost entry (3 total)
     initial_entries = create_empty_entries(3)
 
     # Configure individual uploads for each entry
@@ -43,6 +43,20 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     current_entries = socket.assigns.entries
     new_entries = create_empty_entries(count, length(current_entries))
     updated_entries = current_entries ++ new_entries
+
+    # Reconfigure uploads for new entries
+    socket_with_uploads = configure_uploads_for_entries(socket, updated_entries)
+
+    {:noreply,
+     socket_with_uploads
+     |> assign(:entries, updated_entries)}
+  end
+
+  def handle_event("add_ghost_entry", _params, socket) do
+    current_entries = socket.assigns.entries
+    # Add a new empty entry (which will become the new ghost entry)
+    new_entry = create_empty_entries(1, length(current_entries))
+    updated_entries = current_entries ++ new_entry
 
     # Reconfigure uploads for new entries
     socket_with_uploads = configure_uploads_for_entries(socket, updated_entries)
@@ -149,7 +163,7 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
           updated_photo_web_paths = List.delete_at(entry.photo_web_paths, photo_index)
           updated_photo_entries = List.delete_at(entry.photo_entries, photo_index)
 
-          %{
+          updated_entry = %{
             entry
             | photos_uploaded: max(0, entry.photos_uploaded - 1),
               photo_paths: updated_photo_paths,
@@ -157,8 +171,17 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
               photo_entries: updated_photo_entries,
               ai_analysis_status:
                 if(updated_photo_paths == [], do: :pending, else: entry.ai_analysis_status),
-              ai_results: if(updated_photo_paths == [], do: %{}, else: entry.ai_results)
+              ai_results: if(updated_photo_paths == [], do: %{}, else: entry.ai_results),
+              analysis_countdown: 0,
+              analysis_timer_ref: nil
           }
+
+          # Restart countdown if there are still photos
+          if updated_photo_paths != [] do
+            start_analysis_debounce(entry.id)
+          end
+
+          updated_entry
         else
           entry
         end
@@ -188,7 +211,9 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
               photo_web_paths: [],
               photo_entries: [],
               ai_analysis_status: :pending,
-              ai_results: %{}
+              ai_results: %{},
+              analysis_countdown: 0,
+              analysis_timer_ref: nil
           }
         else
           entry
@@ -295,25 +320,44 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     {:noreply, assign(socket, show_results_grid: not socket.assigns.show_results_grid)}
   end
 
+  def handle_event("analyze_now", %{"id" => entry_id}, socket) do
+    # Cancel countdown and analyze immediately
+    send(self(), {:cancel_analysis_timer, entry_id})
+
+    entry = Enum.find(socket.assigns.entries, &(&1.id == entry_id))
+
+    if entry && entry.photos_uploaded > 0 do
+      send(self(), {:analyze_photos, entry})
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("file_input_clicked", %{"id" => entry_id}, socket) do
+    # Cancel countdown when user opens file selection dialog
+    send(self(), {:cancel_analysis_timer, entry_id})
+    {:noreply, socket}
+  end
+
   @impl true
-  def handle_info({:process_uploaded_file, entry, upload_entry}, socket) do
+  def handle_info({:process_all_uploaded_files, entry, upload_config_name}, socket) do
     require Logger
-    Logger.info("Processing uploaded file for entry #{entry.id}: #{upload_entry.client_name}")
+    Logger.info("Processing all uploaded files for entry #{entry.id}")
 
-    # Find the upload key for this entry
-    upload_key = String.to_atom("entry_#{entry.number}_photos")
-
-    # Consume the uploaded file
+    # Consume all uploaded files for this entry
     file_results =
-      consume_uploaded_entries(socket, upload_key, fn meta, _upload_entry ->
+      consume_uploaded_entries(socket, upload_config_name, fn meta, upload_entry ->
         # Create destination path in the web-accessible uploads directory
         dest_dir = Path.join(["priv", "static", "uploads"])
         File.mkdir_p!(dest_dir)
 
         # Create a unique filename to avoid conflicts
         timestamp = System.system_time(:second)
+
+        # Add a random component to ensure uniqueness when multiple files are uploaded simultaneously
+        random_suffix = :rand.uniform(999_999)
         file_extension = Path.extname(upload_entry.client_name)
-        unique_filename = "#{entry.id}_#{timestamp}#{file_extension}"
+        unique_filename = "#{entry.id}_#{timestamp}_#{random_suffix}#{file_extension}"
         dest_path = Path.join(dest_dir, unique_filename)
 
         # Copy file to destination
@@ -349,10 +393,13 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
             ai_analysis_status: :processing
         }
 
+        # Cancel any existing countdown first
+        send(self(), {:cancel_analysis_timer, updated_entry.id})
+
         updated_entries = replace_entry(socket.assigns.entries, updated_entry)
 
-        # Start AI analysis with all photos if we have at least one
-        send(self(), {:analyze_photos, updated_entry})
+        # Start debounce timer for AI analysis instead of immediate analysis
+        start_analysis_debounce(updated_entry.id)
 
         photo_count = length(file_info_list)
         total_photos = updated_entry.photos_uploaded
@@ -371,7 +418,17 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     end
   end
 
+  # Keep the old handler for backward compatibility, but redirect to new one
+  def handle_info({:process_uploaded_file, entry, _upload_entry}, socket) do
+    upload_config_name = String.to_atom("entry_#{entry.number}_photos")
+    send(self(), {:process_all_uploaded_files, entry, upload_config_name})
+    {:noreply, socket}
+  end
+
   def handle_info({:analyze_photos, entry}, socket) do
+    # First cancel any countdown timer and reset countdown state
+    send(self(), {:cancel_analysis_timer, entry.id})
+
     case entry.photo_paths do
       [] ->
         # No photos to analyze
@@ -384,7 +441,9 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
             updated_entry = %{
               entry
               | ai_analysis_status: :complete,
-                ai_results: ai_results
+                ai_results: ai_results,
+                analysis_countdown: 0,
+                analysis_timer_ref: nil
             }
 
             updated_entries = replace_entry(socket.assigns.entries, updated_entry)
@@ -401,7 +460,9 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
             updated_entry = %{
               entry
               | ai_analysis_status: :failed,
-                validation_errors: ["AI analysis failed: #{inspect(reason)}"]
+                validation_errors: ["AI analysis failed: #{inspect(reason)}"],
+                analysis_countdown: 0,
+                analysis_timer_ref: nil
             }
 
             updated_entries = replace_entry(socket.assigns.entries, updated_entry)
@@ -419,7 +480,9 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
             updated_entry = %{
               entry
               | ai_analysis_status: :complete,
-                ai_results: ai_results
+                ai_results: ai_results,
+                analysis_countdown: 0,
+                analysis_timer_ref: nil
             }
 
             updated_entries = replace_entry(socket.assigns.entries, updated_entry)
@@ -438,7 +501,9 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
             updated_entry = %{
               entry
               | ai_analysis_status: :failed,
-                validation_errors: ["AI analysis failed: #{inspect(reason)}"]
+                validation_errors: ["AI analysis failed: #{inspect(reason)}"],
+                analysis_countdown: 0,
+                analysis_timer_ref: nil
             }
 
             updated_entries = replace_entry(socket.assigns.entries, updated_entry)
@@ -458,6 +523,65 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   def handle_info({:analyze_photo, entry}, socket) do
     # Redirect to the new multi-photo handler
     send(self(), {:analyze_photos, entry})
+    {:noreply, socket}
+  end
+
+  def handle_info({:cancel_analysis_timer, entry_id}, socket) do
+    updated_entries =
+      Enum.map(socket.assigns.entries, fn entry ->
+        if entry.id == entry_id do
+          # Cancel existing timer if any
+          if entry.analysis_timer_ref do
+            Process.cancel_timer(entry.analysis_timer_ref)
+          end
+
+          %{entry | analysis_timer_ref: nil, analysis_countdown: 0}
+        else
+          entry
+        end
+      end)
+
+    {:noreply, assign(socket, entries: updated_entries)}
+  end
+
+  def handle_info({:start_analysis_countdown, entry_id, seconds}, socket) do
+    updated_entries =
+      Enum.map(socket.assigns.entries, fn entry ->
+        if entry.id == entry_id do
+          %{entry | analysis_countdown: seconds}
+        else
+          entry
+        end
+      end)
+
+    # Schedule the next countdown tick or analysis
+    if seconds > 0 do
+      timer_ref = Process.send_after(self(), {:countdown_tick, entry_id, seconds - 1}, 1000)
+
+      updated_entries =
+        Enum.map(updated_entries, fn entry ->
+          if entry.id == entry_id do
+            %{entry | analysis_timer_ref: timer_ref}
+          else
+            entry
+          end
+        end)
+
+      {:noreply, assign(socket, entries: updated_entries)}
+    else
+      # Time's up, start analysis
+      entry = Enum.find(socket.assigns.entries, &(&1.id == entry_id))
+
+      if entry && entry.photos_uploaded > 0 do
+        send(self(), {:analyze_photos, entry})
+      end
+
+      {:noreply, assign(socket, entries: updated_entries)}
+    end
+  end
+
+  def handle_info({:countdown_tick, entry_id, seconds}, socket) do
+    send(self(), {:start_analysis_countdown, entry_id, seconds})
     {:noreply, socket}
   end
 
@@ -482,6 +606,14 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
 
   # Private functions
 
+  defp start_analysis_debounce(entry_id) do
+    # Cancel any existing timer for this entry
+    send(self(), {:cancel_analysis_timer, entry_id})
+
+    # Start countdown
+    send(self(), {:start_analysis_countdown, entry_id, 5})
+  end
+
   defp handle_progress(upload_config_name, upload_entry, socket) do
     require Logger
 
@@ -489,7 +621,7 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
       "Upload progress: #{upload_entry.progress}% for #{upload_entry.client_name} (config: #{upload_config_name})"
     )
 
-    # When upload is complete (progress == 100), process the file
+    # When upload is complete (progress == 100), check if all uploads for this entry are done
     if upload_entry.done? do
       Logger.info("Upload complete for config: #{upload_config_name}")
 
@@ -497,8 +629,16 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
       entry = find_entry_by_upload_config(socket.assigns.entries, upload_config_name)
 
       if entry do
-        Logger.info("Upload complete for entry #{entry.id}, processing file...")
-        send(self(), {:process_uploaded_file, entry, upload_entry})
+        # Check if all uploads for this entry are complete
+        upload_config = Map.get(socket.assigns.uploads, upload_config_name)
+        all_done? = Enum.all?(upload_config.entries, & &1.done?)
+
+        if all_done? do
+          Logger.info("All uploads complete for entry #{entry.id}, processing files...")
+          send(self(), {:process_all_uploaded_files, entry, upload_config_name})
+        else
+          Logger.info("Waiting for other uploads to complete for entry #{entry.id}")
+        end
       else
         Logger.warning("Could not find entry for upload config: #{upload_config_name}")
       end
@@ -530,7 +670,9 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
         ai_analysis_status: :pending,
         ai_results: %{},
         approval_status: :pending,
-        validation_errors: []
+        validation_errors: [],
+        analysis_countdown: 0,
+        analysis_timer_ref: nil
       }
     end)
   end
@@ -728,14 +870,16 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   def entry_status_text(entry) do
-    case {entry.photos_uploaded > 0, entry.ai_analysis_status, entry.approval_status} do
-      {false, _, _} -> "Ready for upload"
-      {true, :pending, _} -> "#{entry.photos_uploaded} photo(s) uploaded"
-      {true, :processing, _} -> "Analyzing photos..."
-      {true, :complete, :pending} -> "Pending review"
-      {true, :complete, :approved} -> "Approved"
-      {true, :complete, :rejected} -> "Rejected"
-      {true, :failed, _} -> "Analysis failed"
+    case {entry.photos_uploaded > 0, entry.ai_analysis_status, entry.approval_status,
+          entry.analysis_countdown > 0} do
+      {false, _, _, _} -> "Ready for upload"
+      {true, :pending, _, true} -> "#{entry.photos_uploaded} photo(s) uploaded - analysis pending"
+      {true, :pending, _, false} -> "#{entry.photos_uploaded} photo(s) uploaded"
+      {true, :processing, _, _} -> "Analyzing photos..."
+      {true, :complete, :pending, _} -> "Pending review"
+      {true, :complete, :approved, _} -> "Approved"
+      {true, :complete, :rejected, _} -> "Rejected"
+      {true, :failed, _, _} -> "Analysis failed"
     end
   end
 
@@ -842,6 +986,17 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
       is_nil(value) or value == ""
     end)
     |> Enum.map(fn {_field_key, field_name} -> field_name end)
+  end
+
+  # Helper to check if an entry is the ghost entry (last empty entry)
+  def is_ghost_entry?(entry, entries) do
+    # Ghost entry is the last entry in the list that is completely empty
+    last_entry = List.last(entries)
+
+    entry.id == last_entry.id and
+      entry.photos_uploaded == 0 and
+      entry.ai_analysis_status == :pending and
+      map_size(entry.ai_results) == 0
   end
 
   defp find_entry_by_number(entries, number) do

@@ -10,7 +10,8 @@ defmodule MedicineInventoryWeb.MedicineLive do
     {:ok,
      socket
      |> assign(:medicines, medicines)
-     |> assign(:search_query, "")}
+     |> assign(:search_query, "")
+     |> assign(:view_mode, :cards)}
   end
 
   @impl true
@@ -31,6 +32,11 @@ defmodule MedicineInventoryWeb.MedicineLive do
      socket
      |> assign(:medicines, medicines)
      |> assign(:search_query, query)}
+  end
+
+  def handle_event("toggle_view", _params, socket) do
+    new_view_mode = if socket.assigns.view_mode == :cards, do: :table, else: :cards
+    {:noreply, assign(socket, view_mode: new_view_mode)}
   end
 
   @impl true

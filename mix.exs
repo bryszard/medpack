@@ -58,7 +58,12 @@ defmodule MedicineInventory.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
-      {:image, "~> 0.54"}
+      {:image, "~> 0.54"},
+      {:oban, "~> 2.17"},
+      {:ex_openai, "~> 1.0"},
+      {:temp, "~> 0.4"},
+      {:live_debugger, "~> 0.3.0", only: :dev},
+      {:tidewave, "~> 0.1", only: :dev}
     ]
   end
 

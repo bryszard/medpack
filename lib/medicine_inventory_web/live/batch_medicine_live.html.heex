@@ -3,9 +3,9 @@
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <!-- Header -->
       <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-blue-900 mb-2">🏥 Batch Medicine Processing</h1>
+        <h1 class="text-4xl font-bold text-blue-900 mb-2">➕ Add Medicines</h1>
         <p class="text-lg text-blue-700">
-          Process multiple medicines at once with AI-powered batch analysis
+          Add multiple medicines at once with AI-powered photo analysis
         </p>
       </div>
       
@@ -13,13 +13,13 @@
       <div class="flex justify-center space-x-4 mb-8">
         <.link
           navigate={~p"/"}
-          class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+          class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
         >
-          🔄 Switch to Single Mode
+          🏠 Home
         </.link>
         <.link
-          navigate={~p"/"}
-          class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+          navigate={~p"/inventory"}
+          class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
         >
           📊 View Inventory
         </.link>
@@ -220,7 +220,7 @@
                 <!-- Photo Upload Section -->
                 <div class="mb-6">
                   <h4 class="font-semibold text-blue-900 mb-3">Photo Upload:</h4>
-                  <%= if entry_has_uploaded_files?(entry, @uploads) do %>
+                  <%= if entry.photo_uploaded do %>
                     <div class="text-center">
                       <div class="w-32 h-32 bg-blue-100 rounded-lg mx-auto mb-3 flex items-center justify-center">
                         <span class="text-4xl">📸</span>
@@ -234,40 +234,43 @@
                       </button>
                     </div>
                   <% else %>
-                    <div
-                      phx-drop-target={Map.get(@uploads, get_upload_key_for_entry(entry)).ref}
-                      class="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center hover:border-blue-400 transition duration-200"
-                    >
-                      <div class="text-blue-600 mb-2">
-                        <svg
-                          class="mx-auto h-12 w-12"
-                          stroke="currentColor"
-                          fill="none"
-                          viewBox="0 0 48 48"
-                        >
-                          <path
-                            d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                          </path>
-                        </svg>
-                      </div>
-                      <label
-                        for={Map.get(@uploads, get_upload_key_for_entry(entry)).ref}
-                        class="cursor-pointer"
+                    <!-- Upload Form for this specific entry -->
+                    <form phx-change="validate" phx-submit="upload" id={"upload-form-#{entry.id}"}>
+                      <div
+                        phx-drop-target={Map.get(@uploads, get_upload_key_for_entry(entry)).ref}
+                        class="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center hover:border-blue-400 transition duration-200"
                       >
-                        <span class="text-blue-700 font-semibold hover:text-blue-600">
-                          📸 Drop photo here or click to upload
-                        </span>
-                        <.live_file_input
-                          upload={Map.get(@uploads, get_upload_key_for_entry(entry))}
-                          class="sr-only"
-                        />
-                      </label>
-                      <p class="text-blue-500 text-sm mt-1">JPG, PNG up to 10MB</p>
-                    </div>
+                        <div class="text-blue-600 mb-2">
+                          <svg
+                            class="mx-auto h-12 w-12"
+                            stroke="currentColor"
+                            fill="none"
+                            viewBox="0 0 48 48"
+                          >
+                            <path
+                              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                            </path>
+                          </svg>
+                        </div>
+                        <label
+                          for={Map.get(@uploads, get_upload_key_for_entry(entry)).ref}
+                          class="cursor-pointer"
+                        >
+                          <span class="text-blue-700 font-semibold hover:text-blue-600">
+                            📸 Drop photo here or click to upload
+                          </span>
+                          <.live_file_input
+                            upload={Map.get(@uploads, get_upload_key_for_entry(entry))}
+                            class="sr-only"
+                          />
+                        </label>
+                        <p class="text-blue-500 text-sm mt-1">JPG, PNG up to 10MB</p>
+                      </div>
+                    </form>
                   <% end %>
                 </div>
                 
@@ -326,9 +329,9 @@
                 <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
                   <h4 class="font-semibold text-blue-900 mb-2">🤖 AI Analysis Results:</h4>
                   <%= cond do %>
-                    <% entry.ai_analysis_status == :pending and not entry_has_uploaded_files?(entry, @uploads) -> %>
+                    <% entry.ai_analysis_status == :pending and not entry.photo_uploaded -> %>
                       <p class="text-blue-600">⏳ Waiting for photo...</p>
-                    <% entry.ai_analysis_status == :pending and entry_has_uploaded_files?(entry, @uploads) -> %>
+                    <% entry.ai_analysis_status == :pending and entry.photo_uploaded -> %>
                       <p class="text-blue-600">❌ Not analyzed yet</p>
                     <% entry.ai_analysis_status == :failed -> %>
                       <p class="text-red-600">⚠️ Analysis failed</p>
@@ -339,27 +342,56 @@
                       >
                         🔄 Retry
                       </button>
+                    <% entry.ai_analysis_status == :processing -> %>
+                      <div class="flex items-center space-x-2">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600">
+                        </div>
+                        <p class="text-blue-600">🔍 Analyzing image with AI...</p>
+                      </div>
                     <% entry.ai_analysis_status == :complete -> %>
-                      <div class="space-y-1">
-                        <%= if Map.get(entry.ai_results, "name") do %>
-                          <p class="text-blue-900">
-                            <strong>Name:</strong> {Map.get(entry.ai_results, "name")}
-                          </p>
-                        <% end %>
-                        <%= if Map.get(entry.ai_results, "dosage_form") do %>
-                          <p class="text-blue-900">
-                            <strong>Form:</strong> {String.capitalize(
-                              Map.get(entry.ai_results, "dosage_form")
-                            )}
-                          </p>
-                        <% end %>
-                        <%= if Map.get(entry.ai_results, "strength_value") do %>
-                          <p class="text-blue-900">
-                            <strong>Strength:</strong> {Map.get(
-                              entry.ai_results,
-                              "strength_value"
-                            )}{Map.get(entry.ai_results, "strength_unit")}
-                          </p>
+                      <div class="space-y-3">
+                        <!-- Essential Fields (Required for Medicine schema) -->
+                        <div class="bg-white rounded-lg p-3 border-l-4 border-green-500">
+                          <h5 class="font-semibold text-green-800 mb-2">
+                            ✅ Essential Information
+                          </h5>
+                          <div class="grid grid-cols-1 gap-2 text-sm">
+                            {render_field_status(entry, "name", "Medicine Name")}
+                            {render_field_status(entry, "dosage_form", "Dosage Form")}
+                            {render_field_status(entry, "active_ingredient", "Active Ingredient")}
+                            {render_field_status(entry, "strength_value", "Strength")}
+                            {render_field_status(entry, "container_type", "Container Type")}
+                            {render_field_status(entry, "total_quantity", "Total Quantity")}
+                          </div>
+                        </div>
+                        
+<!-- Optional Fields -->
+                        <div class="bg-white rounded-lg p-3 border-l-4 border-blue-500">
+                          <h5 class="font-semibold text-blue-800 mb-2">
+                            📋 Additional Information
+                          </h5>
+                          <div class="grid grid-cols-1 gap-2 text-sm">
+                            {render_field_status(entry, "brand_name", "Brand Name")}
+                            {render_field_status(entry, "generic_name", "Generic Name")}
+                            {render_field_status(entry, "manufacturer", "Manufacturer")}
+                            {render_field_status(entry, "lot_number", "Lot Number")}
+                            {render_field_status(entry, "expiration_date", "Expiration Date")}
+                            {render_field_status(entry, "ndc_code", "NDC Code")}
+                          </div>
+                        </div>
+                        
+<!-- Missing Critical Fields Warning -->
+                        <% missing_required = get_missing_required_fields(entry) %>
+                        <%= if missing_required != [] do %>
+                          <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded-lg">
+                            <h5 class="font-semibold text-yellow-800 mb-1">
+                              ⚠️ Missing Required Fields
+                            </h5>
+                            <p class="text-yellow-700 text-sm">
+                              The following required fields need to be filled manually:
+                              <strong>{Enum.join(missing_required, ", ")}</strong>
+                            </p>
+                          </div>
                         <% end %>
                       </div>
 

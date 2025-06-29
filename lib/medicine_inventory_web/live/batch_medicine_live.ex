@@ -1,7 +1,8 @@
 defmodule MedicineInventoryWeb.BatchMedicineLive do
   use MedicineInventoryWeb, :live_view
 
-  alias MedicineInventory.{Medicines, Medicine}
+  alias MedicineInventory.Medicines
+  alias MedicineInventory.AI.ImageAnalyzer
 
   @impl true
   def mount(_params, _session, socket) do
@@ -27,19 +28,14 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   @impl true
-  def handle_event("validate", %{"_target" => target} = params, socket) do
-    # Check if this is an upload field validation
-    case target do
-      [upload_name] when is_binary(upload_name) ->
-        if String.contains?(upload_name, "entry_") and String.contains?(upload_name, "_photos") do
-          handle_upload_change(socket, upload_name)
-        else
-          {:noreply, socket}
-        end
+  def handle_event("validate", _params, socket) do
+    # Handle form validation (not used for file uploads with auto_upload: true)
+    {:noreply, socket}
+  end
 
-      _ ->
-        {:noreply, socket}
-    end
+  def handle_event("upload", _params, socket) do
+    # This handles the form submit, but we'll process uploads automatically
+    {:noreply, socket}
   end
 
   def handle_event("add_entries", %{"count" => count_str}, socket) do
@@ -230,6 +226,101 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   @impl true
+  def handle_info({:process_uploaded_file, entry, upload_entry}, socket) do
+    require Logger
+    Logger.info("Processing uploaded file for entry #{entry.id}: #{upload_entry.client_name}")
+
+    # Find the upload key for this entry
+    upload_key = String.to_atom("entry_#{entry.number}_photos")
+
+    # Consume the uploaded file
+    file_results =
+      consume_uploaded_entries(socket, upload_key, fn meta, _upload_entry ->
+        # Create destination path
+        dest_dir = Path.join([System.tmp_dir(), "medicine_uploads"])
+        File.mkdir_p!(dest_dir)
+        dest_path = Path.join(dest_dir, "#{entry.id}_#{upload_entry.client_name}")
+
+        # Copy file to destination
+        File.cp!(meta.path, dest_path)
+
+        # Return file info
+        %{
+          path: dest_path,
+          filename: upload_entry.client_name,
+          size: File.stat!(dest_path).size
+        }
+      end)
+
+    case file_results do
+      [%{path: file_path, filename: filename, size: size}] ->
+        # Update the entry with file information
+        updated_entry = %{
+          entry
+          | photo_uploaded: true,
+            photo_path: file_path,
+            photo_entry: %{client_name: filename, client_size: size},
+            ai_analysis_status: :processing
+        }
+
+        updated_entries = replace_entry(socket.assigns.entries, updated_entry)
+
+        # Start AI analysis immediately
+        send(self(), {:analyze_photo, updated_entry})
+
+        {:noreply,
+         socket
+         |> assign(entries: updated_entries)
+         |> put_flash(:info, "Photo uploaded for entry #{entry.number}! Starting analysis...")}
+
+      [] ->
+        Logger.warning("No files to consume for entry #{entry.id}")
+        {:noreply, socket}
+
+      _ ->
+        Logger.error("Multiple files uploaded for entry #{entry.id}")
+
+        {:noreply,
+         put_flash(socket, :error, "Multiple files uploaded, only one allowed per entry")}
+    end
+  end
+
+  def handle_info({:analyze_photo, entry}, socket) do
+    case ImageAnalyzer.analyze_medicine_photo(entry.photo_path) do
+      {:ok, ai_results} ->
+        updated_entry = %{
+          entry
+          | ai_analysis_status: :complete,
+            ai_results: ai_results
+        }
+
+        updated_entries = replace_entry(socket.assigns.entries, updated_entry)
+
+        {:noreply,
+         socket
+         |> assign(:entries, updated_entries)
+         |> put_flash(
+           :info,
+           "Analysis complete for entry #{entry.number}! Review the extracted data."
+         )}
+
+      {:error, reason} ->
+        updated_entry = %{
+          entry
+          | ai_analysis_status: :failed,
+            validation_errors: ["AI analysis failed: #{inspect(reason)}"]
+        }
+
+        updated_entries = replace_entry(socket.assigns.entries, updated_entry)
+
+        {:noreply,
+         socket
+         |> assign(:entries, updated_entries)
+         |> put_flash(:error, "Analysis failed for entry #{entry.number}: #{inspect(reason)}")}
+    end
+  end
+
+  @impl true
   def handle_async(:analyze_batch, {:ok, analysis_results}, socket) do
     updated_entries = apply_analysis_results(socket.assigns.entries, analysis_results)
 
@@ -250,33 +341,39 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
 
   # Private functions
 
-  defp handle_upload_change(socket, upload_name) do
-    # Extract entry number from upload name (e.g., "entry_1_photos" -> "1")
-    entry_number =
-      upload_name
-      |> String.replace("entry_", "")
-      |> String.replace("_photos", "")
-      |> String.to_integer()
+  defp handle_progress(upload_config_name, upload_entry, socket) do
+    require Logger
 
-    # Update the entry to mark it as having an uploaded file
-    updated_entries =
-      Enum.map(socket.assigns.entries, fn entry ->
-        if entry.number == entry_number do
-          upload_key = String.to_atom(upload_name)
-          uploads = Map.get(socket.assigns.uploads, upload_key, %{entries: []})
-          has_files = uploads.entries != []
+    Logger.info(
+      "Upload progress: #{upload_entry.progress}% for #{upload_entry.client_name} (config: #{upload_config_name})"
+    )
 
-          %{
-            entry
-            | photo_uploaded: has_files,
-              photo_entry: if(has_files, do: List.first(uploads.entries), else: nil)
-          }
-        else
-          entry
-        end
-      end)
+    # When upload is complete (progress == 100), process the file
+    if upload_entry.done? do
+      Logger.info("Upload complete for config: #{upload_config_name}")
 
-    {:noreply, assign(socket, entries: updated_entries)}
+      # Find the entry that matches this upload config
+      entry = find_entry_by_upload_config(socket.assigns.entries, upload_config_name)
+
+      if entry do
+        Logger.info("Upload complete for entry #{entry.id}, processing file...")
+        send(self(), {:process_uploaded_file, entry, upload_entry})
+      else
+        Logger.warning("Could not find entry for upload config: #{upload_config_name}")
+      end
+    end
+
+    {:noreply, socket}
+  end
+
+  defp replace_entry(entries, updated_entry) do
+    Enum.map(entries, fn entry ->
+      if entry.id == updated_entry.id do
+        updated_entry
+      else
+        entry
+      end
+    end)
   end
 
   defp create_empty_entries(count, start_number \\ 0) do
@@ -305,7 +402,8 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
         accept: ~w(.jpg .jpeg .png),
         max_entries: 1,
         max_file_size: 10_000_000,
-        auto_upload: true
+        auto_upload: true,
+        progress: &handle_progress/3
       )
     end)
   end
@@ -439,6 +537,7 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     case {entry.photo_uploaded, entry.ai_analysis_status, entry.approval_status} do
       {false, _, _} -> "⬆️"
       {true, :pending, _} -> "📸"
+      {true, :processing, _} -> "🔍"
       {true, :complete, :pending} -> "⏳"
       {true, :complete, :approved} -> "✅"
       {true, :complete, :rejected} -> "❌"
@@ -450,6 +549,7 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     case {entry.photo_uploaded, entry.ai_analysis_status, entry.approval_status} do
       {false, _, _} -> "Ready for upload"
       {true, :pending, _} -> "Photo uploaded"
+      {true, :processing, _} -> "Analyzing photo..."
       {true, :complete, :pending} -> "Pending review"
       {true, :complete, :approved} -> "Approved"
       {true, :complete, :rejected} -> "Rejected"
@@ -486,5 +586,97 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     upload_key = get_upload_key_for_entry(entry)
     upload_config = Map.get(uploads, upload_key, %{entries: []})
     upload_config.entries
+  end
+
+  # Helper function to render field extraction status
+  def render_field_status(entry, field_key, field_name) do
+    value = Map.get(entry.ai_results || %{}, field_key)
+
+    case value do
+      nil ->
+        assigns = %{field_name: field_name}
+
+        ~H"""
+        <div class="flex items-center justify-between">
+          <span class="text-gray-600">{@field_name}:</span>
+          <span class="text-red-600 text-xs">❌ Not detected</span>
+        </div>
+        """
+
+      "" ->
+        assigns = %{field_name: field_name}
+
+        ~H"""
+        <div class="flex items-center justify-between">
+          <span class="text-gray-600">{@field_name}:</span>
+          <span class="text-red-600 text-xs">❌ Not detected</span>
+        </div>
+        """
+
+      _ ->
+        formatted_value = format_field_value(field_key, value)
+        assigns = %{field_name: field_name, value: formatted_value}
+
+        ~H"""
+        <div class="flex items-center justify-between">
+          <span class="text-gray-800">{@field_name}:</span>
+          <span class="text-green-700 font-medium">✅ {@value}</span>
+        </div>
+        """
+    end
+  end
+
+  # Helper to format field values for display
+  defp format_field_value("dosage_form", value), do: String.capitalize(value)
+
+  defp format_field_value("container_type", value),
+    do: String.capitalize(String.replace(value, "_", " "))
+
+  defp format_field_value("strength_value", value) when is_number(value), do: "#{value}"
+  defp format_field_value("total_quantity", value) when is_number(value), do: "#{value}"
+  defp format_field_value("remaining_quantity", value) when is_number(value), do: "#{value}"
+  defp format_field_value(_field, value), do: "#{value}"
+
+  # Helper to get missing required fields
+  def get_missing_required_fields(entry) do
+    required_fields = [
+      {"name", "Medicine Name"},
+      {"dosage_form", "Dosage Form"},
+      {"active_ingredient", "Active Ingredient"},
+      {"strength_value", "Strength Value"},
+      {"strength_unit", "Strength Unit"},
+      {"container_type", "Container Type"},
+      {"total_quantity", "Total Quantity"},
+      {"remaining_quantity", "Remaining Quantity"},
+      {"quantity_unit", "Quantity Unit"}
+    ]
+
+    ai_results = entry.ai_results || %{}
+
+    required_fields
+    |> Enum.filter(fn {field_key, _field_name} ->
+      value = Map.get(ai_results, field_key)
+      is_nil(value) or value == ""
+    end)
+    |> Enum.map(fn {_field_key, field_name} -> field_name end)
+  end
+
+  defp find_entry_by_number(entries, number) do
+    Enum.find(entries, &(&1.number == number))
+  end
+
+  defp find_entry_by_upload_config(entries, upload_config_name) do
+    # The upload_config_name is an atom like :entry_1_photos
+    # Extract the entry number from it
+    upload_config_str = Atom.to_string(upload_config_name)
+
+    case Regex.run(~r/entry_(\d+)_photos/, upload_config_str) do
+      [_, number_str] ->
+        number = String.to_integer(number_str)
+        find_entry_by_number(entries, number)
+
+      _ ->
+        nil
+    end
   end
 end

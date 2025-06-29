@@ -12,8 +12,11 @@ defmodule MedicineInventory.Application do
       MedicineInventory.Repo,
       {Ecto.Migrator,
        repos: Application.fetch_env!(:medicine_inventory, :ecto_repos), skip: skip_migrations?()},
-      {DNSCluster, query: Application.get_env(:medicine_inventory, :dns_cluster_query) || :ignore},
+      {DNSCluster,
+       query: Application.get_env(:medicine_inventory, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: MedicineInventory.PubSub},
+      # Start Oban for background job processing
+      {Oban, Application.fetch_env!(:medicine_inventory, Oban)},
       # Start a worker by calling: MedicineInventory.Worker.start_link(arg)
       # {MedicineInventory.Worker, arg},
       # Start to serve requests, typically the last entry

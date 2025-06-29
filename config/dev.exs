@@ -81,3 +81,8 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Configure file upload paths for development
+config :medicine_inventory,
+  upload_path: Path.expand("../uploads", __DIR__),
+  temp_upload_path: Path.expand("../tmp/uploads", __DIR__)

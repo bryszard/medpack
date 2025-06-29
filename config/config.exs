@@ -60,6 +60,27 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Configure Oban for SQLite compatibility
+config :medicine_inventory, Oban,
+  repo: MedicineInventory.Repo,
+  plugins: [Oban.Plugins.Pruner],
+  notifier: Oban.Notifiers.Isolated,
+  # Disable peer coordination for SQLite
+  peer: false,
+  # Disable table prefixes for SQLite
+  prefix: false,
+  queues: [
+    default: 10,
+    ai_analysis: 5,
+    file_cleanup: 2
+  ]
+
+# Configure OpenAI
+config :ex_openai,
+  api_key: System.get_env("OPENAI_API_KEY"),
+  organization_key: System.get_env("OPENAI_ORGANIZATION_KEY"),
+  http_options: [recv_timeout: 30_000]
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

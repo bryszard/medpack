@@ -1,7 +1,7 @@
 <div class="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100">
   <!-- Header -->
   <div class="bg-white/80 backdrop-blur-sm border-b border-orange-200 px-6 py-4">
-    <div class="max-w-4xl mx-auto flex items-center justify-between">
+    <div class="max-w-4xl mx-auto flex items-center justify-center">
       <div class="flex items-center space-x-3">
         <div class="w-10 h-10 bg-gradient-to-br from-orange-400 to-red-400 rounded-xl flex items-center justify-center">
           <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -19,117 +19,182 @@
           <p class="text-sm text-gray-600">Your personal health companion</p>
         </div>
       </div>
-      <button class="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-full font-medium transition-colors">
-        Add Medicine
-      </button>
     </div>
   </div>
   
 <!-- Main Content -->
   <div class="max-w-4xl mx-auto px-6 py-8">
-    <!-- Upload Section -->
-    <div class="bg-white rounded-2xl shadow-lg border border-orange-100 p-8 mb-8">
-      <div class="text-center">
-        <div class="w-20 h-20 bg-gradient-to-br from-orange-100 to-amber-100 rounded-2xl mx-auto mb-4 flex items-center justify-center">
-          <svg
-            class="w-10 h-10 text-orange-500"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-            >
-            </path>
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-            >
-            </path>
-          </svg>
-        </div>
-        <h2 class="text-2xl font-bold text-gray-800 mb-2">Snap & Track</h2>
-        <p class="text-gray-600 mb-6">
-          Take a photo of your medicine bottle or package, and I'll help you add it to your inventory
-        </p>
-        <div class="border-2 border-dashed border-orange-300 rounded-xl p-8 bg-orange-50">
-          <p class="text-orange-600 font-medium">Drop your photo here or click to upload</p>
-        </div>
-      </div>
+    <!-- Welcome Section -->
+    <div class="text-center mb-12">
+      <h2 class="text-4xl font-bold text-gray-800 mb-4">Welcome to Your Medicine Cabinet</h2>
+      <p class="text-xl text-gray-600 mb-8">
+        Keep track of your medications with AI-powered photo recognition and smart inventory management
+      </p>
     </div>
     
-<!-- Current Inventory -->
-    <div class="bg-white rounded-2xl shadow-lg border border-orange-100 p-8">
-      <h3 class="text-xl font-bold text-gray-800 mb-6">Your Medicine Cabinet</h3>
+<!-- Navigation Options -->
+    <div class="grid md:grid-cols-2 gap-8 mb-8">
+      <!-- View Inventory -->
+      <a href="/inventory" class="group">
+        <div class="bg-white rounded-2xl shadow-lg border border-orange-100 p-8 hover:shadow-xl transition-all duration-300 transform group-hover:scale-105">
+          <div class="text-center">
+            <div class="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl mx-auto mb-4 flex items-center justify-center group-hover:from-blue-200 group-hover:to-indigo-200 transition-colors">
+              <svg
+                class="w-10 h-10 text-blue-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                >
+                </path>
+              </svg>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">View Inventory</h3>
+            <p class="text-gray-600 mb-4">
+              Browse your current medicine collection, search by name, and check expiration dates
+            </p>
+            <div class="inline-flex items-center text-blue-600 font-medium">
+              View medicines
+              <svg
+                class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 5l7 7-7 7"
+                >
+                </path>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </a>
       
-<!-- Sample Medicine Items -->
-      <div class="grid gap-4">
-        <div class="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
-          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-            <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fill-rule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clip-rule="evenodd"
+<!-- Add Medicines -->
+      <a href="/add" class="group">
+        <div class="bg-white rounded-2xl shadow-lg border border-orange-100 p-8 hover:shadow-xl transition-all duration-300 transform group-hover:scale-105">
+          <div class="text-center">
+            <div class="w-20 h-20 bg-gradient-to-br from-orange-100 to-amber-100 rounded-2xl mx-auto mb-4 flex items-center justify-center group-hover:from-orange-200 group-hover:to-amber-200 transition-colors">
+              <svg
+                class="w-10 h-10 text-orange-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-              </path>
-            </svg>
-          </div>
-          <div class="flex-1">
-            <h4 class="font-semibold text-gray-800">Ibuprofen 200mg</h4>
-            <p class="text-sm text-gray-600">Pain reliever • 24 tablets remaining</p>
-          </div>
-          <div class="text-right">
-            <p class="text-sm font-medium text-green-600">Expires: Mar 2025</p>
-            <p class="text-xs text-gray-500">Good condition</p>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                >
+                </path>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                >
+                </path>
+              </svg>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">Add Medicines</h3>
+            <p class="text-gray-600 mb-4">
+              Take photos of medicine bottles and let AI extract all the details automatically
+            </p>
+            <div class="inline-flex items-center text-orange-600 font-medium">
+              Start adding
+              <svg
+                class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 5l7 7-7 7"
+                >
+                </path>
+              </svg>
+            </div>
           </div>
         </div>
-
-        <div class="flex items-center space-x-4 p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border border-yellow-200">
-          <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-            <svg class="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+      </a>
+    </div>
+    
+<!-- Features Section -->
+    <div class="bg-white rounded-2xl shadow-lg border border-orange-100 p-8">
+      <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">Key Features</h3>
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="text-center">
+          <div class="w-12 h-12 bg-green-100 rounded-lg mx-auto mb-3 flex items-center justify-center">
+            <svg
+              class="w-6 h-6 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
-                fill-rule="evenodd"
-                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                clip-rule="evenodd"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
               >
               </path>
             </svg>
           </div>
-          <div class="flex-1">
-            <h4 class="font-semibold text-gray-800">Vitamin D3 1000 IU</h4>
-            <p class="text-sm text-gray-600">Daily supplement • 8 capsules remaining</p>
-          </div>
-          <div class="text-right">
-            <p class="text-sm font-medium text-yellow-600">Expires: Jan 2025</p>
-            <p class="text-xs text-gray-500">Running low</p>
-          </div>
+          <h4 class="font-semibold text-gray-800 mb-2">AI Recognition</h4>
+          <p class="text-sm text-gray-600">Automatically extract medicine details from photos</p>
         </div>
-
-        <div class="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-            <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+        <div class="text-center">
+          <div class="w-12 h-12 bg-blue-100 rounded-lg mx-auto mb-3 flex items-center justify-center">
+            <svg
+              class="w-6 h-6 text-blue-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
-                fill-rule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clip-rule="evenodd"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               >
               </path>
             </svg>
           </div>
-          <div class="flex-1">
-            <h4 class="font-semibold text-gray-800">Acetaminophen 500mg</h4>
-            <p class="text-sm text-gray-600">Pain reliever • 50 tablets remaining</p>
+          <h4 class="font-semibold text-gray-800 mb-2">Expiry Tracking</h4>
+          <p class="text-sm text-gray-600">Never miss expiration dates with smart reminders</p>
+        </div>
+        <div class="text-center">
+          <div class="w-12 h-12 bg-purple-100 rounded-lg mx-auto mb-3 flex items-center justify-center">
+            <svg
+              class="w-6 h-6 text-purple-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              >
+              </path>
+            </svg>
           </div>
-          <div class="text-right">
-            <p class="text-sm font-medium text-blue-600">Expires: Aug 2025</p>
-            <p class="text-xs text-gray-500">Well stocked</p>
-          </div>
+          <h4 class="font-semibold text-gray-800 mb-2">Smart Search</h4>
+          <p class="text-sm text-gray-600">Quickly find medicines by name or ingredient</p>
         </div>
       </div>
     </div>

@@ -23,6 +23,22 @@ defmodule MedicineInventory.Medicines do
   @doc """
   Gets a single medicine.
 
+  Returns `nil` if the Medicine does not exist.
+
+  ## Examples
+
+      iex> get_medicine(123)
+      %Medicine{}
+
+      iex> get_medicine(456)
+      nil
+
+  """
+  def get_medicine(id), do: Repo.get(Medicine, id)
+
+  @doc """
+  Gets a single medicine.
+
   Raises `Ecto.NoResultsError` if the Medicine does not exist.
 
   ## Examples

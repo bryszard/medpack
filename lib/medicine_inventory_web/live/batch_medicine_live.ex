@@ -64,38 +64,21 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   def handle_event("analyze_all", _params, socket) do
-    # Check if any entries have uploaded files by checking the actual upload state
+    # Check if any entries have uploaded photos
     entries_with_files =
       socket.assigns.entries
       |> Enum.filter(fn entry ->
-        upload_key = String.to_atom("entry_#{entry.number}_photos")
-        uploads = Map.get(socket.assigns.uploads, upload_key, %{entries: []})
-        uploads.entries != []
+        entry.photos_uploaded > 0
       end)
 
     if entries_with_files == [] do
       {:noreply, put_flash(socket, :error, "Please upload at least one photo first")}
     else
-      # Update entries to reflect their current upload status
-      updated_entries =
-        socket.assigns.entries
-        |> Enum.map(fn entry ->
-          upload_key = String.to_atom("entry_#{entry.number}_photos")
-          uploads = Map.get(socket.assigns.uploads, upload_key, %{entries: []})
-
-          if uploads.entries != [] do
-            %{entry | photo_uploaded: true, photo_entry: List.first(uploads.entries)}
-          else
-            entry
-          end
-        end)
-
       {:noreply,
        socket
-       |> assign(:entries, updated_entries)
        |> assign(:analyzing, true)
        |> assign(:analysis_progress, 0)
-       |> start_async(:analyze_batch, fn -> analyze_batch_photos(updated_entries) end)}
+       |> start_async(:analyze_batch, fn -> analyze_batch_photos(entries_with_files) end)}
     end
   end
 
@@ -146,17 +129,76 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     {:noreply, assign(socket, entries: updated_entries)}
   end
 
-  def handle_event("remove_photo", %{"id" => entry_id}, socket) do
+  def handle_event("remove_photo", %{"id" => entry_id, "photo_index" => photo_index_str}, socket) do
+    photo_index = String.to_integer(photo_index_str)
+
     updated_entries =
       Enum.map(socket.assigns.entries, fn entry ->
         if entry.id == entry_id do
-          %{entry | photo_uploaded: false, photo_entry: nil}
+          # Clean up the specific physical file if it exists
+          if Enum.at(entry.photo_paths, photo_index) do
+            photo_path = Enum.at(entry.photo_paths, photo_index)
+
+            if File.exists?(photo_path) do
+              File.rm(photo_path)
+            end
+          end
+
+          # Remove the photo at the specified index from all photo arrays
+          updated_photo_paths = List.delete_at(entry.photo_paths, photo_index)
+          updated_photo_web_paths = List.delete_at(entry.photo_web_paths, photo_index)
+          updated_photo_entries = List.delete_at(entry.photo_entries, photo_index)
+
+          %{
+            entry
+            | photos_uploaded: max(0, entry.photos_uploaded - 1),
+              photo_paths: updated_photo_paths,
+              photo_web_paths: updated_photo_web_paths,
+              photo_entries: updated_photo_entries,
+              ai_analysis_status:
+                if(updated_photo_paths == [], do: :pending, else: entry.ai_analysis_status),
+              ai_results: if(updated_photo_paths == [], do: %{}, else: entry.ai_results)
+          }
         else
           entry
         end
       end)
 
-    {:noreply, assign(socket, entries: updated_entries)}
+    {:noreply,
+     socket
+     |> assign(entries: updated_entries)
+     |> put_flash(:info, "Photo removed successfully")}
+  end
+
+  def handle_event("remove_all_photos", %{"id" => entry_id}, socket) do
+    updated_entries =
+      Enum.map(socket.assigns.entries, fn entry ->
+        if entry.id == entry_id do
+          # Clean up all physical files
+          Enum.each(entry.photo_paths, fn photo_path ->
+            if File.exists?(photo_path) do
+              File.rm(photo_path)
+            end
+          end)
+
+          %{
+            entry
+            | photos_uploaded: 0,
+              photo_paths: [],
+              photo_web_paths: [],
+              photo_entries: [],
+              ai_analysis_status: :pending,
+              ai_results: %{}
+          }
+        else
+          entry
+        end
+      end)
+
+    {:noreply,
+     socket
+     |> assign(entries: updated_entries)
+     |> put_flash(:info, "All photos removed successfully")}
   end
 
   def handle_event(
@@ -199,8 +241,36 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     if approved_entries == [] do
       {:noreply, put_flash(socket, :error, "No approved entries to save")}
     else
-      save_results = save_approved_medicines(approved_entries)
-      handle_save_results(socket, save_results)
+      try do
+        save_results = save_approved_medicines(approved_entries)
+        handle_save_results(socket, save_results)
+      rescue
+        e ->
+          require Logger
+          Logger.error("Error saving approved entries: #{inspect(e)}")
+          {:noreply, put_flash(socket, :error, "Failed to save entries: #{Exception.message(e)}")}
+      end
+    end
+  end
+
+  def handle_event("save_single_entry", %{"id" => entry_id}, socket) do
+    case Enum.find(socket.assigns.entries, &(&1.id == entry_id)) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Entry not found")}
+
+      entry when entry.approval_status != :approved ->
+        {:noreply, put_flash(socket, :error, "Entry must be approved before saving")}
+
+      entry ->
+        try do
+          save_results = save_approved_medicines([entry])
+          handle_single_save_results(socket, save_results, entry_id)
+        rescue
+          e ->
+            require Logger
+            Logger.error("Error saving single entry: #{inspect(e)}")
+            {:noreply, put_flash(socket, :error, "Failed to save entry: #{Exception.message(e)}")}
+        end
     end
   end
 
@@ -236,88 +306,159 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     # Consume the uploaded file
     file_results =
       consume_uploaded_entries(socket, upload_key, fn meta, _upload_entry ->
-        # Create destination path
-        dest_dir = Path.join([System.tmp_dir(), "medicine_uploads"])
+        # Create destination path in the web-accessible uploads directory
+        dest_dir = Path.join(["priv", "static", "uploads"])
         File.mkdir_p!(dest_dir)
-        dest_path = Path.join(dest_dir, "#{entry.id}_#{upload_entry.client_name}")
+
+        # Create a unique filename to avoid conflicts
+        timestamp = System.system_time(:second)
+        file_extension = Path.extname(upload_entry.client_name)
+        unique_filename = "#{entry.id}_#{timestamp}#{file_extension}"
+        dest_path = Path.join(dest_dir, unique_filename)
 
         # Copy file to destination
         File.cp!(meta.path, dest_path)
 
-        # Return file info
-        %{
-          path: dest_path,
-          filename: upload_entry.client_name,
-          size: File.stat!(dest_path).size
-        }
+        # Return file info with proper tuple format
+        {:ok,
+         %{
+           path: dest_path,
+           web_path: "/uploads/#{unique_filename}",
+           filename: upload_entry.client_name,
+           size: File.stat!(dest_path).size
+         }}
       end)
 
     case file_results do
-      [%{path: file_path, filename: filename, size: size}] ->
-        # Update the entry with file information
+      file_info_list when is_list(file_info_list) and length(file_info_list) > 0 ->
+        # Update the entry with new file information (append to existing photos)
+        new_photo_paths = Enum.map(file_info_list, & &1.path)
+        new_photo_web_paths = Enum.map(file_info_list, & &1.web_path)
+
+        new_photo_entries =
+          Enum.map(file_info_list, fn info ->
+            %{client_name: info.filename, client_size: info.size}
+          end)
+
         updated_entry = %{
           entry
-          | photo_uploaded: true,
-            photo_path: file_path,
-            photo_entry: %{client_name: filename, client_size: size},
+          | photos_uploaded: entry.photos_uploaded + length(file_info_list),
+            photo_paths: entry.photo_paths ++ new_photo_paths,
+            photo_web_paths: entry.photo_web_paths ++ new_photo_web_paths,
+            photo_entries: entry.photo_entries ++ new_photo_entries,
             ai_analysis_status: :processing
         }
 
         updated_entries = replace_entry(socket.assigns.entries, updated_entry)
 
-        # Start AI analysis immediately
-        send(self(), {:analyze_photo, updated_entry})
+        # Start AI analysis with all photos if we have at least one
+        send(self(), {:analyze_photos, updated_entry})
+
+        photo_count = length(file_info_list)
+        total_photos = updated_entry.photos_uploaded
 
         {:noreply,
          socket
          |> assign(entries: updated_entries)
-         |> put_flash(:info, "Photo uploaded for entry #{entry.number}! Starting analysis...")}
+         |> put_flash(
+           :info,
+           "#{photo_count} photo(s) uploaded for entry #{entry.number}! Total: #{total_photos}/3. Starting analysis..."
+         )}
 
       [] ->
         Logger.warning("No files to consume for entry #{entry.id}")
         {:noreply, socket}
-
-      _ ->
-        Logger.error("Multiple files uploaded for entry #{entry.id}")
-
-        {:noreply,
-         put_flash(socket, :error, "Multiple files uploaded, only one allowed per entry")}
     end
   end
 
-  def handle_info({:analyze_photo, entry}, socket) do
-    case ImageAnalyzer.analyze_medicine_photo(entry.photo_path) do
-      {:ok, ai_results} ->
-        updated_entry = %{
-          entry
-          | ai_analysis_status: :complete,
-            ai_results: ai_results
-        }
+  def handle_info({:analyze_photos, entry}, socket) do
+    case entry.photo_paths do
+      [] ->
+        # No photos to analyze
+        {:noreply, socket}
 
-        updated_entries = replace_entry(socket.assigns.entries, updated_entry)
+      [single_path] ->
+        # Use single photo analysis for backward compatibility
+        case ImageAnalyzer.analyze_medicine_photo(single_path) do
+          {:ok, ai_results} ->
+            updated_entry = %{
+              entry
+              | ai_analysis_status: :complete,
+                ai_results: ai_results
+            }
 
-        {:noreply,
-         socket
-         |> assign(:entries, updated_entries)
-         |> put_flash(
-           :info,
-           "Analysis complete for entry #{entry.number}! Review the extracted data."
-         )}
+            updated_entries = replace_entry(socket.assigns.entries, updated_entry)
 
-      {:error, reason} ->
-        updated_entry = %{
-          entry
-          | ai_analysis_status: :failed,
-            validation_errors: ["AI analysis failed: #{inspect(reason)}"]
-        }
+            {:noreply,
+             socket
+             |> assign(:entries, updated_entries)
+             |> put_flash(
+               :info,
+               "Analysis complete for entry #{entry.number}! Review the extracted data."
+             )}
 
-        updated_entries = replace_entry(socket.assigns.entries, updated_entry)
+          {:error, reason} ->
+            updated_entry = %{
+              entry
+              | ai_analysis_status: :failed,
+                validation_errors: ["AI analysis failed: #{inspect(reason)}"]
+            }
 
-        {:noreply,
-         socket
-         |> assign(:entries, updated_entries)
-         |> put_flash(:error, "Analysis failed for entry #{entry.number}: #{inspect(reason)}")}
+            updated_entries = replace_entry(socket.assigns.entries, updated_entry)
+
+            {:noreply,
+             socket
+             |> assign(:entries, updated_entries)
+             |> put_flash(:error, "Analysis failed for entry #{entry.number}: #{inspect(reason)}")}
+        end
+
+      multiple_paths ->
+        # Use multi-photo analysis
+        case ImageAnalyzer.analyze_medicine_photos(multiple_paths) do
+          {:ok, ai_results} ->
+            updated_entry = %{
+              entry
+              | ai_analysis_status: :complete,
+                ai_results: ai_results
+            }
+
+            updated_entries = replace_entry(socket.assigns.entries, updated_entry)
+
+            photo_count = length(multiple_paths)
+
+            {:noreply,
+             socket
+             |> assign(:entries, updated_entries)
+             |> put_flash(
+               :info,
+               "Multi-photo analysis complete for entry #{entry.number} (#{photo_count} photos)! Review the extracted data."
+             )}
+
+          {:error, reason} ->
+            updated_entry = %{
+              entry
+              | ai_analysis_status: :failed,
+                validation_errors: ["AI analysis failed: #{inspect(reason)}"]
+            }
+
+            updated_entries = replace_entry(socket.assigns.entries, updated_entry)
+
+            {:noreply,
+             socket
+             |> assign(:entries, updated_entries)
+             |> put_flash(
+               :error,
+               "Multi-photo analysis failed for entry #{entry.number}: #{inspect(reason)}"
+             )}
+        end
     end
+  end
+
+  # Keep the old single photo handler for backward compatibility
+  def handle_info({:analyze_photo, entry}, socket) do
+    # Redirect to the new multi-photo handler
+    send(self(), {:analyze_photos, entry})
+    {:noreply, socket}
   end
 
   @impl true
@@ -382,9 +523,10 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
       %{
         id: "entry_#{System.unique_integer([:positive])}",
         number: i,
-        photo_uploaded: false,
-        photo_entry: nil,
-        photo_path: nil,
+        photos_uploaded: 0,
+        photo_entries: [],
+        photo_paths: [],
+        photo_web_paths: [],
         ai_analysis_status: :pending,
         ai_results: %{},
         approval_status: :pending,
@@ -400,7 +542,7 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
 
       allow_upload(acc_socket, upload_key,
         accept: ~w(.jpg .jpeg .png),
-        max_entries: 1,
+        max_entries: 3,
         max_file_size: 10_000_000,
         auto_upload: true,
         progress: &handle_progress/3
@@ -409,54 +551,30 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   defp analyze_batch_photos(entries) do
-    # Analyze each entry with a photo
+    # Analyze each entry with photos
     entries
-    |> Enum.filter(& &1.photo_uploaded)
+    |> Enum.filter(&(&1.photos_uploaded > 0))
     |> Enum.map(fn entry ->
-      ai_results = simulate_ai_analysis_for_entry(entry)
+      ai_results =
+        case entry.photo_paths do
+          [] ->
+            :failed
+
+          [single_path] ->
+            case ImageAnalyzer.analyze_medicine_photo(single_path) do
+              {:ok, results} -> results
+              {:error, _} -> :failed
+            end
+
+          multiple_paths ->
+            case ImageAnalyzer.analyze_medicine_photos(multiple_paths) do
+              {:ok, results} -> results
+              {:error, _} -> :failed
+            end
+        end
+
       {entry.id, ai_results}
     end)
-  end
-
-  defp simulate_ai_analysis_for_entry(_entry) do
-    # Simulate AI analysis with varied results
-    case :rand.uniform(3) do
-      1 ->
-        %{
-          "name" => "Tylenol Extra Strength 500mg",
-          "brand_name" => "Tylenol",
-          "generic_name" => "Acetaminophen",
-          "dosage_form" => "tablet",
-          "active_ingredient" => "Acetaminophen",
-          "strength_value" => 500.0,
-          "strength_unit" => "mg",
-          "container_type" => "bottle",
-          "total_quantity" => 100.0,
-          "remaining_quantity" => 100.0,
-          "quantity_unit" => "tablets",
-          "manufacturer" => "Johnson & Johnson"
-        }
-
-      2 ->
-        %{
-          "name" => "Advil Liqui-Gels 200mg",
-          "brand_name" => "Advil",
-          "generic_name" => "Ibuprofen",
-          "dosage_form" => "capsule",
-          "active_ingredient" => "Ibuprofen",
-          "strength_value" => 200.0,
-          "strength_unit" => "mg",
-          "container_type" => "bottle",
-          "total_quantity" => 80.0,
-          "remaining_quantity" => 80.0,
-          "quantity_unit" => "capsules",
-          "manufacturer" => "Pfizer"
-        }
-
-      3 ->
-        # Simulate failed analysis
-        :failed
-    end
   end
 
   defp apply_analysis_results(entries, analysis_results) do
@@ -479,7 +597,20 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   defp save_approved_medicines(approved_entries) do
     approved_entries
     |> Enum.map(fn entry ->
-      case Medicines.create_medicine(entry.ai_results) do
+      # Prepare medicine data with photos if available
+      medicine_data =
+        if entry.photo_web_paths != [] do
+          # Extract just the filenames from the web paths (remove /uploads/)
+          photo_filenames =
+            entry.photo_web_paths
+            |> Enum.map(&String.replace(&1, "/uploads/", ""))
+
+          Map.put(entry.ai_results, "photo_paths", photo_filenames)
+        else
+          entry.ai_results
+        end
+
+      case Medicines.create_medicine(medicine_data) do
         {:ok, medicine} -> {:ok, medicine}
         {:error, changeset} -> {:error, entry.id, changeset}
       end
@@ -490,12 +621,24 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     successes = Enum.count(save_results, &match?({:ok, _}, &1))
     failures = Enum.count(save_results, &match?({:error, _, _}, &1))
 
+    # Log detailed error information for debugging
+    if failures > 0 do
+      require Logger
+      failed_results = Enum.filter(save_results, &match?({:error, _, _}, &1))
+
+      Enum.each(failed_results, fn {:error, entry_id, changeset} ->
+        Logger.error("Failed to save entry #{entry_id}: #{inspect(changeset.errors)}")
+      end)
+    end
+
     message =
       if failures == 0 do
         "Successfully saved #{successes} medicines to your inventory!"
       else
-        "Saved #{successes} medicines. #{failures} failed to save."
+        "Saved #{successes} medicines. #{failures} failed to save. Check logs for details."
       end
+
+    flash_type = if failures > 0, do: :error, else: :info
 
     # Remove successfully saved entries
     remaining_entries =
@@ -521,7 +664,46 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     {:noreply,
      socket
      |> assign(:entries, remaining_entries)
-     |> put_flash(:info, message)}
+     |> put_flash(flash_type, message)}
+  end
+
+  defp handle_single_save_results(socket, save_results, entry_id) do
+    case save_results do
+      [{:ok, medicine}] ->
+        # Remove the successfully saved entry
+        remaining_entries = Enum.reject(socket.assigns.entries, &(&1.id == entry_id))
+
+        # Broadcast update
+        Phoenix.PubSub.broadcast(
+          MedicineInventory.PubSub,
+          "medicines",
+          {:batch_medicines_created, 1}
+        )
+
+        {:noreply,
+         socket
+         |> assign(:entries, remaining_entries)
+         |> put_flash(:info, "Successfully saved #{medicine.name} to your inventory!")}
+
+      [{:error, _entry_id, changeset}] ->
+        require Logger
+        Logger.error("Failed to save entry #{entry_id}: #{inspect(changeset.errors)}")
+
+        errors =
+          changeset.errors
+          |> Enum.map(fn {field, {message, _}} -> "#{field}: #{message}" end)
+          |> Enum.join(", ")
+
+        {:noreply, put_flash(socket, :error, "Failed to save entry: #{errors}")}
+
+      [] ->
+        {:noreply, put_flash(socket, :error, "No entry to save - this might be a bug")}
+
+      _ ->
+        require Logger
+        Logger.error("Unexpected save results format: #{inspect(save_results)}")
+        {:noreply, put_flash(socket, :error, "Unexpected error while saving entry")}
+    end
   end
 
   defp get_successful_entry_indices(save_results) do
@@ -534,7 +716,7 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
 
   # Helper functions for the template
   def entry_status_icon(entry) do
-    case {entry.photo_uploaded, entry.ai_analysis_status, entry.approval_status} do
+    case {entry.photos_uploaded > 0, entry.ai_analysis_status, entry.approval_status} do
       {false, _, _} -> "⬆️"
       {true, :pending, _} -> "📸"
       {true, :processing, _} -> "🔍"
@@ -546,10 +728,10 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
   end
 
   def entry_status_text(entry) do
-    case {entry.photo_uploaded, entry.ai_analysis_status, entry.approval_status} do
+    case {entry.photos_uploaded > 0, entry.ai_analysis_status, entry.approval_status} do
       {false, _, _} -> "Ready for upload"
-      {true, :pending, _} -> "Photo uploaded"
-      {true, :processing, _} -> "Analyzing photo..."
+      {true, :pending, _} -> "#{entry.photos_uploaded} photo(s) uploaded"
+      {true, :processing, _} -> "Analyzing photos..."
       {true, :complete, :pending} -> "Pending review"
       {true, :complete, :approved} -> "Approved"
       {true, :complete, :rejected} -> "Rejected"
@@ -576,9 +758,12 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
 
   # Check if entry has uploaded files
   def entry_has_uploaded_files?(entry, uploads) do
-    upload_key = get_upload_key_for_entry(entry)
-    upload_config = Map.get(uploads, upload_key, %{entries: []})
-    upload_config.entries != []
+    entry.photos_uploaded > 0 or
+      (
+        upload_key = get_upload_key_for_entry(entry)
+        upload_config = Map.get(uploads, upload_key, %{entries: []})
+        upload_config.entries != []
+      )
   end
 
   # Get upload entries for a specific entry
@@ -642,12 +827,10 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
     required_fields = [
       {"name", "Medicine Name"},
       {"dosage_form", "Dosage Form"},
-      {"active_ingredient", "Active Ingredient"},
       {"strength_value", "Strength Value"},
       {"strength_unit", "Strength Unit"},
       {"container_type", "Container Type"},
       {"total_quantity", "Total Quantity"},
-      {"remaining_quantity", "Remaining Quantity"},
       {"quantity_unit", "Quantity Unit"}
     ]
 

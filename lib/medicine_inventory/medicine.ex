@@ -78,12 +78,10 @@ defmodule MedicineInventory.Medicine do
     |> validate_required([
       :name,
       :dosage_form,
-      :active_ingredient,
       :strength_value,
       :strength_unit,
       :container_type,
       :total_quantity,
-      :remaining_quantity,
       :quantity_unit
     ])
     |> validate_inclusion(:dosage_form, [
@@ -114,10 +112,23 @@ defmodule MedicineInventory.Medicine do
       "ampoule"
     ])
     |> validate_inclusion(:status, ["active", "expired", "empty", "recalled"])
+    |> set_default_remaining_quantity()
     |> validate_number(:strength_value, greater_than: 0)
     |> validate_number(:total_quantity, greater_than: 0)
     |> validate_number(:remaining_quantity, greater_than_or_equal_to: 0)
     |> validate_remaining_quantity_not_greater_than_total()
+  end
+
+  defp set_default_remaining_quantity(changeset) do
+    total = get_field(changeset, :total_quantity)
+    remaining = get_field(changeset, :remaining_quantity)
+
+    # If remaining_quantity is not set but total_quantity is, default remaining to total
+    if total && is_nil(remaining) do
+      put_change(changeset, :remaining_quantity, total)
+    else
+      changeset
+    end
   end
 
   defp validate_remaining_quantity_not_greater_than_total(changeset) do

@@ -19,6 +19,7 @@ defmodule MedicineInventoryWeb.Router do
 
     get "/", PageController, :home
     live "/inventory", MedicineLive
+    live "/medicine/:id", MedicineShowLive
     live "/add", BatchMedicineLive
   end
 

@@ -1,157 +1,292 @@
 <Layouts.app flash={@flash}>
-  <div class="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 py-8">
+  <.topbar current_page={:inventory} />
+  <div class="min-h-screen bg-base-100 py-8">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <!-- Header -->
-      <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-orange-900 mb-2">🏠 Medicine Inventory</h1>
-        <p class="text-lg text-orange-700">
-          View and search your medicine collection
-        </p>
-      </div>
-      
-<!-- Navigation -->
-      <div class="flex justify-center space-x-4 mb-8">
-        <.link
-          navigate={~p"/"}
-          class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-        >
-          🏠 Home
-        </.link>
-        <.link
-          navigate={~p"/add"}
-          class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-        >
-          ➕ Add Medicines
-        </.link>
-      </div>
-      
-<!-- Search Bar and View Toggle -->
+      <!-- Search Bar and Controls -->
       <div class="mb-8">
-        <div class="flex flex-col items-center space-y-4">
-          <div class="relative max-w-md">
-            <input
-              type="text"
-              placeholder="🔍 Search medicines..."
-              phx-change="search"
-              phx-value-query={@search_query}
-              value={@search_query}
-              class="w-full pl-4 pr-10 py-3 rounded-lg border border-orange-300 bg-white text-orange-900 placeholder:text-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            />
+        <div class="flex justify-center gap-4 space-y-4">
+          <div class="form-control w-full max-w-md">
+            <form phx-change="search" phx-submit="search">
+              <input
+                type="text"
+                name="query"
+                placeholder="🔍 Search by name, ingredient, manufacturer..."
+                phx-debounce="300"
+                value={@search_query}
+                class="input input-bordered input-primary w-full"
+              />
+            </form>
           </div>
           
-<!-- View Mode Toggle -->
-          <button
-            phx-click="toggle_view"
-            class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-          >
+<!-- Control Buttons -->
+          <button phx-click="toggle_filters" class="btn btn-outline btn-accent">
+            🔽 Filters
+            <%= if map_size(@filters) > 0 do %>
+              <div class="badge badge-primary">{map_size(@filters)}</div>
+            <% end %>
+          </button>
+          <button phx-click="toggle_view" class="btn btn-secondary">
             <%= if @view_mode == :cards do %>
-              📋 Switch to Table View
+              📋 Table View
             <% else %>
-              🗃️ Switch to Card View
+              🗃️ Card View
             <% end %>
           </button>
         </div>
       </div>
+      
+<!-- Filter Panel -->
+      <%= if @show_filters do %>
+        <div class="mb-8">
+          <div class="card bg-base-200 shadow-lg">
+            <div class="card-body">
+              <h3 class="card-title text-lg mb-4">🔍 Filter Medicines</h3>
+
+              <form phx-change="filter_change" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  
+<!-- Dosage Form Filter -->
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium">💊 Form</span>
+                    </label>
+                    <select
+                      name="filter[dosage_form]"
+                      value={@filters[:dosage_form] || ""}
+                      class="select select-bordered select-sm"
+                    >
+                      <option value="">All forms</option>
+                      <option value="tablet">Tablet</option>
+                      <option value="capsule">Capsule</option>
+                      <option value="syrup">Syrup</option>
+                      <option value="suspension">Suspension</option>
+                      <option value="solution">Solution</option>
+                      <option value="cream">Cream</option>
+                      <option value="ointment">Ointment</option>
+                      <option value="gel">Gel</option>
+                      <option value="lotion">Lotion</option>
+                      <option value="drops">Drops</option>
+                      <option value="injection">Injection</option>
+                      <option value="inhaler">Inhaler</option>
+                      <option value="spray">Spray</option>
+                      <option value="patch">Patch</option>
+                      <option value="suppository">Suppository</option>
+                    </select>
+                  </div>
+                  
+<!-- Container Type Filter -->
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium">📦 Container</span>
+                    </label>
+                    <select
+                      name="filter[container_type]"
+                      value={@filters[:container_type] || ""}
+                      class="select select-bordered select-sm"
+                    >
+                      <option value="">All containers</option>
+                      <option value="bottle">Bottle</option>
+                      <option value="box">Box</option>
+                      <option value="tube">Tube</option>
+                      <option value="vial">Vial</option>
+                      <option value="inhaler">Inhaler</option>
+                      <option value="blister_pack">Blister Pack</option>
+                      <option value="sachet">Sachet</option>
+                      <option value="ampoule">Ampoule</option>
+                    </select>
+                  </div>
+                  
+<!-- Expiration Status Filter -->
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium">📅 Expiration</span>
+                    </label>
+                    <select
+                      name="filter[expiration_status]"
+                      value={@filters[:expiration_status] || ""}
+                      class="select select-bordered select-sm"
+                    >
+                      <option value="">All statuses</option>
+                      <option value="good">✅ Good (>30 days)</option>
+                      <option value="expiring_soon">⏰ Expiring Soon (≤30 days)</option>
+                      <option value="expired">⚠️ Expired</option>
+                      <option value="unknown">❓ Unknown</option>
+                    </select>
+                  </div>
+                  
+<!-- Medicine Status Filter -->
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium">🏷️ Status</span>
+                    </label>
+                    <select
+                      name="filter[status]"
+                      value={@filters[:status] || ""}
+                      class="select select-bordered select-sm"
+                    >
+                      <option value="">All statuses</option>
+                      <option value="active">🟢 Active</option>
+                      <option value="expired">🔴 Expired</option>
+                      <option value="empty">📭 Empty</option>
+                      <option value="recalled">⚠️ Recalled</option>
+                    </select>
+                  </div>
+                </div>
+                
+<!-- Filter Actions -->
+                <div class="flex justify-between items-center pt-4 border-t border-base-300">
+                  <div class="text-sm text-base-content/70">
+                    <%= if map_size(@filters) > 0 do %>
+                      {map_size(@filters)} filter(s) active
+                    <% else %>
+                      No filters applied
+                    <% end %>
+                  </div>
+                  <button type="button" phx-click="clear_filters" class="btn btn-sm btn-ghost">
+                    🗑️ Clear All
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      <% end %>
       
 <!-- Medicine Display -->
       <%= if @view_mode == :cards do %>
         <!-- Card View -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <%= for medicine <- @medicines do %>
-            <.link navigate={~p"/medicine/#{medicine.id}"} class="block">
-              <div class="bg-white rounded-xl shadow-lg border border-orange-200 overflow-hidden hover:shadow-xl transition duration-300 cursor-pointer h-full flex flex-col">
+            <.link navigate={~p"/inventory/#{medicine.id}"} class="block">
+              <div class="card bg-base-100 shadow-xl border border-base-300 hover:shadow-2xl transition duration-300 cursor-pointer h-full">
                 <!-- Medicine Photo -->
                 <%= if medicine.photo_paths != [] and hd(medicine.photo_paths) do %>
-                  <div class="h-48 bg-orange-100 flex items-center justify-center">
+                  <figure class="h-48">
                     <img
                       src={"/uploads/" <> hd(medicine.photo_paths)}
                       alt={medicine.name}
                       class="h-full w-full object-cover"
                     />
-                  </div>
+                  </figure>
                 <% else %>
-                  <div class="h-48 bg-orange-100 flex items-center justify-center">
+                  <figure class="h-48 bg-base-200 flex items-center justify-center">
                     <span class="text-6xl">💊</span>
-                  </div>
+                  </figure>
                 <% end %>
                 
 <!-- Medicine Info -->
-                <div class="p-6 flex-1 flex flex-col">
-                  <h3 class="text-xl font-bold text-orange-900 mb-2">{medicine.name}</h3>
+                <div class="card-body">
+                  <h2 class="card-title text-base-content">{medicine.name}</h2>
+                  
+<!-- Search Matches -->
+                  <%= if @search_query != "" do %>
+                    <% matches =
+                      MedicineInventory.Medicine.search_matches(medicine, @search_query) %>
+                    <%= if matches != [] do %>
+                      <div class="flex flex-wrap gap-1 mb-2">
+                        <%= for {field, value} <- matches do %>
+                          <div class="badge badge-outline badge-xs">
+                            <%= case field do %>
+                              <% :name -> %>
+                                📛 Name
+                              <% :brand_name -> %>
+                                🏷️ Brand
+                              <% :generic_name -> %>
+                                💊 Generic
+                              <% :active_ingredient -> %>
+                                🧪 Ingredient
+                              <% :manufacturer -> %>
+                                🏭 Manufacturer
+                            <% end %>
+                          </div>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  <% end %>
 
                   <%= if medicine.brand_name do %>
-                    <p class="text-orange-700 mb-1">
+                    <p class="text-base-content/70">
                       <strong>Brand:</strong> {medicine.brand_name}
                     </p>
                   <% end %>
 
-                  <p class="text-orange-700 mb-1">
+                  <%= if medicine.active_ingredient != nil and @search_query != "" do %>
+                    <% matches =
+                      MedicineInventory.Medicine.search_matches(medicine, @search_query) %>
+                    <%= if Enum.any?(matches, fn {field, _} -> field == :active_ingredient end) do %>
+                      <p class="text-base-content/70">
+                        <strong>Active Ingredient:</strong> {medicine.active_ingredient}
+                      </p>
+                    <% end %>
+                  <% end %>
+
+                  <%= if medicine.manufacturer != nil and @search_query != "" do %>
+                    <% matches =
+                      MedicineInventory.Medicine.search_matches(medicine, @search_query) %>
+                    <%= if Enum.any?(matches, fn {field, _} -> field == :manufacturer end) do %>
+                      <p class="text-base-content/70">
+                        <strong>Manufacturer:</strong> {medicine.manufacturer}
+                      </p>
+                    <% end %>
+                  <% end %>
+
+                  <p class="text-base-content/70">
                     <strong>Form:</strong> {String.capitalize(medicine.dosage_form)}
                   </p>
-                  <p class="text-orange-700 mb-1">
+                  <p class="text-base-content/70">
                     <strong>Strength:</strong> {MedicineInventory.Medicine.strength_display(
                       medicine
                     )}
                   </p>
-                  <p class="text-orange-700 mb-1">
+                  <p class="text-base-content/70">
                     <strong>Container:</strong> {String.capitalize(
                       String.replace(medicine.container_type, "_", " ")
                     )}
                   </p>
-                  <p class="text-orange-700 mb-3">
+                  <p class="text-base-content/70 mb-3">
                     <strong>Quantity:</strong> {MedicineInventory.Medicine.quantity_display(
                       medicine
                     )}
                   </p>
                   
-<!-- Spacer to push content to bottom -->
-                  <div class="flex-1"></div>
-                  
 <!-- Usage Progress Bar -->
                   <div class="mb-3">
-                    <div class="flex justify-between text-sm text-orange-600 mb-1">
+                    <div class="flex justify-between text-sm text-base-content/60 mb-1">
                       <span>Usage</span>
                       <span>
                         {MedicineInventory.Medicine.usage_percentage(medicine)}% remaining
                       </span>
                     </div>
-                    <div class="w-full bg-orange-200 rounded-full h-2">
-                      <div
-                        class="bg-orange-500 h-2 rounded-full transition-all duration-300"
-                        style={"width: #{MedicineInventory.Medicine.usage_percentage(medicine)}%"}
-                      >
-                      </div>
-                    </div>
+                    <progress
+                      class="progress progress-primary w-full"
+                      value={MedicineInventory.Medicine.usage_percentage(medicine)}
+                      max="100"
+                    >
+                    </progress>
                   </div>
                   
 <!-- Expiration Status -->
-                  <div class="flex items-center space-x-2">
+                  <div class="card-actions justify-start">
                     <%= if medicine.expiration_date do %>
                       <%= cond do %>
                         <% Date.diff(medicine.expiration_date, Date.utc_today()) < 0 -> %>
-                          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            ⚠️ Expired
-                          </span>
+                          <div class="badge badge-error">⚠️ Expired</div>
                         <% Date.diff(medicine.expiration_date, Date.utc_today()) <= 30 -> %>
-                          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            ⏰ Expires Soon
-                          </span>
+                          <div class="badge badge-warning">⏰ Expires Soon</div>
                         <% true -> %>
-                          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            ✅ Good
-                          </span>
+                          <div class="badge badge-success">✅ Good</div>
                       <% end %>
-                      <span class="text-sm text-orange-600">Exp: {medicine.expiration_date}</span>
-                    <% else %>
-                      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                        ❓ Unknown
+                      <span class="text-sm text-base-content/60">
+                        Exp: {medicine.expiration_date}
                       </span>
-                      <span class="text-sm text-orange-600">Exp: Not available</span>
+                    <% else %>
+                      <div class="badge badge-neutral">❓ Unknown</div>
+                      <span class="text-sm text-base-content/60">Exp: Not available</span>
                     <% end %>
                   </div>
 
                   <%= if medicine.indication do %>
-                    <p class="text-sm text-orange-600 mt-2 italic">{medicine.indication}</p>
+                    <p class="text-sm text-base-content/60 mt-2 italic">{medicine.indication}</p>
                   <% end %>
                 </div>
               </div>
@@ -160,95 +295,216 @@
         </div>
       <% else %>
         <!-- Table View -->
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-orange-200">
+        <div class="card bg-base-100 shadow-xl overflow-hidden">
           <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead class="bg-orange-50">
-                <tr>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">Photo</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">Name</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">Form</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">
-                    Strength
-                  </th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">
-                    Quantity
-                  </th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">Usage</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-orange-900">
-                    Expiration
-                  </th>
+            <table class="table table-zebra">
+              <thead>
+                <tr class="text-sm">
+                  <th class="text-xs sm:text-sm">📸</th>
+                  <th class="text-xs sm:text-sm">Name</th>
+                  <th class="text-xs sm:text-sm">Form</th>
+                  <th class="hidden md:table-cell">Strength</th>
+                  <th class="hidden md:table-cell">Quantity</th>
+                  <th class="hidden md:table-cell">Usage</th>
+                  <th class="text-xs sm:text-sm">Expiration</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-orange-100">
+              <tbody>
                 <%= for medicine <- @medicines do %>
                   <tr
-                    class="hover:bg-orange-50 cursor-pointer"
-                    phx-click={JS.navigate(~p"/medicine/#{medicine.id}")}
+                    class="hover cursor-pointer"
+                    phx-click={JS.navigate(~p"/inventory/#{medicine.id}")}
                   >
-                    <td class="px-4 py-4">
+                    <td>
                       <%= if medicine.photo_paths != [] and hd(medicine.photo_paths) do %>
-                        <img
-                          src={"/uploads/" <> hd(medicine.photo_paths)}
-                          alt={medicine.name}
-                          class="w-12 h-12 object-cover rounded-lg"
-                        />
-                      <% else %>
-                        <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                          <span class="text-lg">💊</span>
-                        </div>
-                      <% end %>
-                    </td>
-                    <td class="px-4 py-4">
-                      <div class="font-semibold text-orange-900">{medicine.name}</div>
-                      <%= if medicine.brand_name do %>
-                        <div class="text-sm text-orange-600">{medicine.brand_name}</div>
-                      <% end %>
-                    </td>
-                    <td class="px-4 py-4 text-orange-700">
-                      {String.capitalize(medicine.dosage_form)}
-                    </td>
-                    <td class="px-4 py-4 text-orange-700">
-                      {MedicineInventory.Medicine.strength_display(medicine)}
-                    </td>
-                    <td class="px-4 py-4 text-orange-700">
-                      {MedicineInventory.Medicine.quantity_display(medicine)}
-                    </td>
-                    <td class="px-4 py-4">
-                      <div class="flex items-center space-x-2">
-                        <div class="w-16 bg-orange-200 rounded-full h-2">
-                          <div
-                            class="bg-orange-500 h-2 rounded-full"
-                            style={"width: #{MedicineInventory.Medicine.usage_percentage(medicine)}%"}
-                          >
+                        <div class="avatar">
+                          <div class="mask mask-squircle w-10 h-10 sm:w-12 sm:h-12">
+                            <img
+                              src={"/uploads/" <> hd(medicine.photo_paths)}
+                              alt={medicine.name}
+                            />
                           </div>
                         </div>
-                        <span class="text-xs text-orange-600">
+                      <% else %>
+                        <div class="avatar placeholder">
+                          <div class="bg-base-200 text-base-content rounded-lg w-10 h-10 sm:w-12 sm:h-12">
+                            <span class="text-base sm:text-lg">💊</span>
+                          </div>
+                        </div>
+                      <% end %>
+                    </td>
+                    <td>
+                      <div class="font-semibold text-base-content">{medicine.name}</div>
+                      <%= if medicine.brand_name do %>
+                        <div class="text-sm text-base-content">{medicine.brand_name}</div>
+                      <% end %>
+                      
+<!-- Search Matches for Table -->
+                      <%= if @search_query != "" do %>
+                        <% matches =
+                          MedicineInventory.Medicine.search_matches(medicine, @search_query) %>
+                        <%= if matches != [] do %>
+                          <div class="flex flex-wrap gap-1 mt-1">
+                            <%= for {field, _value} <- matches do %>
+                              <div class="badge badge-outline badge-xs">
+                                <%= case field do %>
+                                  <% :name -> %>
+                                    📛
+                                  <% :brand_name -> %>
+                                    🏷️
+                                  <% :generic_name -> %>
+                                    💊
+                                  <% :active_ingredient -> %>
+                                    🧪
+                                  <% :manufacturer -> %>
+                                    🏭
+                                <% end %>
+                              </div>
+                            <% end %>
+                          </div>
+                        <% end %>
+                      <% end %>
+                      
+<!-- Show matched fields in table -->
+                      <%= if @search_query != "" do %>
+                        <% matches =
+                          MedicineInventory.Medicine.search_matches(medicine, @search_query) %>
+                        <%= for {field, value} <- matches do %>
+                          <%= if field in [:active_ingredient, :manufacturer] do %>
+                            <div class="text-xs text-base-content/60 mt-1">
+                              <%= case field do %>
+                                <% :active_ingredient -> %>
+                                  🧪 {value}
+                                <% :manufacturer -> %>
+                                  🏭 {value}
+                              <% end %>
+                            </div>
+                          <% end %>
+                        <% end %>
+                      <% end %>
+                    </td>
+                    <td>
+                      <span class="hidden sm:inline">
+                        {String.capitalize(medicine.dosage_form)}
+                      </span>
+                      <span class="sm:hidden">
+                        <%= case medicine.dosage_form do %>
+                          <% "tablet" -> %>
+                            Tab
+                          <% "capsule" -> %>
+                            Cap
+                          <% "syrup" -> %>
+                            Syr
+                          <% "suspension" -> %>
+                            Sus
+                          <% "solution" -> %>
+                            Sol
+                          <% "cream" -> %>
+                            Crm
+                          <% "ointment" -> %>
+                            Oint
+                          <% "gel" -> %>
+                            Gel
+                          <% "lotion" -> %>
+                            Lot
+                          <% "drops" -> %>
+                            Drp
+                          <% "injection" -> %>
+                            Inj
+                          <% "inhaler" -> %>
+                            Inh
+                          <% "spray" -> %>
+                            Spr
+                          <% "patch" -> %>
+                            Pat
+                          <% "suppository" -> %>
+                            Sup
+                          <% _ -> %>
+                            {String.capitalize(medicine.dosage_form)}
+                        <% end %>
+                      </span>
+                    </td>
+                    <td class="hidden md:table-cell">
+                      {MedicineInventory.Medicine.strength_display(medicine)}
+                    </td>
+                    <td class="hidden md:table-cell">
+                      {MedicineInventory.Medicine.quantity_display(medicine)}
+                    </td>
+                    <td class="hidden md:table-cell">
+                      <div class="flex items-center space-x-2">
+                        <progress
+                          class="progress progress-primary w-16"
+                          value={MedicineInventory.Medicine.usage_percentage(medicine)}
+                          max="100"
+                        >
+                        </progress>
+                        <span class="text-xs text-base-content/60">
                           {MedicineInventory.Medicine.usage_percentage(medicine)}%
                         </span>
                       </div>
                     </td>
-                    <td class="px-4 py-4">
+                    <td>
                       <%= if medicine.expiration_date do %>
                         <div class="flex flex-col space-y-1">
                           <%= cond do %>
                             <% Date.diff(medicine.expiration_date, Date.utc_today()) < 0 -> %>
-                              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                ⚠️ Expired
-                              </span>
+                              <!-- Desktop: badge with background -->
+                              <div class="hidden sm:block">
+                                <div class="badge badge-error badge-sm">⚠️ Expired</div>
+                              </div>
+                              <!-- Mobile: warning icon and date on same line -->
+                              <div class="sm:hidden flex items-center gap-1">
+                                <span class="text-red-600">⚠️</span>
+                                <span class="text-xs text-base-content/60">
+                                  {String.slice(to_string(medicine.expiration_date), 5, 2)}/{String.slice(
+                                    to_string(medicine.expiration_date),
+                                    2,
+                                    2
+                                  )}
+                                </span>
+                              </div>
                             <% Date.diff(medicine.expiration_date, Date.utc_today()) <= 30 -> %>
-                              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                ⏰ Soon
-                              </span>
+                              <!-- Desktop: badge with background -->
+                              <div class="hidden sm:block">
+                                <div class="badge badge-warning badge-sm">⏰ Soon</div>
+                              </div>
+                              <!-- Mobile: clock icon and date on same line -->
+                              <div class="sm:hidden flex items-center gap-1">
+                                <span class="text-yellow-600">⏰</span>
+                                <span class="text-xs text-base-content/60">
+                                  {String.slice(to_string(medicine.expiration_date), 5, 2)}/{String.slice(
+                                    to_string(medicine.expiration_date),
+                                    2,
+                                    2
+                                  )}
+                                </span>
+                              </div>
                             <% true -> %>
-                              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                ✅ Good
-                              </span>
+                              <!-- Desktop: badge with background -->
+                              <div class="hidden sm:block">
+                                <div class="badge badge-success badge-sm">✅ Good</div>
+                              </div>
+                              <!-- Mobile: checkmark and date on same line -->
+                              <div class="sm:hidden flex items-center gap-1">
+                                <span class="text-green-600">✅</span>
+                                <span class="text-xs text-base-content/60">
+                                  {String.slice(to_string(medicine.expiration_date), 5, 2)}/{String.slice(
+                                    to_string(medicine.expiration_date),
+                                    2,
+                                    2
+                                  )}
+                                </span>
+                              </div>
                           <% end %>
-                          <span class="text-xs text-orange-600">{medicine.expiration_date}</span>
+                          <!-- Desktop date display -->
+                          <span class="hidden sm:inline text-xs text-base-content/60">
+                            {medicine.expiration_date}
+                          </span>
                         </div>
                       <% else %>
-                        <span class="text-xs text-gray-400">No date</span>
+                        <div class="badge badge-neutral badge-sm">
+                          <span class="hidden sm:inline">No date</span><span class="sm:hidden">❓</span>
+                        </div>
                       <% end %>
                     </td>
                   </tr>
@@ -263,14 +519,11 @@
       <%= if @medicines == [] do %>
         <div class="text-center py-12">
           <span class="text-8xl block mb-4">🏥</span>
-          <h3 class="text-2xl font-bold text-orange-900 mb-2">No medicines yet</h3>
-          <p class="text-orange-700 mb-6">
+          <h3 class="text-2xl font-bold text-base-content mb-2">No medicines yet</h3>
+          <p class="text-base-content mb-6">
             Start building your medicine inventory by adding your first medicine!
           </p>
-          <.link
-            navigate={~p"/add"}
-            class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105"
-          >
+          <.link navigate={~p"/add"} class="btn btn-primary">
             ➕ Add Your First Medicine
           </.link>
         </div>

@@ -28,7 +28,21 @@ defmodule MedicineInventoryWeb.CoreComponents do
   """
   use Phoenix.Component
 
+  import Phoenix.Controller,
+    only: [get_csrf_token: 0, view_module: 1, view_template: 1]
+
+  # HTML escaping functionality
+  import Phoenix.HTML
+
+  # Common modules used in templates
   alias Phoenix.LiveView.JS
+  alias MedicineInventoryWeb.Layouts
+
+  # Routes generation with the ~p sigil
+  use Phoenix.VerifiedRoutes,
+    endpoint: MedicineInventoryWeb.Endpoint,
+    router: MedicineInventoryWeb.Router,
+    statics: MedicineInventoryWeb.static_paths()
 
   @doc """
   Renders flash notices.
@@ -461,5 +475,75 @@ defmodule MedicineInventoryWeb.CoreComponents do
   """
   def translate_errors(errors, field) when is_list(errors) do
     for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
+  end
+
+  @doc """
+  Renders the application topbar with logo and navigation icons.
+  """
+  attr :current_page, :atom, default: nil
+
+  def topbar(assigns) do
+    ~H"""
+    <div class="navbar bg-base-200 shadow-lg border-b border-base-300">
+      <div class="flex-1"></div>
+      <div class="flex items-center gap-4">
+        <.link
+          navigate={~p"/inventory"}
+          class={[
+            "btn btn-circle",
+            if(@current_page in [:inventory, :medicine_show], do: "bg-base-300", else: "btn-ghost")
+          ]}
+        >
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+            >
+            </path>
+          </svg>
+        </.link>
+
+        <.link navigate={~p"/"} class="btn btn-ghost btn-circle">
+          <div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+            <svg
+              class="w-6 h-6 text-primary-content"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 9.172V5L8 4z"
+              >
+              </path>
+            </svg>
+          </div>
+        </.link>
+
+        <.link
+          navigate={~p"/add"}
+          class={[
+            "btn btn-circle",
+            if(@current_page == :add, do: "bg-base-300", else: "btn-ghost")
+          ]}
+        >
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+            >
+            </path>
+          </svg>
+        </.link>
+      </div>
+      <div class="flex-1"></div>
+    </div>
+    """
   end
 end

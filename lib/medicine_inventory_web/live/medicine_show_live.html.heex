@@ -1,90 +1,20 @@
 <Layouts.app flash={@flash}>
-  <!-- Custom CSS for slider styling -->
-  <style>
-    .slider-orange::-webkit-slider-thumb {
-      appearance: none;
-      height: 20px;
-      width: 20px;
-      border-radius: 50%;
-      background: #ea580c;
-      cursor: pointer;
-      border: 2px solid #fff;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    }
-
-    .slider-orange::-moz-range-thumb {
-      height: 20px;
-      width: 20px;
-      border-radius: 50%;
-      background: #ea580c;
-      cursor: pointer;
-      border: 2px solid #fff;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    }
-
-    .slider-orange::-webkit-slider-track {
-      height: 16px;
-      border-radius: 8px;
-      background: transparent;
-    }
-
-    .slider-orange::-moz-range-track {
-      height: 16px;
-      border-radius: 8px;
-      background: transparent;
-      border: none;
-    }
-
-    .slider-orange:focus {
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.3);
-    }
-  </style>
-
-  <div class="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 py-8">
+  <.topbar current_page={:medicine_show} />
+  <div class="min-h-screen bg-base-100 py-8">
     <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-      <!-- Header -->
-      <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-orange-900 mb-2">💊 {@medicine.name}</h1>
-        <p class="text-lg text-orange-700">
-          Medicine Details
-        </p>
-      </div>
-      
-<!-- Navigation -->
-      <div class="flex justify-center space-x-4 mb-8">
-        <.link
-          navigate={~p"/"}
-          class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-        >
-          🏠 Home
-        </.link>
-        <.link
-          navigate={~p"/inventory"}
-          class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-        >
-          📊 Back to Inventory
-        </.link>
-        <.link
-          navigate={~p"/add"}
-          class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-        >
-          ➕ Add Medicines
-        </.link>
-      </div>
       
 <!-- Medicine Details Card -->
-      <div class="bg-white rounded-xl shadow-lg border border-orange-200 overflow-hidden">
+      <div class="card bg-base-100 shadow-xl border border-base-300">
         <div class="md:flex">
           <!-- Photo Section -->
           <div class="md:w-1/2">
             <%= if @edit_mode do %>
               <!-- Edit Mode Photo Management -->
-              <div class="space-y-4">
+              <div class="space-y-4 p-6">
                 <!-- Current Photos -->
                 <%= if @medicine.photo_paths != [] do %>
                   <div>
-                    <h3 class="text-lg font-semibold text-orange-900 mb-3">Current Photos</h3>
+                    <h3 class="text-lg font-semibold text-base-content mb-3">Current Photos</h3>
                     <!-- Main Photo -->
                     <div class="mb-4 relative">
                       <img
@@ -99,7 +29,7 @@
                         phx-click="remove_photo"
                         phx-value-index={@selected_photo_index || 0}
                         data-confirm="Are you sure you want to remove this photo?"
-                        class="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 shadow-lg transition-all"
+                        class="btn btn-error btn-circle btn-sm absolute top-2 right-2"
                       >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path
@@ -121,7 +51,7 @@
                             <img
                               src={"/uploads/" <> photo_path}
                               alt={"#{@medicine.name} - Photo #{index + 1}"}
-                              class={"h-16 w-full object-cover rounded cursor-pointer transition-all #{if (@selected_photo_index || 0) == index, do: "ring-2 ring-orange-500", else: "hover:opacity-80"}"}
+                              class={"h-16 w-full object-cover rounded cursor-pointer transition-all #{if (@selected_photo_index || 0) == index, do: "ring-2 ring-primary", else: "hover:opacity-80"}"}
                               phx-click="select_photo"
                               phx-value-index={index}
                             />
@@ -130,7 +60,7 @@
                               phx-click="remove_photo"
                               phx-value-index={index}
                               data-confirm="Are you sure you want to remove this photo?"
-                              class="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 text-xs shadow-lg transition-all"
+                              class="btn btn-error btn-circle btn-xs absolute -top-1 -right-1"
                             >
                               ×
                             </button>
@@ -142,96 +72,95 @@
                 <% end %>
                 
 <!-- Photo Upload Section -->
-                <div class="border-2 border-dashed border-orange-300 rounded-lg p-6 bg-orange-50">
-                  <h3 class="text-lg font-semibold text-orange-900 mb-3">
-                    {if @medicine.photo_paths == [], do: "Add Photos", else: "Add More Photos"}
-                  </h3>
-                  
+                <div class="card bg-base-200 border-2 border-dashed border-base-300">
+                  <div class="card-body">
+                    <h3 class="card-title">
+                      {if @medicine.photo_paths == [], do: "Add Photos", else: "Add More Photos"}
+                    </h3>
+                    
 <!-- Upload Area -->
-                  <%= if length(@uploads.photos.entries) < @uploads.photos.max_entries do %>
-                    <form phx-change="validate" phx-submit="upload">
-                      <div class="text-center">
-                        <label class="cursor-pointer inline-flex flex-col items-center justify-center w-full py-6 px-4 border-2 border-orange-300 border-dashed rounded-lg hover:bg-orange-100 transition-colors">
-                          <svg
-                            class="w-8 h-8 text-orange-500 mb-2"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    <%= if length(@uploads.photos.entries) < @uploads.photos.max_entries do %>
+                      <form phx-change="validate" phx-submit="upload">
+                        <div class="text-center">
+                          <label class="cursor-pointer inline-flex flex-col items-center justify-center w-full py-6 px-4 border-2 border-primary border-dashed rounded-lg hover:bg-base-300 transition-colors">
+                            <svg
+                              class="w-8 h-8 text-primary mb-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
                             >
-                            </path>
-                          </svg>
-                          <span class="text-orange-700 font-medium">Click to upload photos</span>
-                          <span class="text-orange-600 text-sm">
-                            PNG, JPG up to 10MB (max {3 - length(@medicine.photo_paths)} more photos)
-                          </span>
-                          <.live_file_input upload={@uploads.photos} class="sr-only" />
-                        </label>
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                              >
+                              </path>
+                            </svg>
+                            <span class="text-base-content font-medium">
+                              Click to upload photos
+                            </span>
+                            <span class="text-base-content/60 text-sm">
+                              PNG, JPG up to 10MB (max {3 - length(@medicine.photo_paths)} more photos)
+                            </span>
+                            <.live_file_input upload={@uploads.photos} class="sr-only" />
+                          </label>
+                        </div>
+                      </form>
+                    <% else %>
+                      <div class="text-center py-6">
+                        <span class="text-base-content/60">Maximum number of photos reached</span>
                       </div>
-                    </form>
-                  <% else %>
-                    <div class="text-center py-6">
-                      <span class="text-orange-600">Maximum number of photos reached</span>
-                    </div>
-                  <% end %>
-                  
+                    <% end %>
+                    
 <!-- Photo Previews for uploads in progress -->
-                  <%= for entry <- @uploads.photos.entries do %>
-                    <div class="flex items-center space-x-4 bg-white p-4 rounded-lg border border-orange-200 mb-3 mt-4">
-                      <div class="flex-shrink-0">
-                        <.live_img_preview
-                          entry={entry}
-                          class="h-20 w-20 object-cover rounded-lg border-2 border-orange-300"
-                        />
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <p class="text-lg font-semibold text-orange-900 truncate">
-                          {entry.client_name}
-                        </p>
-                        <p class="text-orange-600">
-                          {Float.round(entry.client_size / 1_048_576, 2)} MB
-                        </p>
-                        <div class="w-full bg-orange-200 rounded-full h-3 mt-2">
-                          <div
-                            class="bg-orange-500 h-3 rounded-full transition-all duration-300"
-                            style={"width: #{entry.progress}%"}
-                          >
+                    <%= for entry <- @uploads.photos.entries do %>
+                      <div class="card bg-base-100 shadow-sm mb-3 mt-4">
+                        <div class="card-body p-4">
+                          <div class="flex items-center space-x-4">
+                            <div class="flex-shrink-0">
+                              <.live_img_preview
+                                entry={entry}
+                                class="h-20 w-20 object-cover rounded-lg"
+                              />
+                            </div>
+                            <div class="flex-1 min-w-0">
+                              <p class="text-lg font-semibold text-base-content truncate">
+                                {entry.client_name}
+                              </p>
+                              <p class="text-base-content/70">
+                                {Float.round(entry.client_size / 1_048_576, 2)} MB
+                              </p>
+                              <progress
+                                class="progress progress-primary w-full mt-2"
+                                value={entry.progress}
+                                max="100"
+                              >
+                              </progress>
+                            </div>
+                            <button
+                              type="button"
+                              phx-click="cancel_upload"
+                              phx-value-ref={entry.ref}
+                              class="btn btn-error btn-circle btn-xs"
+                            >
+                              ×
+                            </button>
                           </div>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        phx-click="cancel_upload"
-                        phx-value-ref={entry.ref}
-                        class="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition duration-200"
-                      >
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12"
-                          >
-                          </path>
-                        </svg>
-                      </button>
-                    </div>
-                  <% end %>
-                  
+                    <% end %>
+                    
 <!-- Upload Errors -->
-                  <%= for entry <- @uploads.photos.entries do %>
-                    <div
-                      :for={err <- upload_errors(@uploads.photos, entry)}
-                      class="mt-2 text-red-600 text-sm"
-                    >
-                      {error_to_string(err)}
-                    </div>
-                  <% end %>
+                    <%= for entry <- @uploads.photos.entries do %>
+                      <div
+                        :for={err <- upload_errors(@uploads.photos, entry)}
+                        class="mt-2 text-red-600 text-sm"
+                      >
+                        {error_to_string(err)}
+                      </div>
+                    <% end %>
+                  </div>
                 </div>
                 
 <!-- AI Analysis Button -->
@@ -241,7 +170,7 @@
                       type="button"
                       phx-click="analyze_photos"
                       disabled={@analyzing}
-                      class="bg-purple-500 hover:bg-purple-600 disabled:bg-purple-300 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 inline-flex items-center space-x-2"
+                      class="btn btn-primary"
                     >
                       <%= if @analyzing do %>
                         <svg
@@ -271,7 +200,7 @@
                         <span>🤖 AI Analyze Photos</span>
                       <% end %>
                     </button>
-                    <p class="text-sm text-orange-600 mt-2">
+                    <p class="text-sm text-base-content/70 mt-2">
                       AI will analyze your photos and suggest medicine details
                     </p>
                   </div>
@@ -299,7 +228,7 @@
                       <img
                         src={"/uploads/" <> photo_path}
                         alt={"#{@medicine.name} - Photo #{index + 1}"}
-                        class={"h-16 w-full object-cover rounded cursor-pointer transition-all #{if (@selected_photo_index || 0) == index, do: "ring-2 ring-orange-500", else: "hover:opacity-80"}"}
+                        class={"h-16 w-full object-cover rounded cursor-pointer transition-all #{if (@selected_photo_index || 0) == index, do: "ring-2 ring-primary", else: "hover:opacity-80"}"}
                         phx-click="select_photo"
                         phx-value-index={index}
                       />
@@ -307,7 +236,7 @@
                   </div>
                 <% end %>
               <% else %>
-                <div class="h-64 md:h-full bg-orange-100 flex items-center justify-center rounded-lg">
+                <div class="h-64 md:h-full bg-base-100 flex items-center justify-center rounded-lg">
                   <span class="text-8xl">💊</span>
                 </div>
               <% end %>
@@ -326,7 +255,7 @@
               >
                 <!-- Basic Information -->
                 <div>
-                  <h3 class="text-xl font-bold text-orange-900 mb-4">📋 Basic Information</h3>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📋 Basic Information</h3>
                   <div class="space-y-4">
                     <.input field={@form[:name]} type="text" label="Medicine Name" required />
                     <.input field={@form[:brand_name]} type="text" label="Brand Name" />
@@ -364,7 +293,7 @@
                 
 <!-- Strength & Dosage -->
                 <div>
-                  <h3 class="text-xl font-bold text-orange-900 mb-4">💪 Strength & Dosage</h3>
+                  <h3 class="text-xl font-bold text-base-content mb-4">💪 Strength & Dosage</h3>
                   <div class="grid grid-cols-2 gap-4">
                     <.input
                       field={@form[:strength_value]}
@@ -395,7 +324,7 @@
                 
 <!-- Container & Quantity -->
                 <div>
-                  <h3 class="text-xl font-bold text-orange-900 mb-4">📦 Container & Quantity</h3>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📦 Container & Quantity</h3>
                   <div class="space-y-4">
                     <.input
                       field={@form[:container_type]}
@@ -439,7 +368,7 @@
                 
 <!-- Dates & Tracking -->
                 <div>
-                  <h3 class="text-xl font-bold text-orange-900 mb-4">📅 Dates & Tracking</h3>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📅 Dates & Tracking</h3>
                   <div class="grid grid-cols-2 gap-4">
                     <.input field={@form[:expiration_date]} type="date" label="Expiration Date" />
                     <.input field={@form[:purchase_date]} type="date" label="Purchase Date" />
@@ -460,7 +389,7 @@
                 
 <!-- Additional Details -->
                 <div>
-                  <h3 class="text-xl font-bold text-orange-900 mb-4">📝 Additional Details</h3>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📝 Additional Details</h3>
                   <div class="grid grid-cols-2 gap-4">
                     <.input field={@form[:manufacturer]} type="text" label="Manufacturer" />
                     <.input field={@form[:lot_number]} type="text" label="Lot Number" />
@@ -473,38 +402,38 @@
               <div class="space-y-6">
                 <!-- Basic Information -->
                 <div>
-                  <h3 class="text-xl font-bold text-orange-900 mb-4">📋 Basic Information</h3>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📋 Basic Information</h3>
                   <div class="space-y-3">
                     <div class="flex justify-between">
-                      <span class="font-medium text-orange-700">Medicine Name:</span>
-                      <span class="text-orange-900">{@medicine.name}</span>
+                      <span class="font-medium text-base-content/70">Medicine Name:</span>
+                      <span class="text-base-content">{@medicine.name}</span>
                     </div>
 
                     <%= if @medicine.brand_name do %>
                       <div class="flex justify-between">
-                        <span class="font-medium text-orange-700">Brand:</span>
-                        <span class="text-orange-900">{@medicine.brand_name}</span>
+                        <span class="font-medium text-base-content/70">Brand:</span>
+                        <span class="text-base-content">{@medicine.brand_name}</span>
                       </div>
                     <% end %>
 
                     <%= if @medicine.generic_name do %>
                       <div class="flex justify-between">
-                        <span class="font-medium text-orange-700">Generic:</span>
-                        <span class="text-orange-900">{@medicine.generic_name}</span>
+                        <span class="font-medium text-base-content/70">Generic:</span>
+                        <span class="text-base-content">{@medicine.generic_name}</span>
                       </div>
                     <% end %>
 
                     <div class="flex justify-between">
-                      <span class="font-medium text-orange-700">Form:</span>
-                      <span class="text-orange-900">
+                      <span class="font-medium text-base-content/70">Form:</span>
+                      <span class="text-base-content">
                         {String.capitalize(@medicine.dosage_form)}
                       </span>
                     </div>
 
                     <%= if @medicine.active_ingredient do %>
                       <div class="flex justify-between">
-                        <span class="font-medium text-orange-700">Active Ingredient:</span>
-                        <span class="text-orange-900">{@medicine.active_ingredient}</span>
+                        <span class="font-medium text-base-content/70">Active Ingredient:</span>
+                        <span class="text-base-content">{@medicine.active_ingredient}</span>
                       </div>
                     <% end %>
                   </div>
@@ -512,11 +441,11 @@
                 
 <!-- Strength & Dosage -->
                 <div>
-                  <h3 class="text-xl font-bold text-orange-900 mb-4">💪 Strength & Dosage</h3>
+                  <h3 class="text-xl font-bold text-base-content mb-4">💪 Strength & Dosage</h3>
                   <div class="space-y-3">
                     <div class="flex justify-between">
-                      <span class="font-medium text-orange-700">Strength:</span>
-                      <span class="text-orange-900">
+                      <span class="font-medium text-base-content/70">Strength:</span>
+                      <span class="text-base-content">
                         {MedicineInventory.Medicine.strength_display(@medicine)}
                       </span>
                     </div>
@@ -525,25 +454,25 @@
                 
 <!-- Container & Quantity -->
                 <div>
-                  <h3 class="text-xl font-bold text-orange-900 mb-4">📦 Container & Quantity</h3>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📦 Container & Quantity</h3>
                   <div class="space-y-3">
                     <div class="flex justify-between">
-                      <span class="font-medium text-orange-700">Container:</span>
-                      <span class="text-orange-900">
+                      <span class="font-medium text-base-content/70">Container:</span>
+                      <span class="text-base-content">
                         {String.capitalize(String.replace(@medicine.container_type, "_", " "))}
                       </span>
                     </div>
 
                     <div class="flex justify-between">
-                      <span class="font-medium text-orange-700">Total Quantity:</span>
-                      <span class="text-orange-900">
+                      <span class="font-medium text-base-content/70">Total Quantity:</span>
+                      <span class="text-base-content">
                         {@medicine.total_quantity} {@medicine.quantity_unit}
                       </span>
                     </div>
 
                     <div class="flex justify-between">
-                      <span class="font-medium text-orange-700">Remaining:</span>
-                      <span class="text-orange-900">
+                      <span class="font-medium text-base-content/70">Remaining:</span>
+                      <span class="text-base-content">
                         {@medicine.remaining_quantity} {@medicine.quantity_unit}
                       </span>
                     </div>
@@ -552,9 +481,9 @@
                 
 <!-- Usage Progress -->
                 <div>
-                  <h3 class="text-xl font-bold text-orange-900 mb-4">📊 Usage</h3>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📊 Usage</h3>
                   <div class="space-y-2">
-                    <div class="flex justify-between text-sm text-orange-600">
+                    <div class="flex justify-between text-sm text-base-content/70">
                       <span>Remaining</span>
                       <span>{MedicineInventory.Medicine.usage_percentage(@medicine)}%</span>
                     </div>
@@ -568,16 +497,16 @@
                           max={Decimal.to_float(@medicine.total_quantity)}
                           step="0.1"
                           value={Decimal.to_float(@medicine.remaining_quantity)}
-                          class="w-full h-4 bg-orange-200 rounded-full appearance-none cursor-pointer slider-orange"
+                          class="range range-primary w-full"
                           style="background: linear-gradient(to right, #f97316 0%, #f97316 #{MedicineInventory.Medicine.usage_percentage(@medicine)}%, #fed7aa #{MedicineInventory.Medicine.usage_percentage(@medicine)}%, #fed7aa 100%)"
                         />
                         <!-- Slider Track Background -->
-                        <div class="absolute top-0 left-0 w-full h-4 bg-orange-200 rounded-full -z-10">
+                        <div class="absolute top-0 left-0 w-full h-4 bg-base-200 rounded-full -z-10">
                         </div>
                       </div>
                     </form>
                     <!-- Quantity Display -->
-                    <div class="flex justify-between text-xs text-orange-600 mt-1">
+                    <div class="flex justify-between text-xs text-base-content/70 mt-1">
                       <span>0 {@medicine.quantity_unit}</span>
                       <span class="font-medium">
                         {@medicine.remaining_quantity} / {@medicine.total_quantity} {@medicine.quantity_unit}
@@ -592,16 +521,16 @@
         </div>
         
 <!-- Additional Information Section -->
-        <div class="border-t border-orange-200 p-8">
+        <div class="border-t border-base-300 p-8">
           <%= if not @edit_mode do %>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
               <!-- Dates & Tracking -->
               <div>
-                <h3 class="text-xl font-bold text-orange-900 mb-4">📅 Dates & Tracking</h3>
+                <h3 class="text-xl font-bold text-base-content mb-4">📅 Dates & Tracking</h3>
                 <div class="space-y-3">
                   <%= if @medicine.expiration_date do %>
                     <div class="flex justify-between items-center">
-                      <span class="font-medium text-orange-700">Expiration:</span>
+                      <span class="font-medium text-base-content/70">Expiration:</span>
                       <div class="flex items-center space-x-2">
                         <%= cond do %>
                           <% Date.diff(@medicine.expiration_date, Date.utc_today()) < 0 -> %>
@@ -617,61 +546,61 @@
                               ✅ Good
                             </span>
                         <% end %>
-                        <span class="text-orange-900">{@medicine.expiration_date}</span>
+                        <span class="text-base-content">{@medicine.expiration_date}</span>
                       </div>
                     </div>
                   <% end %>
 
                   <%= if @medicine.purchase_date do %>
                     <div class="flex justify-between">
-                      <span class="font-medium text-orange-700">Purchased:</span>
-                      <span class="text-orange-900">{@medicine.purchase_date}</span>
+                      <span class="font-medium text-base-content/70">Purchased:</span>
+                      <span class="text-base-content">{@medicine.purchase_date}</span>
                     </div>
                   <% end %>
 
                   <%= if @medicine.date_opened do %>
                     <div class="flex justify-between">
-                      <span class="font-medium text-orange-700">Opened:</span>
-                      <span class="text-orange-900">{@medicine.date_opened}</span>
+                      <span class="font-medium text-base-content/70">Opened:</span>
+                      <span class="text-base-content">{@medicine.date_opened}</span>
                     </div>
                   <% end %>
 
                   <div class="flex justify-between">
-                    <span class="font-medium text-orange-700">Status:</span>
-                    <span class="text-orange-900 capitalize">{@medicine.status}</span>
+                    <span class="font-medium text-base-content/70">Status:</span>
+                    <span class="text-base-content capitalize">{@medicine.status}</span>
                   </div>
                 </div>
               </div>
               
 <!-- Additional Details -->
               <div>
-                <h3 class="text-xl font-bold text-orange-900 mb-4">📝 Additional Details</h3>
+                <h3 class="text-xl font-bold text-base-content mb-4">📝 Additional Details</h3>
                 <div class="space-y-3">
                   <%= if @medicine.manufacturer do %>
                     <div class="flex justify-between">
-                      <span class="font-medium text-orange-700">Manufacturer:</span>
-                      <span class="text-orange-900">{@medicine.manufacturer}</span>
+                      <span class="font-medium text-base-content/70">Manufacturer:</span>
+                      <span class="text-base-content">{@medicine.manufacturer}</span>
                     </div>
                   <% end %>
 
                   <%= if @medicine.lot_number do %>
                     <div class="flex justify-between">
-                      <span class="font-medium text-orange-700">Lot Number:</span>
-                      <span class="text-orange-900">{@medicine.lot_number}</span>
+                      <span class="font-medium text-base-content/70">Lot Number:</span>
+                      <span class="text-base-content">{@medicine.lot_number}</span>
                     </div>
                   <% end %>
 
                   <%= if @medicine.indication do %>
                     <div>
-                      <span class="font-medium text-orange-700">Indication:</span>
-                      <p class="text-orange-900 mt-1">{@medicine.indication}</p>
+                      <span class="font-medium text-base-content/70">Indication:</span>
+                      <p class="text-base-content mt-1">{@medicine.indication}</p>
                     </div>
                   <% end %>
 
                   <%= if @medicine.notes do %>
                     <div>
-                      <span class="font-medium text-orange-700">Notes:</span>
-                      <p class="text-orange-900 mt-1">{@medicine.notes}</p>
+                      <span class="font-medium text-base-content/70">Notes:</span>
+                      <p class="text-base-content mt-1">{@medicine.notes}</p>
                     </div>
                   <% end %>
                 </div>
@@ -681,33 +610,23 @@
         </div>
         
 <!-- Action Buttons -->
-        <div class="border-t border-orange-200 p-6 bg-orange-50">
+        <div class="border-t border-base-300 p-6 bg-base-100">
           <div class="flex justify-center space-x-4">
             <%= if @edit_mode do %>
-              <button
-                type="submit"
-                form="medicine-form"
-                class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-              >
+              <button type="submit" form="medicine-form" class="btn btn-success">
                 💾 Save Changes
               </button>
-              <button
-                phx-click="cancel_edit"
-                class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-              >
+              <button phx-click="cancel_edit" class="btn btn-neutral">
                 ✖️ Cancel
               </button>
             <% else %>
-              <button
-                phx-click="edit_medicine"
-                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-              >
+              <button phx-click="edit_medicine" class="btn btn-primary">
                 ✏️ Edit Medicine
               </button>
               <button
                 phx-click="delete_medicine"
                 data-confirm="Are you sure you want to delete this medicine? This action cannot be undone."
-                class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                class="btn btn-error"
               >
                 🗑️ Delete Medicine
               </button>

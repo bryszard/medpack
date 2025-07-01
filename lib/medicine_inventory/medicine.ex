@@ -163,4 +163,53 @@ defmodule MedicineInventory.Medicine do
       0.0
     end
   end
+
+  def search_matches(%__MODULE__{} = medicine, search_query)
+      when is_binary(search_query) and search_query != "" do
+    search_lower = String.downcase(search_query)
+    matches = []
+
+    matches =
+      if medicine.name && String.contains?(String.downcase(medicine.name), search_lower) do
+        [{:name, medicine.name} | matches]
+      else
+        matches
+      end
+
+    matches =
+      if medicine.brand_name &&
+           String.contains?(String.downcase(medicine.brand_name), search_lower) do
+        [{:brand_name, medicine.brand_name} | matches]
+      else
+        matches
+      end
+
+    matches =
+      if medicine.generic_name &&
+           String.contains?(String.downcase(medicine.generic_name), search_lower) do
+        [{:generic_name, medicine.generic_name} | matches]
+      else
+        matches
+      end
+
+    matches =
+      if medicine.active_ingredient &&
+           String.contains?(String.downcase(medicine.active_ingredient), search_lower) do
+        [{:active_ingredient, medicine.active_ingredient} | matches]
+      else
+        matches
+      end
+
+    matches =
+      if medicine.manufacturer &&
+           String.contains?(String.downcase(medicine.manufacturer), search_lower) do
+        [{:manufacturer, medicine.manufacturer} | matches]
+      else
+        matches
+      end
+
+    Enum.reverse(matches)
+  end
+
+  def search_matches(%__MODULE__{}, _), do: []
 end

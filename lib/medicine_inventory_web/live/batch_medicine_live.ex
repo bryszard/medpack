@@ -6,8 +6,8 @@ defmodule MedicineInventoryWeb.BatchMedicineLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    # Start with 2 empty entries + 1 ghost entry (3 total)
-    initial_entries = create_empty_entries(3)
+    # Start with 1 empty entry + 1 ghost entry (2 total)
+    initial_entries = create_empty_entries(2)
 
     # Configure individual uploads for each entry
     socket_with_uploads = configure_uploads_for_entries(socket, initial_entries)

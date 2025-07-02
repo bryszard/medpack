@@ -7,8 +7,8 @@ defmodule Medpack.S3FileManager do
   alias ExAws.S3
 
   @allowed_extensions [".jpg", ".jpeg", ".png"]
-  # 10MB
-  @max_file_size 10_000_000
+  # 50MB - matching local file manager
+  @max_file_size 50_000_000
 
   @doc """
   Saves an uploaded file to S3 storage.
@@ -164,8 +164,12 @@ defmodule Medpack.S3FileManager do
 
     ExAws.S3.presigned_url(:get, bucket_name, s3_key, expires_in: expires_in)
     |> case do
-      {:ok, url} -> url
-      {:error, _reason} -> nil
+      {:ok, url} ->
+        url
+
+      {:error, reason} ->
+        Logger.error("Failed to generate presigned URL for #{s3_key}: #{inspect(reason)}")
+        nil
     end
   end
 
@@ -243,9 +247,21 @@ defmodule Medpack.S3FileManager do
   end
 
   defp upload_to_s3(s3_key, file_content, upload_entry) do
+    bucket_name = get_bucket_name()
     content_type = get_content_type(upload_entry.client_name)
 
-    upload_to_s3_with_content_type(s3_key, file_content, content_type)
+    Logger.info("Uploading file to S3: #{s3_key} (#{byte_size(file_content)} bytes)")
+
+    case S3.put_object(bucket_name, s3_key, file_content, content_type: content_type)
+         |> ExAws.request() do
+      {:ok, response} ->
+        Logger.info("Successfully uploaded to S3: #{s3_key}")
+        {:ok, response}
+
+      {:error, reason} ->
+        Logger.error("Failed to upload to S3: #{s3_key}, reason: #{inspect(reason)}")
+        {:error, reason}
+    end
   end
 
   defp upload_to_s3_auto(s3_key, file_content, upload_entry) do

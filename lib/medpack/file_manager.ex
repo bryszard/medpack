@@ -25,6 +25,20 @@ defmodule Medpack.FileManager do
   end
 
   @doc """
+  Saves an auto-uploaded file (from consume_uploaded_entries) to the appropriate location.
+
+  For auto-uploaded files, the file content is provided via the meta parameter from consume_uploaded_entries.
+  Returns {:ok, result} where result is either file_path (local) or %{s3_key: key, url: url} (S3)
+  """
+  def save_auto_uploaded_file(meta, upload_entry, entry_id) do
+    if use_s3_storage?() do
+      S3FileManager.save_auto_uploaded_file(meta, upload_entry, entry_id)
+    else
+      save_auto_uploaded_file_locally(meta, upload_entry, entry_id)
+    end
+  end
+
+  @doc """
   Saves an uploaded file locally (development mode).
   """
   def save_uploaded_file_locally(upload_entry, entry_id) do
@@ -32,6 +46,21 @@ defmodule Medpack.FileManager do
          {:ok, file_path} <- generate_file_path(upload_entry, entry_id),
          :ok <- ensure_directory_exists(file_path),
          {:ok, _} <- copy_file(upload_entry.path, file_path) do
+      {:ok, file_path}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Saves an auto-uploaded file locally (development mode).
+  For auto-uploads, the file content is available via meta.path.
+  """
+  def save_auto_uploaded_file_locally(meta, upload_entry, entry_id) do
+    with :ok <- validate_auto_upload(upload_entry),
+         {:ok, file_path} <- generate_file_path(upload_entry, entry_id),
+         :ok <- ensure_directory_exists(file_path),
+         {:ok, _} <- copy_file(meta.path, file_path) do
       {:ok, file_path}
     else
       {:error, reason} -> {:error, reason}
@@ -56,6 +85,19 @@ defmodule Medpack.FileManager do
     with :ok <- validate_file_size(upload_entry),
          :ok <- validate_file_extension(upload_entry),
          :ok <- validate_file_exists(upload_entry) do
+      :ok
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Validates an auto-uploaded file (from consume_uploaded_entries).
+  """
+  def validate_auto_upload(upload_entry) do
+    with :ok <- validate_auto_file_size(upload_entry),
+         :ok <- validate_file_extension(upload_entry),
+         :ok <- validate_auto_upload_complete(upload_entry) do
       :ok
     else
       {:error, reason} -> {:error, reason}
@@ -176,8 +218,27 @@ defmodule Medpack.FileManager do
       # For S3, the photo_path is the S3 key - return presigned URL
       S3FileManager.get_presigned_url(photo_path)
     else
-      # For local files, return the path as-is (should start with /uploads/)
-      photo_path
+      cond do
+        # Already a web path (starts with /)
+        String.starts_with?(photo_path, "/") ->
+          photo_path
+
+        # Full file path (contains priv/static)
+        String.contains?(photo_path, "priv/static") ->
+          photo_path
+          |> String.replace(~r/.*priv\/static/, "")
+          |> then(fn path ->
+            if String.starts_with?(path, "/") do
+              path
+            else
+              "/" <> path
+            end
+          end)
+
+        # Legacy filename only (e.g., "entry_123_456.jpg")
+        true ->
+          "/uploads/" <> photo_path
+      end
     end
   end
 
@@ -193,10 +254,22 @@ defmodule Medpack.FileManager do
   # Private functions
 
   defp validate_file_size(upload_entry) do
-    case File.stat(upload_entry.path) do
-      {:ok, %{size: size}} when size <= @max_file_size -> :ok
-      {:ok, %{size: size}} -> {:error, "File too large: #{size} bytes (max: #{@max_file_size})"}
-      {:error, reason} -> {:error, "Cannot read file stats: #{inspect(reason)}"}
+    # For auto-uploaded entries, use client_size; for manual uploads, use file stat
+    size =
+      if Map.has_key?(upload_entry, :path) do
+        case File.stat(upload_entry.path) do
+          {:ok, %{size: size}} -> size
+          {:error, reason} -> {:error, "Cannot read file stats: #{inspect(reason)}"}
+        end
+      else
+        # Auto-uploaded entries have client_size
+        upload_entry.client_size
+      end
+
+    if size <= @max_file_size do
+      :ok
+    else
+      {:error, "File too large: #{size} bytes (max: #{@max_file_size})"}
     end
   end
 
@@ -212,10 +285,40 @@ defmodule Medpack.FileManager do
   end
 
   defp validate_file_exists(upload_entry) do
-    if File.exists?(upload_entry.path) do
+    # For auto-uploaded entries, we can't check file existence since they don't have a path
+    # The file content is handled by Phoenix LiveView's consume_uploaded_entries
+    if Map.has_key?(upload_entry, :path) do
+      if File.exists?(upload_entry.path) do
+        :ok
+      else
+        {:error, "Uploaded file does not exist"}
+      end
+    else
+      # Auto-uploaded entries are valid if they're marked as done
+      if upload_entry.done? do
+        :ok
+      else
+        {:error, "Upload not complete"}
+      end
+    end
+  end
+
+  defp validate_auto_file_size(upload_entry) do
+    # Auto-uploaded entries use client_size
+    size = upload_entry.client_size
+
+    if size <= @max_file_size do
       :ok
     else
-      {:error, "Uploaded file does not exist"}
+      {:error, "File too large: #{size} bytes (max: #{@max_file_size})"}
+    end
+  end
+
+  defp validate_auto_upload_complete(upload_entry) do
+    if upload_entry.done? do
+      :ok
+    else
+      {:error, "Upload not complete"}
     end
   end
 

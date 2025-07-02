@@ -347,18 +347,28 @@ defmodule MedpackWeb.BatchMedicineLive do
     # Consume all uploaded files for this entry
     file_results =
       consume_uploaded_entries(socket, upload_config_name, fn meta, upload_entry ->
-        # Use FileManager to handle storage (local or S3)
-        case Medpack.FileManager.save_uploaded_file(upload_entry, entry.id) do
+        # Use FileManager to handle auto-uploaded files (local or S3)
+        case Medpack.FileManager.save_auto_uploaded_file(meta, upload_entry, entry.id) do
           {:ok, result} when is_binary(result) ->
             # Local storage - result is file path
-            filename = Path.basename(result)
+            # Generate web path by removing the priv/static prefix and ensuring it starts with /
+            web_path =
+              result
+              |> String.replace(~r/.*priv\/static/, "")
+              |> then(fn path ->
+                if String.starts_with?(path, "/") do
+                  path
+                else
+                  "/" <> path
+                end
+              end)
 
             {:ok,
              %{
                path: result,
-               web_path: "/uploads/#{filename}",
+               web_path: web_path,
                filename: upload_entry.client_name,
-               size: File.stat!(result).size
+               size: upload_entry.client_size
              }}
 
           {:ok, %{s3_key: s3_key, url: url}} ->
@@ -370,8 +380,8 @@ defmodule MedpackWeb.BatchMedicineLive do
                # Use full URL for display
                web_path: url,
                filename: upload_entry.client_name,
-               # Get size from original file
-               size: File.stat!(meta.path).size
+               # Get size from upload entry
+               size: upload_entry.client_size
              }}
 
           {:error, reason} ->

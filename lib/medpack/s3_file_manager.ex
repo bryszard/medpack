@@ -28,6 +28,24 @@ defmodule Medpack.S3FileManager do
   end
 
   @doc """
+  Saves an auto-uploaded file to S3 storage.
+  For auto-uploads, the file content is available via meta.path.
+
+  Returns {:ok, %{s3_key: key, url: url}} or {:error, reason}
+  """
+  def save_auto_uploaded_file(meta, upload_entry, entry_id) do
+    with :ok <- validate_auto_upload(upload_entry),
+         {:ok, s3_key} <- generate_s3_key(upload_entry, entry_id),
+         {:ok, file_content} <- File.read(meta.path),
+         {:ok, _response} <- upload_to_s3_auto(s3_key, file_content, upload_entry) do
+      url = get_presigned_url(s3_key)
+      {:ok, %{s3_key: s3_key, url: url}}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
   Saves an uploaded file to S3 storage with a custom key.
 
   Returns {:ok, %{s3_key: key, url: url}} or {:error, reason}
@@ -50,6 +68,19 @@ defmodule Medpack.S3FileManager do
     with :ok <- validate_file_size(upload_entry),
          :ok <- validate_file_extension(upload_entry),
          :ok <- validate_file_exists(upload_entry) do
+      :ok
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Validates an auto-uploaded file.
+  """
+  def validate_auto_upload(upload_entry) do
+    with :ok <- validate_auto_file_size(upload_entry),
+         :ok <- validate_file_extension(upload_entry),
+         :ok <- validate_auto_upload_complete(upload_entry) do
       :ok
     else
       {:error, reason} -> {:error, reason}
@@ -192,7 +223,32 @@ defmodule Medpack.S3FileManager do
     end
   end
 
+  defp validate_auto_file_size(upload_entry) do
+    # Auto-uploaded entries use client_size
+    size = upload_entry.client_size
+
+    if size <= @max_file_size do
+      :ok
+    else
+      {:error, "File too large: #{size} bytes (max: #{@max_file_size})"}
+    end
+  end
+
+  defp validate_auto_upload_complete(upload_entry) do
+    if upload_entry.done? do
+      :ok
+    else
+      {:error, "Upload not complete"}
+    end
+  end
+
   defp upload_to_s3(s3_key, file_content, upload_entry) do
+    content_type = get_content_type(upload_entry.client_name)
+
+    upload_to_s3_with_content_type(s3_key, file_content, content_type)
+  end
+
+  defp upload_to_s3_auto(s3_key, file_content, upload_entry) do
     content_type = get_content_type(upload_entry.client_name)
 
     upload_to_s3_with_content_type(s3_key, file_content, content_type)

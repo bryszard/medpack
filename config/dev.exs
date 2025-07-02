@@ -84,5 +84,5 @@ config :swoosh, :api_client, false
 
 # Configure file upload paths for development
 config :medpack,
-  upload_path: Path.expand("../uploads", __DIR__),
+  upload_path: Path.expand("../priv/static/uploads", __DIR__),
   temp_upload_path: Path.expand("../tmp/uploads", __DIR__)

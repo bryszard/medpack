@@ -162,7 +162,8 @@ defmodule Medpack.S3FileManager do
   def get_presigned_url(s3_key, expires_in \\ 3600) do
     bucket_name = get_bucket_name()
 
-    ExAws.S3.presigned_url(:get, bucket_name, s3_key, expires_in: expires_in)
+    ExAws.Config.new(:s3)
+    |> ExAws.S3.presigned_url(:get, bucket_name, s3_key, expires_in: expires_in)
     |> case do
       {:ok, url} ->
         url

@@ -35,3 +35,7 @@ phx_new_cache-*.tar
 npm-debug.log
 /assets/node_modules/
 
+# Ignore SQLite database files
+*.db
+*.db-shm
+*.db-wal

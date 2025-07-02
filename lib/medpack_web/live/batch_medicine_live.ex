@@ -6,11 +6,14 @@ defmodule MedpackWeb.BatchMedicineLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    # Start with 2 empty entries + 1 ghost entry (3 total)
+    # Start with in-memory entries only - create DB entries when photos are uploaded
     initial_entries = create_empty_entries(3)
 
     # Configure individual uploads for each entry
     socket_with_uploads = configure_uploads_for_entries(socket, initial_entries)
+
+    # Subscribe to analysis updates
+    Phoenix.PubSub.subscribe(Medpack.PubSub, "batch_processing")
 
     {:ok,
      socket_with_uploads
@@ -41,6 +44,8 @@ defmodule MedpackWeb.BatchMedicineLive do
   def handle_event("add_entries", %{"count" => count_str}, socket) do
     count = String.to_integer(count_str)
     current_entries = socket.assigns.entries
+
+    # Create in-memory entries only - DB entries will be created when photos are uploaded
     new_entries = create_empty_entries(count, length(current_entries))
     updated_entries = current_entries ++ new_entries
 
@@ -54,7 +59,8 @@ defmodule MedpackWeb.BatchMedicineLive do
 
   def handle_event("add_ghost_entry", _params, socket) do
     current_entries = socket.assigns.entries
-    # Add a new empty entry (which will become the new ghost entry)
+
+    # Create in-memory entry only - DB entry will be created when photo is uploaded
     new_entry = create_empty_entries(1, length(current_entries))
     updated_entries = current_entries ++ new_entry
 
@@ -400,9 +406,52 @@ defmodule MedpackWeb.BatchMedicineLive do
             %{client_name: info.filename, client_size: info.size}
           end)
 
+        # Create database entry if this is the first photo for this entry
+        first_photo_path = List.first(entry.photo_paths ++ new_photo_paths)
+
+        # Determine the final entry ID (either existing DB ID or new DB ID)
+        final_entry_id =
+          if first_photo_path do
+            # Check if this entry already exists in the database (string IDs won't exist)
+            if is_integer(entry.id) do
+              # Entry ID is already an integer, check if it exists in DB
+              try do
+                db_entry = Medpack.BatchProcessing.get_entry!(entry.id)
+                Medpack.BatchProcessing.update_entry(db_entry, %{photo_path: first_photo_path})
+                entry.id
+              rescue
+                Ecto.NoResultsError ->
+                  # Entry doesn't exist, create new one
+                  case Medpack.BatchProcessing.create_entry(%{
+                         entry_number: entry.number,
+                         photo_path: first_photo_path,
+                         ai_analysis_status: :pending,
+                         approval_status: :pending
+                       }) do
+                    {:ok, db_entry} -> db_entry.id
+                    {:error, _reason} -> entry.id
+                  end
+              end
+            else
+              # Entry ID is a string like "entry_6311", create new DB entry
+              case Medpack.BatchProcessing.create_entry(%{
+                     entry_number: entry.number,
+                     photo_path: first_photo_path,
+                     ai_analysis_status: :pending,
+                     approval_status: :pending
+                   }) do
+                {:ok, db_entry} -> db_entry.id
+                {:error, _reason} -> entry.id
+              end
+            end
+          else
+            entry.id
+          end
+
         updated_entry = %{
           entry
-          | photos_uploaded: entry.photos_uploaded + length(file_info_list),
+          | id: final_entry_id,
+            photos_uploaded: entry.photos_uploaded + length(file_info_list),
             photo_paths: entry.photo_paths ++ new_photo_paths,
             photo_web_paths: entry.photo_web_paths ++ new_photo_web_paths,
             photo_entries: entry.photo_entries ++ new_photo_entries,
@@ -412,7 +461,9 @@ defmodule MedpackWeb.BatchMedicineLive do
         # Cancel any existing countdown first
         send(self(), {:cancel_analysis_timer, updated_entry.id})
 
-        updated_entries = replace_entry(socket.assigns.entries, updated_entry)
+        # Replace entry in the list, handling ID changes
+        updated_entries =
+          replace_entry_by_original_id(socket.assigns.entries, entry.id, updated_entry)
 
         # Start debounce timer for AI analysis instead of immediate analysis
         start_analysis_debounce(updated_entry.id)
@@ -585,20 +636,98 @@ defmodule MedpackWeb.BatchMedicineLive do
 
       {:noreply, assign(socket, entries: updated_entries)}
     else
-      # Time's up, start analysis
+      # Time's up, start analysis via Oban job
       entry = Enum.find(socket.assigns.entries, &(&1.id == entry_id))
 
       if entry && entry.photos_uploaded > 0 do
-        send(self(), {:analyze_photos, entry})
-      end
+        # Submit analysis job to Oban
+        try do
+          db_entry = Medpack.BatchProcessing.get_entry!(entry.id)
 
-      {:noreply, assign(socket, entries: updated_entries)}
+          case Medpack.BatchProcessing.submit_for_analysis(db_entry) do
+            {:ok, _updated_entry} ->
+              # Update the UI to show processing status
+              updated_entries =
+                Enum.map(updated_entries, fn e ->
+                  if e.id == entry_id do
+                    %{e | ai_analysis_status: :processing}
+                  else
+                    e
+                  end
+                end)
+
+              {:noreply,
+               socket
+               |> assign(entries: updated_entries)
+               |> put_flash(:info, "Analysis started for entry #{entry.number}...")}
+
+            {:error, _reason} ->
+              {:noreply,
+               socket
+               |> assign(entries: updated_entries)
+               |> put_flash(:error, "Failed to start analysis for entry #{entry.number}")}
+          end
+        rescue
+          Ecto.NoResultsError ->
+            {:noreply,
+             socket
+             |> assign(entries: updated_entries)
+             |> put_flash(:error, "Entry not found in database for analysis")}
+        end
+      else
+        {:noreply, assign(socket, entries: updated_entries)}
+      end
     end
   end
 
   def handle_info({:countdown_tick, entry_id, seconds}, socket) do
     send(self(), {:start_analysis_countdown, entry_id, seconds})
     {:noreply, socket}
+  end
+
+  # Handle analysis updates from Oban jobs via PubSub
+  def handle_info({:analysis_update, %{entry_id: entry_id, status: status, data: data}}, socket) do
+    updated_entries =
+      Enum.map(socket.assigns.entries, fn entry ->
+        if entry.id == entry_id do
+          case status do
+            :complete ->
+              %{entry | ai_analysis_status: :complete, ai_results: data}
+
+            :failed ->
+              %{
+                entry
+                | ai_analysis_status: :failed,
+                  validation_errors: [data.error || "Analysis failed"]
+              }
+
+            :processing ->
+              %{entry | ai_analysis_status: :processing}
+
+            _ ->
+              entry
+          end
+        else
+          entry
+        end
+      end)
+
+    flash_message =
+      case status do
+        :complete -> "Analysis complete for entry!"
+        :failed -> "Analysis failed for entry: #{data.error || "Unknown error"}"
+        :processing -> "Analysis started for entry..."
+        _ -> nil
+      end
+
+    socket =
+      if flash_message do
+        put_flash(socket, if(status == :failed, do: :error, else: :info), flash_message)
+      else
+        socket
+      end
+
+    {:noreply, assign(socket, entries: updated_entries)}
   end
 
   @impl true
@@ -673,6 +802,17 @@ defmodule MedpackWeb.BatchMedicineLive do
     end)
   end
 
+  # Replace entry by original ID (handles cases where ID changes from string to integer)
+  defp replace_entry_by_original_id(entries, original_id, updated_entry) do
+    Enum.map(entries, fn entry ->
+      if entry.id == original_id do
+        updated_entry
+      else
+        entry
+      end
+    end)
+  end
+
   defp create_empty_entries(count, start_number \\ 0) do
     (start_number + 1)..(start_number + count)
     |> Enum.map(fn i ->
@@ -691,6 +831,28 @@ defmodule MedpackWeb.BatchMedicineLive do
         analysis_timer_ref: nil
       }
     end)
+  end
+
+  # Convert database entry to LiveView entry format
+  defp convert_db_entry_to_live_entry(%Medpack.BatchProcessing.Entry{} = db_entry) do
+    %{
+      id: db_entry.id,
+      number: db_entry.entry_number,
+      photos_uploaded: if(db_entry.photo_path, do: 1, else: 0),
+      photo_entries: [],
+      photo_paths: if(db_entry.photo_path, do: [db_entry.photo_path], else: []),
+      photo_web_paths:
+        if(db_entry.photo_path,
+          do: [Medpack.FileManager.get_photo_url(db_entry.photo_path)],
+          else: []
+        ),
+      ai_analysis_status: db_entry.ai_analysis_status,
+      ai_results: db_entry.ai_results || %{},
+      approval_status: db_entry.approval_status,
+      validation_errors: [],
+      analysis_countdown: 0,
+      analysis_timer_ref: nil
+    }
   end
 
   defp configure_uploads_for_entries(socket, entries) do

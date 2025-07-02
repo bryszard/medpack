@@ -1,12 +1,12 @@
-defmodule MedicineInventoryWeb do
+defmodule MedpackWeb do
   @moduledoc """
   The entrypoint for defining your web interface, such
   as controllers, components, channels, and so on.
 
   This can be used in your application as:
 
-      use MedicineInventoryWeb, :controller
-      use MedicineInventoryWeb, :html
+      use MedpackWeb, :controller
+      use MedpackWeb, :html
 
   The definitions below will be executed for every controller,
   component, etc, so keep them short and clean, focused
@@ -80,11 +80,11 @@ defmodule MedicineInventoryWeb do
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components
-      import MedicineInventoryWeb.CoreComponents
+      import MedpackWeb.CoreComponents
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS
-      alias MedicineInventoryWeb.Layouts
+      alias MedpackWeb.Layouts
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())
@@ -94,9 +94,9 @@ defmodule MedicineInventoryWeb do
   def verified_routes do
     quote do
       use Phoenix.VerifiedRoutes,
-        endpoint: MedicineInventoryWeb.Endpoint,
-        router: MedicineInventoryWeb.Router,
-        statics: MedicineInventoryWeb.static_paths()
+        endpoint: MedpackWeb.Endpoint,
+        router: MedpackWeb.Router,
+        statics: MedpackWeb.static_paths()
     end
   end
 

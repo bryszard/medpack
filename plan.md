@@ -4,7 +4,7 @@
 A warm and friendly home medicine inventory app with AI-powered photo recognition.
 
 ## Detailed Steps
-- [x] Generate Phoenix LiveView project called `medicine_inventory`
+- [x] Generate Phoenix LiveView project called `medpack`
 - [x] Start the server so we can follow along
 - [x] Replace home page with static mockup of warm, friendly design
 - [x] Add dependencies for image upload and AI integration
@@ -14,7 +14,7 @@ A warm and friendly home medicine inventory app with AI-powered photo recognitio
 - [x] Create Medicine context and schema
   - Medicine table: name, type, quantity, expiration_date, photo_path, notes
   - Migration for medicines table
-- [x] Implement MedicineInventoryLive with photo upload
+- [x] Implement MedpackLive with photo upload
   - Photo upload functionality
   - Form for manual entry/editing
   - Integration with multi-modal AI (OpenAI GPT-4 Vision or similar)

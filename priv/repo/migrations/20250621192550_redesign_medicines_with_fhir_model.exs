@@ -1,4 +1,4 @@
-defmodule MedicineInventory.Repo.Migrations.RedesignMedicinesWithFhirModel do
+defmodule Medpack.Repo.Migrations.RedesignMedicinesWithFhirModel do
   use Ecto.Migration
 
   def change do

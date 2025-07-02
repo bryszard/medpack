@@ -1,4 +1,4 @@
-defmodule MedicineInventory.Repo.Migrations.AddObanJobsTable do
+defmodule Medpack.Repo.Migrations.AddObanJobsTable do
   use Ecto.Migration
 
   def up do

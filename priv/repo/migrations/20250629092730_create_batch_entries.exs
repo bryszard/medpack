@@ -1,4 +1,4 @@
-defmodule MedicineInventory.Repo.Migrations.CreateBatchEntries do
+defmodule Medpack.Repo.Migrations.CreateBatchEntries do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule MedicineInventory.Repo.Migrations.MakeActiveIngredientOptional do
+defmodule Medpack.Repo.Migrations.MakeActiveIngredientOptional do
   use Ecto.Migration
 
   def change do

@@ -1,8 +1,8 @@
 import Config
 
 # Configure your database
-config :medicine_inventory, MedicineInventory.Repo,
-  database: Path.expand("../medicine_inventory_dev.db", __DIR__),
+config :medpack, Medpack.Repo,
+  database: Path.expand("../medpack_dev.db", __DIR__),
   pool_size: 5,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true
@@ -13,7 +13,7 @@ config :medicine_inventory, MedicineInventory.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-config :medicine_inventory, MedicineInventoryWeb.Endpoint,
+config :medpack, MedpackWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
@@ -22,8 +22,8 @@ config :medicine_inventory, MedicineInventoryWeb.Endpoint,
   debug_errors: true,
   secret_key_base: "lPIE9StFKSxDmaJZ1fbeCRq1TBeHSPGL8uZKuIVLBL/3JPkY8WFssHm3p4YPKKUC",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:medicine_inventory, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:medicine_inventory, ~w(--watch)]}
+    esbuild: {Esbuild, :install_and_run, [:medpack, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:medpack, ~w(--watch)]}
   ]
 
 # ## SSL Support
@@ -50,17 +50,17 @@ config :medicine_inventory, MedicineInventoryWeb.Endpoint,
 # different ports.
 
 # Watch static and templates for browser reloading.
-config :medicine_inventory, MedicineInventoryWeb.Endpoint,
+config :medpack, MedpackWeb.Endpoint,
   live_reload: [
     web_console_logger: true,
     patterns: [
       ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
-      ~r"lib/medicine_inventory_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
+      ~r"lib/medpack_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
     ]
   ]
 
 # Enable dev routes for dashboard and mailbox
-config :medicine_inventory, dev_routes: true
+config :medpack, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
@@ -83,6 +83,6 @@ config :phoenix_live_view,
 config :swoosh, :api_client, false
 
 # Configure file upload paths for development
-config :medicine_inventory,
+config :medpack,
   upload_path: Path.expand("../uploads", __DIR__),
   temp_upload_path: Path.expand("../tmp/uploads", __DIR__)

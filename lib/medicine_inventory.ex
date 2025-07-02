@@ -1,6 +1,6 @@
-defmodule MedicineInventory do
+defmodule Medpack do
   @moduledoc """
-  MedicineInventory keeps the contexts that define your domain
+  Medpack keeps the contexts that define your domain
   and business logic.
 
   Contexts are also responsible for managing your data, regardless

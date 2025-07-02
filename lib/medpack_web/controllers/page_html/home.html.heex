@@ -1,0 +1,200 @@
+<div class="min-h-screen bg-base-100">
+  <!-- Header -->
+  <.topbar current_page={:home} />
+  
+<!-- Main Content -->
+  <div class="max-w-4xl mx-auto px-6 py-8">
+    <!-- Welcome Section -->
+    <div class="hero bg-base-200 rounded-box mb-8">
+      <div class="hero-content text-center">
+        <div class="max-w-lg">
+          <h2 class="text-5xl font-bold text-base-content pt-6">
+            Welcome to Medpack
+          </h2>
+          <p class="text-lg text-base-content/70 py-6">
+            Keep track of your medications with AI-powered photo recognition and smart inventory management
+          </p>
+        </div>
+      </div>
+    </div>
+    
+<!-- Navigation Options -->
+    <div class="grid md:grid-cols-2 gap-8 mb-8">
+      <!-- View Inventory -->
+      <a href="/inventory" class="group">
+        <div class="card bg-base-100 shadow-xl border border-base-300 hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
+          <div class="card-body text-center items-center">
+            <div class="w-20 h-20 bg-secondary rounded-2xl flex items-center justify-center group-hover:bg-secondary-focus transition-colors mb-4">
+              <svg
+                class="w-10 h-10 text-secondary-content"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                >
+                </path>
+              </svg>
+            </div>
+            <h2 class="card-title text-2xl mb-2">View Inventory</h2>
+            <p class="text-base-content/70 mb-4">
+              Browse your current medicine collection, search by name, and check expiration dates
+            </p>
+            <div class="card-actions">
+              <div class="btn btn-secondary btn-outline">
+                View medicines
+                <svg
+                  class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 5l7 7-7 7"
+                  >
+                  </path>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </a>
+      
+<!-- Add Medicines -->
+      <a href="/add" class="group">
+        <div class="card bg-base-100 shadow-xl border border-base-300 hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
+          <div class="card-body text-center items-center">
+            <div class="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center group-hover:bg-primary-focus transition-colors mb-4">
+              <svg
+                class="w-10 h-10 text-primary-content"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                >
+                </path>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                >
+                </path>
+              </svg>
+            </div>
+            <h2 class="card-title text-2xl mb-2">Add Medicines</h2>
+            <p class="text-base-content/70 mb-4">
+              Take photos of medicine bottles and let AI extract all the details automatically
+            </p>
+            <div class="card-actions">
+              <div class="btn btn-primary btn-outline">
+                Start adding
+                <svg
+                  class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 5l7 7-7 7"
+                  >
+                  </path>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+    
+<!-- Features Section -->
+    <div class="card bg-base-100 shadow-xl border border-base-300">
+      <div class="card-body">
+        <h2 class="card-title justify-center text-2xl mb-6">Key Features</h2>
+        <div class="grid md:grid-cols-3 gap-6">
+          <div class="text-center">
+            <div class="w-12 h-12 bg-success rounded-lg flex items-center justify-center mx-auto mb-3">
+              <svg
+                class="w-6 h-6 text-success-content"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                >
+                </path>
+              </svg>
+            </div>
+            <h4 class="font-semibold text-base-content mb-2">AI Recognition</h4>
+            <p class="text-sm text-base-content/70">
+              Automatically extract medicine details from photos
+            </p>
+          </div>
+          <div class="text-center">
+            <div class="w-12 h-12 bg-info rounded-lg flex items-center justify-center mx-auto mb-3">
+              <svg
+                class="w-6 h-6 text-info-content"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                >
+                </path>
+              </svg>
+            </div>
+            <h4 class="font-semibold text-base-content mb-2">Expiry Tracking</h4>
+            <p class="text-sm text-base-content/70">
+              Never miss expiration dates with smart reminders
+            </p>
+          </div>
+          <div class="text-center">
+            <div class="w-12 h-12 bg-accent rounded-lg flex items-center justify-center mx-auto mb-3">
+              <svg
+                class="w-6 h-6 text-accent-content"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                >
+                </path>
+              </svg>
+            </div>
+            <h4 class="font-semibold text-base-content mb-2">Smart Search</h4>
+            <p class="text-sm text-base-content/70">
+              Quickly find medicines by name or ingredient
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

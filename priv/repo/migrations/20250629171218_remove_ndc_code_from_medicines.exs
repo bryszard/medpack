@@ -1,4 +1,4 @@
-defmodule MedicineInventory.Repo.Migrations.RemoveNdcCodeFromMedicines do
+defmodule Medpack.Repo.Migrations.RemoveNdcCodeFromMedicines do
   use Ecto.Migration
 
   def change do

@@ -1,0 +1,714 @@
+<Layouts.app flash={@flash}>
+  <.topbar current_page={:medicine_show} />
+  <div class="min-h-screen bg-base-100 py-8">
+    <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+      
+<!-- Medicine Details Card -->
+      <div class="card bg-base-100 shadow-xl border border-base-300">
+        <div class="md:flex">
+          <!-- Photo Section -->
+          <div class="md:w-1/2">
+            <%= if @edit_mode do %>
+              <!-- Edit Mode Photo Management -->
+              <div class="space-y-4 p-6">
+                <!-- Current Photos -->
+                <%= if @medicine.photo_paths != [] do %>
+                  <div>
+                    <h3 class="text-lg font-semibold text-base-content mb-3">Current Photos</h3>
+                    <!-- Main Photo -->
+                    <div class="mb-4 relative">
+                      <img
+                        id="main-photo"
+                        src={"/uploads/" <> (@selected_photo_index && Enum.at(@medicine.photo_paths, @selected_photo_index) || hd(@medicine.photo_paths))}
+                        alt={@medicine.name}
+                        class="h-64 md:h-80 w-full object-cover rounded-lg"
+                      />
+                      <!-- Remove Photo Button -->
+                      <button
+                        type="button"
+                        phx-click="remove_photo"
+                        phx-value-index={@selected_photo_index || 0}
+                        data-confirm="Are you sure you want to remove this photo?"
+                        class="btn btn-error btn-circle btn-sm absolute top-2 right-2"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12"
+                          >
+                          </path>
+                        </svg>
+                      </button>
+                    </div>
+                    
+<!-- Photo Thumbnails (if more than 1 photo) -->
+                    <%= if length(@medicine.photo_paths) > 1 do %>
+                      <div class="grid grid-cols-3 gap-2">
+                        <%= for {photo_path, index} <- Enum.with_index(@medicine.photo_paths) do %>
+                          <div class="relative">
+                            <img
+                              src={"/uploads/" <> photo_path}
+                              alt={"#{@medicine.name} - Photo #{index + 1}"}
+                              class={"h-16 w-full object-cover rounded cursor-pointer transition-all #{if (@selected_photo_index || 0) == index, do: "ring-2 ring-primary", else: "hover:opacity-80"}"}
+                              phx-click="select_photo"
+                              phx-value-index={index}
+                            />
+                            <button
+                              type="button"
+                              phx-click="remove_photo"
+                              phx-value-index={index}
+                              data-confirm="Are you sure you want to remove this photo?"
+                              class="btn btn-error btn-circle btn-xs absolute -top-1 -right-1"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                <% end %>
+                
+<!-- Photo Upload Section -->
+                <div class="card bg-base-200 border-2 border-dashed border-base-300">
+                  <div class="card-body">
+                    <h3 class="card-title">
+                      {if @medicine.photo_paths == [], do: "Add Photos", else: "Add More Photos"}
+                    </h3>
+                    
+<!-- Upload Area -->
+                    <%= if length(@uploads.photos.entries) < @uploads.photos.max_entries do %>
+                      <form phx-change="validate" phx-submit="upload">
+                        <div class="text-center">
+                          <label class="cursor-pointer inline-flex flex-col items-center justify-center w-full py-6 px-4 border-2 border-primary border-dashed rounded-lg hover:bg-base-300 transition-colors">
+                            <svg
+                              class="w-8 h-8 text-primary mb-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                              >
+                              </path>
+                            </svg>
+                            <span class="text-base-content font-medium">
+                              Click to upload photos
+                            </span>
+                            <span class="text-base-content/60 text-sm">
+                              PNG, JPG up to 10MB (max {3 - length(@medicine.photo_paths)} more photos)
+                            </span>
+                            <.live_file_input upload={@uploads.photos} class="sr-only" />
+                          </label>
+                        </div>
+                      </form>
+                    <% else %>
+                      <div class="text-center py-6">
+                        <span class="text-base-content/60">Maximum number of photos reached</span>
+                      </div>
+                    <% end %>
+                    
+<!-- Photo Previews for uploads in progress -->
+                    <%= for entry <- @uploads.photos.entries do %>
+                      <div class="card bg-base-100 shadow-sm mb-3 mt-4">
+                        <div class="card-body p-4">
+                          <div class="flex items-center space-x-4">
+                            <div class="flex-shrink-0">
+                              <.live_img_preview
+                                entry={entry}
+                                class="h-20 w-20 object-cover rounded-lg"
+                              />
+                            </div>
+                            <div class="flex-1 min-w-0">
+                              <p class="text-lg font-semibold text-base-content truncate">
+                                {entry.client_name}
+                              </p>
+                              <p class="text-base-content/70">
+                                {Float.round(entry.client_size / 1_048_576, 2)} MB
+                              </p>
+                              <progress
+                                class="progress progress-primary w-full mt-2"
+                                value={entry.progress}
+                                max="100"
+                              >
+                              </progress>
+                            </div>
+                            <button
+                              type="button"
+                              phx-click="cancel_upload"
+                              phx-value-ref={entry.ref}
+                              class="btn btn-error btn-circle btn-xs"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    <% end %>
+                    
+<!-- Upload Errors -->
+                    <%= for entry <- @uploads.photos.entries do %>
+                      <div
+                        :for={err <- upload_errors(@uploads.photos, entry)}
+                        class="mt-2 text-red-600 text-sm"
+                      >
+                        {error_to_string(err)}
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+                
+<!-- AI Analysis Button -->
+                <%= if @medicine.photo_paths != [] do %>
+                  <div class="text-center">
+                    <button
+                      type="button"
+                      phx-click="analyze_photos"
+                      disabled={@analyzing}
+                      class="btn btn-primary"
+                    >
+                      <%= if @analyzing do %>
+                        <svg
+                          class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                          >
+                          </circle>
+                          <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          >
+                          </path>
+                        </svg>
+                        <span>Analyzing Photos...</span>
+                      <% else %>
+                        <span>🤖 AI Analyze Photos</span>
+                      <% end %>
+                    </button>
+                    <p class="text-sm text-base-content/70 mt-2">
+                      AI will analyze your photos and suggest medicine details
+                    </p>
+                  </div>
+                <% end %>
+              </div>
+            <% else %>
+              <!-- View Mode Photos -->
+              <%= if @medicine.photo_paths != [] do %>
+                <!-- Main Photo -->
+                <div class="mb-4">
+                  <img
+                    id="main-photo"
+                    src={"/uploads/" <> (@selected_photo_index && Enum.at(@medicine.photo_paths, @selected_photo_index) || hd(@medicine.photo_paths))}
+                    alt={@medicine.name}
+                    class="h-96 md:h-[32rem] w-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                    phx-click="enlarge_photo"
+                    phx-value-index={@selected_photo_index || 0}
+                  />
+                </div>
+                
+<!-- Photo Thumbnails (if more than 1 photo) -->
+                <%= if length(@medicine.photo_paths) > 1 do %>
+                  <div class="grid grid-cols-3 gap-2">
+                    <%= for {photo_path, index} <- Enum.with_index(@medicine.photo_paths) do %>
+                      <img
+                        src={"/uploads/" <> photo_path}
+                        alt={"#{@medicine.name} - Photo #{index + 1}"}
+                        class={"h-16 w-full object-cover rounded cursor-pointer transition-all #{if (@selected_photo_index || 0) == index, do: "ring-2 ring-primary", else: "hover:opacity-80"}"}
+                        phx-click="select_photo"
+                        phx-value-index={index}
+                      />
+                    <% end %>
+                  </div>
+                <% end %>
+              <% else %>
+                <div class="h-64 md:h-full bg-base-100 flex items-center justify-center rounded-lg">
+                  <span class="text-8xl">💊</span>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+          
+<!-- Details Section -->
+          <div class="md:w-1/2 p-8">
+            <%= if @edit_mode do %>
+              <.form
+                for={@form}
+                id="medicine-form"
+                phx-change="validate"
+                phx-submit="save"
+                class="space-y-6"
+              >
+                <!-- Basic Information -->
+                <div>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📋 Basic Information</h3>
+                  <div class="space-y-4">
+                    <.input field={@form[:name]} type="text" label="Medicine Name" required />
+                    <.input field={@form[:brand_name]} type="text" label="Brand Name" />
+                    <.input field={@form[:generic_name]} type="text" label="Generic Name" />
+                    <.input
+                      field={@form[:dosage_form]}
+                      type="select"
+                      label="Dosage Form"
+                      options={[
+                        {"Tablet", "tablet"},
+                        {"Capsule", "capsule"},
+                        {"Syrup", "syrup"},
+                        {"Suspension", "suspension"},
+                        {"Solution", "solution"},
+                        {"Cream", "cream"},
+                        {"Ointment", "ointment"},
+                        {"Gel", "gel"},
+                        {"Lotion", "lotion"},
+                        {"Drops", "drops"},
+                        {"Injection", "injection"},
+                        {"Inhaler", "inhaler"},
+                        {"Spray", "spray"},
+                        {"Patch", "patch"},
+                        {"Suppository", "suppository"}
+                      ]}
+                      required
+                    />
+                    <.input
+                      field={@form[:active_ingredient]}
+                      type="text"
+                      label="Active Ingredient"
+                    />
+                  </div>
+                </div>
+                
+<!-- Strength & Dosage -->
+                <div>
+                  <h3 class="text-xl font-bold text-base-content mb-4">💪 Strength & Dosage</h3>
+                  <div class="grid grid-cols-2 gap-4">
+                    <.input
+                      field={@form[:strength_value]}
+                      type="number"
+                      step="0.01"
+                      label="Strength Value"
+                      required
+                    />
+                    <.input
+                      field={@form[:strength_unit]}
+                      type="text"
+                      label="Strength Unit"
+                      required
+                    />
+                    <.input
+                      field={@form[:strength_denominator_value]}
+                      type="number"
+                      step="0.01"
+                      label="Denominator Value"
+                    />
+                    <.input
+                      field={@form[:strength_denominator_unit]}
+                      type="text"
+                      label="Denominator Unit"
+                    />
+                  </div>
+                </div>
+                
+<!-- Container & Quantity -->
+                <div>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📦 Container & Quantity</h3>
+                  <div class="space-y-4">
+                    <.input
+                      field={@form[:container_type]}
+                      type="select"
+                      label="Container Type"
+                      options={[
+                        {"Bottle", "bottle"},
+                        {"Box", "box"},
+                        {"Tube", "tube"},
+                        {"Vial", "vial"},
+                        {"Inhaler", "inhaler"},
+                        {"Blister Pack", "blister_pack"},
+                        {"Sachet", "sachet"},
+                        {"Ampoule", "ampoule"}
+                      ]}
+                      required
+                    />
+                    <div class="grid grid-cols-3 gap-4">
+                      <.input
+                        field={@form[:total_quantity]}
+                        type="number"
+                        step="0.01"
+                        label="Total Quantity"
+                        required
+                      />
+                      <.input
+                        field={@form[:remaining_quantity]}
+                        type="number"
+                        step="0.01"
+                        label="Remaining Quantity"
+                      />
+                      <.input
+                        field={@form[:quantity_unit]}
+                        type="text"
+                        label="Quantity Unit"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+<!-- Dates & Tracking -->
+                <div>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📅 Dates & Tracking</h3>
+                  <div class="grid grid-cols-2 gap-4">
+                    <.input field={@form[:expiration_date]} type="date" label="Expiration Date" />
+                    <.input field={@form[:purchase_date]} type="date" label="Purchase Date" />
+                    <.input field={@form[:date_opened]} type="date" label="Date Opened" />
+                    <.input
+                      field={@form[:status]}
+                      type="select"
+                      label="Status"
+                      options={[
+                        {"Active", "active"},
+                        {"Expired", "expired"},
+                        {"Empty", "empty"},
+                        {"Recalled", "recalled"}
+                      ]}
+                    />
+                  </div>
+                </div>
+                
+<!-- Additional Details -->
+                <div>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📝 Additional Details</h3>
+                  <div class="grid grid-cols-2 gap-4">
+                    <.input field={@form[:manufacturer]} type="text" label="Manufacturer" />
+                    <.input field={@form[:lot_number]} type="text" label="Lot Number" />
+                    <.input field={@form[:indication]} type="textarea" label="Indication" />
+                    <.input field={@form[:notes]} type="textarea" label="Notes" />
+                  </div>
+                </div>
+              </.form>
+            <% else %>
+              <div class="space-y-6">
+                <!-- Basic Information -->
+                <div>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📋 Basic Information</h3>
+                  <div class="space-y-3">
+                    <div class="flex justify-between">
+                      <span class="font-medium text-base-content/70">Medicine Name:</span>
+                      <span class="text-base-content">{@medicine.name}</span>
+                    </div>
+
+                    <%= if @medicine.brand_name do %>
+                      <div class="flex justify-between">
+                        <span class="font-medium text-base-content/70">Brand:</span>
+                        <span class="text-base-content">{@medicine.brand_name}</span>
+                      </div>
+                    <% end %>
+
+                    <%= if @medicine.generic_name do %>
+                      <div class="flex justify-between">
+                        <span class="font-medium text-base-content/70">Generic:</span>
+                        <span class="text-base-content">{@medicine.generic_name}</span>
+                      </div>
+                    <% end %>
+
+                    <div class="flex justify-between">
+                      <span class="font-medium text-base-content/70">Form:</span>
+                      <span class="text-base-content">
+                        {String.capitalize(@medicine.dosage_form)}
+                      </span>
+                    </div>
+
+                    <%= if @medicine.active_ingredient do %>
+                      <div class="flex justify-between">
+                        <span class="font-medium text-base-content/70">Active Ingredient:</span>
+                        <span class="text-base-content">{@medicine.active_ingredient}</span>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+                
+<!-- Strength & Dosage -->
+                <div>
+                  <h3 class="text-xl font-bold text-base-content mb-4">💪 Strength & Dosage</h3>
+                  <div class="space-y-3">
+                    <div class="flex justify-between">
+                      <span class="font-medium text-base-content/70">Strength:</span>
+                      <span class="text-base-content">
+                        {Medpack.Medicine.strength_display(@medicine)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+<!-- Container & Quantity -->
+                <div>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📦 Container & Quantity</h3>
+                  <div class="space-y-3">
+                    <div class="flex justify-between">
+                      <span class="font-medium text-base-content/70">Container:</span>
+                      <span class="text-base-content">
+                        {String.capitalize(String.replace(@medicine.container_type, "_", " "))}
+                      </span>
+                    </div>
+
+                    <div class="flex justify-between">
+                      <span class="font-medium text-base-content/70">Total Quantity:</span>
+                      <span class="text-base-content">
+                        {@medicine.total_quantity} {@medicine.quantity_unit}
+                      </span>
+                    </div>
+
+                    <div class="flex justify-between">
+                      <span class="font-medium text-base-content/70">Remaining:</span>
+                      <span class="text-base-content">
+                        {@medicine.remaining_quantity} {@medicine.quantity_unit}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+<!-- Usage Progress -->
+                <div>
+                  <h3 class="text-xl font-bold text-base-content mb-4">📊 Usage</h3>
+                  <div class="space-y-2">
+                    <div class="flex justify-between text-sm text-base-content/70">
+                      <span>Remaining</span>
+                      <span>{Medpack.Medicine.usage_percentage(@medicine)}%</span>
+                    </div>
+                    <!-- Interactive Usage Slider -->
+                    <form phx-change="update_remaining_quantity">
+                      <div class="relative">
+                        <input
+                          type="range"
+                          name="remaining_quantity"
+                          min="0"
+                          max={Decimal.to_float(@medicine.total_quantity)}
+                          step="0.1"
+                          value={Decimal.to_float(@medicine.remaining_quantity)}
+                          class="range range-primary w-full"
+                          style="background: linear-gradient(to right, #f97316 0%, #f97316 #{Medpack.Medicine.usage_percentage(@medicine)}%, #fed7aa #{Medpack.Medicine.usage_percentage(@medicine)}%, #fed7aa 100%)"
+                        />
+                        <!-- Slider Track Background -->
+                        <div class="absolute top-0 left-0 w-full h-4 bg-base-200 rounded-full -z-10">
+                        </div>
+                      </div>
+                    </form>
+                    <!-- Quantity Display -->
+                    <div class="flex justify-between text-xs text-base-content/70 mt-1">
+                      <span>0 {@medicine.quantity_unit}</span>
+                      <span class="font-medium">
+                        {@medicine.remaining_quantity} / {@medicine.total_quantity} {@medicine.quantity_unit}
+                      </span>
+                      <span>{@medicine.total_quantity} {@medicine.quantity_unit}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+        
+<!-- Additional Information Section -->
+        <div class="border-t border-base-300 p-8">
+          <%= if not @edit_mode do %>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <!-- Dates & Tracking -->
+              <div>
+                <h3 class="text-xl font-bold text-base-content mb-4">📅 Dates & Tracking</h3>
+                <div class="space-y-3">
+                  <%= if @medicine.expiration_date do %>
+                    <div class="flex justify-between items-center">
+                      <span class="font-medium text-base-content/70">Expiration:</span>
+                      <div class="flex items-center space-x-2">
+                        <%= cond do %>
+                          <% Date.diff(@medicine.expiration_date, Date.utc_today()) < 0 -> %>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              ⚠️ Expired
+                            </span>
+                          <% Date.diff(@medicine.expiration_date, Date.utc_today()) <= 30 -> %>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              ⏰ Expires Soon
+                            </span>
+                          <% true -> %>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              ✅ Good
+                            </span>
+                        <% end %>
+                        <span class="text-base-content">{@medicine.expiration_date}</span>
+                      </div>
+                    </div>
+                  <% end %>
+
+                  <%= if @medicine.purchase_date do %>
+                    <div class="flex justify-between">
+                      <span class="font-medium text-base-content/70">Purchased:</span>
+                      <span class="text-base-content">{@medicine.purchase_date}</span>
+                    </div>
+                  <% end %>
+
+                  <%= if @medicine.date_opened do %>
+                    <div class="flex justify-between">
+                      <span class="font-medium text-base-content/70">Opened:</span>
+                      <span class="text-base-content">{@medicine.date_opened}</span>
+                    </div>
+                  <% end %>
+
+                  <div class="flex justify-between">
+                    <span class="font-medium text-base-content/70">Status:</span>
+                    <span class="text-base-content capitalize">{@medicine.status}</span>
+                  </div>
+                </div>
+              </div>
+              
+<!-- Additional Details -->
+              <div>
+                <h3 class="text-xl font-bold text-base-content mb-4">📝 Additional Details</h3>
+                <div class="space-y-3">
+                  <%= if @medicine.manufacturer do %>
+                    <div class="flex justify-between">
+                      <span class="font-medium text-base-content/70">Manufacturer:</span>
+                      <span class="text-base-content">{@medicine.manufacturer}</span>
+                    </div>
+                  <% end %>
+
+                  <%= if @medicine.lot_number do %>
+                    <div class="flex justify-between">
+                      <span class="font-medium text-base-content/70">Lot Number:</span>
+                      <span class="text-base-content">{@medicine.lot_number}</span>
+                    </div>
+                  <% end %>
+
+                  <%= if @medicine.indication do %>
+                    <div>
+                      <span class="font-medium text-base-content/70">Indication:</span>
+                      <p class="text-base-content mt-1">{@medicine.indication}</p>
+                    </div>
+                  <% end %>
+
+                  <%= if @medicine.notes do %>
+                    <div>
+                      <span class="font-medium text-base-content/70">Notes:</span>
+                      <p class="text-base-content mt-1">{@medicine.notes}</p>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+        
+<!-- Action Buttons -->
+        <div class="border-t border-base-300 p-6 bg-base-100">
+          <div class="flex justify-center space-x-4">
+            <%= if @edit_mode do %>
+              <button type="submit" form="medicine-form" class="btn btn-success">
+                💾 Save Changes
+              </button>
+              <button phx-click="cancel_edit" class="btn btn-neutral">
+                ✖️ Cancel
+              </button>
+            <% else %>
+              <button phx-click="edit_medicine" class="btn btn-primary">
+                ✏️ Edit Medicine
+              </button>
+              <button
+                phx-click="delete_medicine"
+                data-confirm="Are you sure you want to delete this medicine? This action cannot be undone."
+                class="btn btn-error"
+              >
+                🗑️ Delete Medicine
+              </button>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+<!-- Photo Enlargement Modal -->
+  <%= if @show_enlarged_photo do %>
+    <div
+      class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+      phx-click="close_enlarged_photo"
+      phx-window-keydown="close_enlarged_photo"
+      phx-key="Escape"
+    >
+      <div class="relative max-w-4xl max-h-full p-4">
+        <img
+          src={"/uploads/" <> Enum.at(@medicine.photo_paths, @enlarged_photo_index || 0)}
+          alt={"#{@medicine.name} - Enlarged"}
+          class="max-w-full max-h-full object-contain rounded-lg"
+          phx-click={JS.dispatch("click", to: "body")}
+        />
+        
+<!-- Close Button -->
+        <button
+          phx-click="close_enlarged_photo"
+          class="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75 transition-all"
+        >
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            >
+            </path>
+          </svg>
+        </button>
+        
+<!-- Navigation Arrows (if multiple photos) -->
+        <%= if length(@medicine.photo_paths) > 1 do %>
+          <!-- Previous Photo -->
+          <button
+            phx-click="previous_photo"
+            class="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-3 hover:bg-opacity-75 transition-all"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              >
+              </path>
+            </svg>
+          </button>
+          
+<!-- Next Photo -->
+          <button
+            phx-click="next_photo"
+            class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-3 hover:bg-opacity-75 transition-all"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5l7 7-7 7"
+              >
+              </path>
+            </svg>
+          </button>
+          
+<!-- Photo Counter -->
+          <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
+            {(@enlarged_photo_index || 0) + 1} / {length(@medicine.photo_paths)}
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</Layouts.app>

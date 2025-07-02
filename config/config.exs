@@ -7,19 +7,19 @@
 # General application configuration
 import Config
 
-config :medicine_inventory,
-  ecto_repos: [MedicineInventory.Repo],
+config :medpack,
+  ecto_repos: [Medpack.Repo],
   generators: [timestamp_type: :utc_datetime]
 
 # Configures the endpoint
-config :medicine_inventory, MedicineInventoryWeb.Endpoint,
+config :medpack, MedpackWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: MedicineInventoryWeb.ErrorHTML, json: MedicineInventoryWeb.ErrorJSON],
+    formats: [html: MedpackWeb.ErrorHTML, json: MedpackWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: MedicineInventory.PubSub,
+  pubsub_server: Medpack.PubSub,
   live_view: [signing_salt: "+vfUulMC"]
 
 # Configures the mailer
@@ -29,12 +29,12 @@ config :medicine_inventory, MedicineInventoryWeb.Endpoint,
 #
 # For production it's recommended to configure a different adapter
 # at the `config/runtime.exs`.
-config :medicine_inventory, MedicineInventory.Mailer, adapter: Swoosh.Adapters.Local
+config :medpack, Medpack.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.17.11",
-  medicine_inventory: [
+  medpack: [
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__),
@@ -44,7 +44,7 @@ config :esbuild,
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "4.0.9",
-  medicine_inventory: [
+  medpack: [
     args: ~w(
       --input=assets/css/app.css
       --output=priv/static/assets/css/app.css
@@ -61,8 +61,8 @@ config :logger, :default_formatter,
 config :phoenix, :json_library, Jason
 
 # Configure Oban for SQLite compatibility
-config :medicine_inventory, Oban,
-  repo: MedicineInventory.Repo,
+config :medpack, Oban,
+  repo: Medpack.Repo,
   plugins: [Oban.Plugins.Pruner],
   notifier: Oban.Notifiers.Isolated,
   # Disable peer coordination for SQLite

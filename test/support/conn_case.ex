@@ -1,4 +1,4 @@
-defmodule MedicineInventoryWeb.ConnCase do
+defmodule MedpackWeb.ConnCase do
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -11,7 +11,7 @@ defmodule MedicineInventoryWeb.ConnCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use MedicineInventoryWeb.ConnCase, async: true`, although
+  by setting `use MedpackWeb.ConnCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -20,19 +20,19 @@ defmodule MedicineInventoryWeb.ConnCase do
   using do
     quote do
       # The default endpoint for testing
-      @endpoint MedicineInventoryWeb.Endpoint
+      @endpoint MedpackWeb.Endpoint
 
-      use MedicineInventoryWeb, :verified_routes
+      use MedpackWeb, :verified_routes
 
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import MedicineInventoryWeb.ConnCase
+      import MedpackWeb.ConnCase
     end
   end
 
   setup tags do
-    MedicineInventory.DataCase.setup_sandbox(tags)
+    Medpack.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 end

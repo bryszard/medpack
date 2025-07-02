@@ -1,4 +1,4 @@
-defmodule MedicineInventory.Repo.Migrations.CreateMedicines do
+defmodule Medpack.Repo.Migrations.CreateMedicines do
   use Ecto.Migration
 
   def change do

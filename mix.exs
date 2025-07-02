@@ -1,9 +1,9 @@
-defmodule MedicineInventory.MixProject do
+defmodule Medpack.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :medicine_inventory,
+      app: :medpack,
       version: "0.1.0",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -19,7 +19,7 @@ defmodule MedicineInventory.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {MedicineInventory.Application, []},
+      mod: {Medpack.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -80,10 +80,10 @@ defmodule MedicineInventory.MixProject do
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["tailwind medicine_inventory", "esbuild medicine_inventory"],
+      "assets.build": ["tailwind medpack", "esbuild medpack"],
       "assets.deploy": [
-        "tailwind medicine_inventory --minify",
-        "esbuild medicine_inventory --minify",
+        "tailwind medpack --minify",
+        "esbuild medpack --minify",
         "phx.digest"
       ]
     ]

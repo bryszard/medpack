@@ -1,12 +1,12 @@
-defmodule MedicineInventoryWeb.ErrorJSONTest do
-  use MedicineInventoryWeb.ConnCase, async: true
+defmodule MedpackWeb.ErrorJSONTest do
+  use MedpackWeb.ConnCase, async: true
 
   test "renders 404" do
-    assert MedicineInventoryWeb.ErrorJSON.render("404.json", %{}) == %{errors: %{detail: "Not Found"}}
+    assert MedpackWeb.ErrorJSON.render("404.json", %{}) == %{errors: %{detail: "Not Found"}}
   end
 
   test "renders 500" do
-    assert MedicineInventoryWeb.ErrorJSON.render("500.json", %{}) ==
+    assert MedpackWeb.ErrorJSON.render("500.json", %{}) ==
              %{errors: %{detail: "Internal Server Error"}}
   end
 end

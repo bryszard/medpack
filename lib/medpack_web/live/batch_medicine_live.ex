@@ -347,30 +347,36 @@ defmodule MedpackWeb.BatchMedicineLive do
     # Consume all uploaded files for this entry
     file_results =
       consume_uploaded_entries(socket, upload_config_name, fn meta, upload_entry ->
-        # Create destination path in the web-accessible uploads directory
-        dest_dir = Path.join(["priv", "static", "uploads"])
-        File.mkdir_p!(dest_dir)
+        # Use FileManager to handle storage (local or S3)
+        case Medpack.FileManager.save_uploaded_file(upload_entry, entry.id) do
+          {:ok, result} when is_binary(result) ->
+            # Local storage - result is file path
+            filename = Path.basename(result)
 
-        # Create a unique filename to avoid conflicts
-        timestamp = System.system_time(:second)
+            {:ok,
+             %{
+               path: result,
+               web_path: "/uploads/#{filename}",
+               filename: upload_entry.client_name,
+               size: File.stat!(result).size
+             }}
 
-        # Add a random component to ensure uniqueness when multiple files are uploaded simultaneously
-        random_suffix = :rand.uniform(999_999)
-        file_extension = Path.extname(upload_entry.client_name)
-        unique_filename = "#{entry.id}_#{timestamp}_#{random_suffix}#{file_extension}"
-        dest_path = Path.join(dest_dir, unique_filename)
+          {:ok, %{s3_key: s3_key, url: url}} ->
+            # S3 storage - use URL for both path and web_path
+            {:ok,
+             %{
+               # Store S3 key as path for deletion later
+               path: s3_key,
+               # Use full URL for display
+               web_path: url,
+               filename: upload_entry.client_name,
+               # Get size from original file
+               size: File.stat!(meta.path).size
+             }}
 
-        # Copy file to destination
-        File.cp!(meta.path, dest_path)
-
-        # Return file info with proper tuple format
-        {:ok,
-         %{
-           path: dest_path,
-           web_path: "/uploads/#{unique_filename}",
-           filename: upload_entry.client_name,
-           size: File.stat!(dest_path).size
-         }}
+          {:error, reason} ->
+            {:error, reason}
+        end
       end)
 
     case file_results do
@@ -703,15 +709,51 @@ defmodule MedpackWeb.BatchMedicineLive do
             :failed
 
           [single_path] ->
-            case ImageAnalyzer.analyze_medicine_photo(single_path) do
-              {:ok, results} -> results
-              {:error, _} -> :failed
+            # Convert photo identifier to processable path/URL
+            processable_path =
+              if Medpack.FileManager.use_s3_storage?() do
+                # For S3, get presigned URL for analysis
+                Medpack.S3FileManager.get_presigned_url(single_path)
+              else
+                # For local files, convert filename to full path
+                Path.join(["priv", "static", "uploads", single_path])
+              end
+
+            case processable_path do
+              nil ->
+                :failed
+
+              path_or_url ->
+                case ImageAnalyzer.analyze_medicine_photo(path_or_url) do
+                  {:ok, results} -> results
+                  {:error, _} -> :failed
+                end
             end
 
           multiple_paths ->
-            case ImageAnalyzer.analyze_medicine_photos(multiple_paths) do
-              {:ok, results} -> results
-              {:error, _} -> :failed
+            # Convert photo identifiers to processable paths/URLs
+            processable_paths =
+              Enum.map(multiple_paths, fn photo_identifier ->
+                if Medpack.FileManager.use_s3_storage?() do
+                  # For S3, get presigned URL for analysis
+                  Medpack.S3FileManager.get_presigned_url(photo_identifier)
+                else
+                  # For local files, convert filename to full path
+                  Path.join(["priv", "static", "uploads", photo_identifier])
+                end
+              end)
+              # Remove any nil URLs
+              |> Enum.reject(&is_nil/1)
+
+            case processable_paths do
+              [] ->
+                :failed
+
+              paths_or_urls ->
+                case ImageAnalyzer.analyze_medicine_photos(paths_or_urls) do
+                  {:ok, results} -> results
+                  {:error, _} -> :failed
+                end
             end
         end
 
@@ -915,6 +957,11 @@ defmodule MedpackWeb.BatchMedicineLive do
     upload_key = get_upload_key_for_entry(entry)
     upload_config = Map.get(uploads, upload_key, %{entries: []})
     upload_config.entries
+  end
+
+  # Helper function to get displayable photo URL
+  def photo_url(photo_identifier) do
+    Medpack.FileManager.get_photo_url(photo_identifier)
   end
 
   # Helper function to render field extraction status

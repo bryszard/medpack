@@ -163,7 +163,7 @@
                 <%= if medicine.photo_paths != [] and hd(medicine.photo_paths) do %>
                   <figure class="h-48">
                     <img
-                      src={"/uploads/" <> hd(medicine.photo_paths)}
+                      src={photo_url(hd(medicine.photo_paths))}
                       alt={medicine.name}
                       class="h-full w-full object-cover"
                     />
@@ -234,9 +234,7 @@
                     <strong>Form:</strong> {String.capitalize(medicine.dosage_form)}
                   </p>
                   <p class="text-base-content/70">
-                    <strong>Strength:</strong> {Medpack.Medicine.strength_display(
-                      medicine
-                    )}
+                    <strong>Strength:</strong> {Medpack.Medicine.strength_display(medicine)}
                   </p>
                   <p class="text-base-content/70">
                     <strong>Container:</strong> {String.capitalize(
@@ -244,9 +242,7 @@
                     )}
                   </p>
                   <p class="text-base-content/70 mb-3">
-                    <strong>Quantity:</strong> {Medpack.Medicine.quantity_display(
-                      medicine
-                    )}
+                    <strong>Quantity:</strong> {Medpack.Medicine.quantity_display(medicine)}
                   </p>
                   
 <!-- Usage Progress Bar -->
@@ -319,10 +315,7 @@
                       <%= if medicine.photo_paths != [] and hd(medicine.photo_paths) do %>
                         <div class="avatar">
                           <div class="mask mask-squircle w-10 h-10 sm:w-12 sm:h-12">
-                            <img
-                              src={"/uploads/" <> hd(medicine.photo_paths)}
-                              alt={medicine.name}
-                            />
+                            <img src={photo_url(hd(medicine.photo_paths))} alt={medicine.name} />
                           </div>
                         </div>
                       <% else %>

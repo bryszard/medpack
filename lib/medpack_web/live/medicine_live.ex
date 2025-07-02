@@ -83,4 +83,9 @@ defmodule MedpackWeb.MedicineLive do
       Medicines.search_and_filter_medicines(search: search_query, filters: filters)
     end
   end
+
+  # Helper function to get displayable photo URL
+  def photo_url(photo_identifier) do
+    Medpack.FileManager.get_photo_url(photo_identifier)
+  end
 end

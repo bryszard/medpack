@@ -110,4 +110,16 @@ if config_env() == :prod do
   #     config :swoosh, :api_client, Swoosh.ApiClient.Hackney
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+
+  # Configure S3 storage for production
+  config :medpack, :file_storage_backend, :s3
+
+  config :medpack,
+    s3_bucket: System.get_env("S3_BUCKET") || raise("S3_BUCKET environment variable is required")
+
+  # ExAws will automatically pick up AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION from env
+  config :ex_aws, :s3,
+    scheme: "https://",
+    host: "fly.storage.tigris.dev",
+    region: "auto"
 end

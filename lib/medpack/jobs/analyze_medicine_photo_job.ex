@@ -56,13 +56,29 @@ defmodule Medpack.Jobs.AnalyzeMedicinePhotoJob do
       nil ->
         {:error, :no_photo}
 
-      photo_path ->
-        case ImageAnalyzer.analyze_medicine_photo(photo_path) do
-          {:ok, results} ->
-            {:ok, results}
+      photo_identifier ->
+        # Convert photo identifier to processable path/URL
+        processable_path =
+          if Medpack.FileManager.use_s3_storage?() do
+            # For S3, get presigned URL for analysis
+            Medpack.S3FileManager.get_presigned_url(photo_identifier)
+          else
+            # For local files, photo_identifier is already the full path
+            photo_identifier
+          end
 
-          {:error, reason} ->
-            {:error, reason}
+        case processable_path do
+          nil ->
+            {:error, :failed_to_generate_presigned_url}
+
+          path_or_url ->
+            case ImageAnalyzer.analyze_medicine_photo(path_or_url) do
+              {:ok, results} ->
+                {:ok, results}
+
+              {:error, reason} ->
+                {:error, reason}
+            end
         end
     end
   end

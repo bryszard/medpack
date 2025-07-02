@@ -1,0 +1,217 @@
+defmodule Medpack.S3FileManager do
+  @moduledoc """
+  Handles file uploads, storage, and cleanup for medicine photos using S3-compatible storage (Tigris).
+  """
+
+  require Logger
+  alias ExAws.S3
+
+  @allowed_extensions [".jpg", ".jpeg", ".png"]
+  # 10MB
+  @max_file_size 10_000_000
+
+  @doc """
+  Saves an uploaded file to S3 storage.
+
+  Returns {:ok, %{s3_key: key, url: url}} or {:error, reason}
+  """
+  def save_uploaded_file(upload_entry, entry_id) do
+    with :ok <- validate_upload(upload_entry),
+         {:ok, s3_key} <- generate_s3_key(upload_entry, entry_id),
+         {:ok, file_content} <- File.read(upload_entry.path),
+         {:ok, _response} <- upload_to_s3(s3_key, file_content, upload_entry) do
+      url = get_presigned_url(s3_key)
+      {:ok, %{s3_key: s3_key, url: url}}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Saves an uploaded file to S3 storage with a custom key.
+
+  Returns {:ok, %{s3_key: key, url: url}} or {:error, reason}
+  """
+  def save_file_with_key(file_path, s3_key, content_type \\ nil) do
+    with {:ok, file_content} <- File.read(file_path),
+         content_type <- content_type || get_content_type_from_path(file_path),
+         {:ok, _response} <- upload_to_s3_with_content_type(s3_key, file_content, content_type) do
+      url = get_presigned_url(s3_key)
+      {:ok, %{s3_key: s3_key, url: url}}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Validates an uploaded file.
+  """
+  def validate_upload(upload_entry) do
+    with :ok <- validate_file_size(upload_entry),
+         :ok <- validate_file_extension(upload_entry),
+         :ok <- validate_file_exists(upload_entry) do
+      :ok
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Deletes a file from S3 storage.
+  """
+  def delete_file(s3_key) when is_binary(s3_key) do
+    bucket_name = get_bucket_name()
+
+    case S3.delete_object(bucket_name, s3_key) |> ExAws.request() do
+      {:ok, _response} ->
+        Logger.info("Deleted S3 file: #{s3_key}")
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Failed to delete S3 file #{s3_key}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Deletes multiple files from S3 storage.
+  """
+  def delete_files(s3_keys) when is_list(s3_keys) do
+    bucket_name = get_bucket_name()
+
+    delete_objects = Enum.map(s3_keys, &%{key: &1})
+
+    case S3.delete_multiple_objects(bucket_name, delete_objects) |> ExAws.request() do
+      {:ok, _response} ->
+        Logger.info("Deleted #{length(s3_keys)} S3 files")
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Failed to delete S3 files: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Gets the content type for a file based on its extension.
+  """
+  def get_content_type(filename) when is_binary(filename) do
+    case Path.extname(filename) |> String.downcase() do
+      ".jpg" -> "image/jpeg"
+      ".jpeg" -> "image/jpeg"
+      ".png" -> "image/png"
+      _ -> "application/octet-stream"
+    end
+  end
+
+  @doc """
+  Generates a unique S3 key for an uploaded file.
+  """
+  def generate_s3_key(upload_entry, entry_id) do
+    unique_filename = generate_unique_filename(upload_entry.client_name)
+    date_folder = Date.utc_today() |> Date.to_string()
+    s3_key = "uploads/#{date_folder}/entry_#{entry_id}_#{unique_filename}"
+    {:ok, s3_key}
+  end
+
+  @doc """
+  Generates a unique filename for an uploaded file.
+  """
+  def generate_unique_filename(original_filename) do
+    extension = Path.extname(original_filename)
+    timestamp = DateTime.utc_now() |> DateTime.to_unix()
+    random_string = :crypto.strong_rand_bytes(8) |> Base.encode64(padding: false)
+
+    "#{timestamp}_#{random_string}#{extension}"
+  end
+
+  @doc """
+  Gets a presigned URL for an S3 object that expires in 1 hour.
+  """
+  def get_presigned_url(s3_key, expires_in \\ 3600) do
+    bucket_name = get_bucket_name()
+
+    ExAws.S3.presigned_url(:get, bucket_name, s3_key, expires_in: expires_in)
+    |> case do
+      {:ok, url} -> url
+      {:error, _reason} -> nil
+    end
+  end
+
+  @doc """
+  Lists all objects in the bucket with a given prefix.
+  """
+  def list_objects(prefix \\ "") do
+    bucket_name = get_bucket_name()
+
+    case S3.list_objects(bucket_name, prefix: prefix) |> ExAws.request() do
+      {:ok, %{body: %{contents: contents}}} ->
+        objects =
+          Enum.map(contents, fn object ->
+            %{
+              key: object.key,
+              size: object.size,
+              last_modified: object.last_modified,
+              url: get_presigned_url(object.key)
+            }
+          end)
+
+        {:ok, objects}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Private functions
+
+  defp validate_file_size(upload_entry) do
+    case File.stat(upload_entry.path) do
+      {:ok, %{size: size}} when size <= @max_file_size -> :ok
+      {:ok, %{size: size}} -> {:error, "File too large: #{size} bytes (max: #{@max_file_size})"}
+      {:error, reason} -> {:error, "Cannot read file stats: #{inspect(reason)}"}
+    end
+  end
+
+  defp validate_file_extension(upload_entry) do
+    extension = Path.extname(upload_entry.client_name) |> String.downcase()
+
+    if extension in @allowed_extensions do
+      :ok
+    else
+      {:error,
+       "Invalid file extension: #{extension}. Allowed: #{Enum.join(@allowed_extensions, ", ")}"}
+    end
+  end
+
+  defp validate_file_exists(upload_entry) do
+    if File.exists?(upload_entry.path) do
+      :ok
+    else
+      {:error, "Uploaded file does not exist"}
+    end
+  end
+
+  defp upload_to_s3(s3_key, file_content, upload_entry) do
+    content_type = get_content_type(upload_entry.client_name)
+
+    upload_to_s3_with_content_type(s3_key, file_content, content_type)
+  end
+
+  defp upload_to_s3_with_content_type(s3_key, file_content, content_type) do
+    bucket_name = get_bucket_name()
+
+    S3.put_object(bucket_name, s3_key, file_content, content_type: content_type)
+    |> ExAws.request()
+  end
+
+  defp get_content_type_from_path(file_path) do
+    filename = Path.basename(file_path)
+    get_content_type(filename)
+  end
+
+  defp get_bucket_name do
+    Application.get_env(:medpack, :s3_bucket) ||
+      raise "S3_BUCKET environment variable is required for S3 file storage"
+  end
+end

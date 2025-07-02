@@ -10,13 +10,19 @@ defmodule Medpack.AI.ImageAnalyzer do
 
   Returns a map with extracted medicine information or an error.
   """
-  def analyze_medicine_photo(image_path) when is_binary(image_path) do
-    case File.exists?(image_path) do
-      true ->
-        perform_analysis(image_path)
+  def analyze_medicine_photo(image_path_or_url) when is_binary(image_path_or_url) do
+    if String.starts_with?(image_path_or_url, "http") do
+      # S3 URL - use directly with OpenAI
+      perform_url_analysis(image_path_or_url)
+    else
+      # Local file path
+      case File.exists?(image_path_or_url) do
+        true ->
+          perform_analysis(image_path_or_url)
 
-      false ->
-        {:error, :file_not_found}
+        false ->
+          {:error, :file_not_found}
+      end
     end
   end
 
@@ -25,13 +31,41 @@ defmodule Medpack.AI.ImageAnalyzer do
 
   Returns a map with extracted medicine information or an error.
   """
-  def analyze_medicine_photos(image_paths) when is_list(image_paths) do
-    case validate_and_encode_images(image_paths) do
-      {:ok, encoded_images} ->
-        perform_multi_analysis(encoded_images)
+  def analyze_medicine_photos(image_paths_or_urls) when is_list(image_paths_or_urls) do
+    case validate_and_prepare_images(image_paths_or_urls) do
+      {:ok, image_data} ->
+        perform_multi_analysis_mixed(image_data)
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp validate_and_prepare_images(image_paths_or_urls) do
+    if length(image_paths_or_urls) == 0 do
+      {:error, :no_images_provided}
+    else
+      case Enum.reduce_while(image_paths_or_urls, [], fn path_or_url, acc ->
+             if String.starts_with?(path_or_url, "http") do
+               # S3 URL - use directly
+               {:cont, [{:url, path_or_url} | acc]}
+             else
+               # Local file path - encode
+               case File.exists?(path_or_url) do
+                 true ->
+                   case encode_image(path_or_url) do
+                     {:ok, encoded} -> {:cont, [{:encoded, encoded} | acc]}
+                     {:error, reason} -> {:halt, {:error, reason}}
+                   end
+
+                 false ->
+                   {:halt, {:error, {:file_not_found, path_or_url}}}
+               end
+             end
+           end) do
+        {:error, reason} -> {:error, reason}
+        image_data -> {:ok, Enum.reverse(image_data)}
+      end
     end
   end
 
@@ -57,6 +91,23 @@ defmodule Medpack.AI.ImageAnalyzer do
     end
   end
 
+  defp perform_multi_analysis_mixed(image_data) do
+    try do
+      case call_openai_vision_multi_mixed(image_data) do
+        {:ok, analysis_result} ->
+          parse_analysis_result(analysis_result)
+
+        {:error, reason} ->
+          Logger.error("OpenAI API call failed: #{inspect(reason)}")
+          {:error, :api_call_failed}
+      end
+    rescue
+      e ->
+        Logger.error("Multi-analysis failed with exception: #{inspect(e)}")
+        {:error, :analysis_exception}
+    end
+  end
+
   defp perform_multi_analysis(encoded_images) do
     try do
       case call_openai_vision_multi(encoded_images) do
@@ -70,6 +121,23 @@ defmodule Medpack.AI.ImageAnalyzer do
     rescue
       e ->
         Logger.error("Multi-analysis failed with exception: #{inspect(e)}")
+        {:error, :analysis_exception}
+    end
+  end
+
+  defp perform_url_analysis(image_url) do
+    try do
+      case call_openai_vision_url(image_url) do
+        {:ok, analysis_result} ->
+          parse_analysis_result(analysis_result)
+
+        {:error, reason} ->
+          Logger.error("OpenAI API call failed: #{inspect(reason)}")
+          {:error, :api_call_failed}
+      end
+    rescue
+      e ->
+        Logger.error("URL analysis failed with exception: #{inspect(e)}")
         {:error, :analysis_exception}
     end
   end
@@ -111,6 +179,73 @@ defmodule Medpack.AI.ImageAnalyzer do
     end
   end
 
+  defp call_openai_vision_multi_mixed(image_data) do
+    # Build content array with text prompt and multiple images (mixed URLs and base64)
+    content = [
+      %{
+        type: "text",
+        text: build_multi_analysis_prompt()
+      }
+    ]
+
+    # Add each image to the content, handling both URLs and base64 encoded images
+    image_content =
+      Enum.map(image_data, fn
+        {:url, url} ->
+          %{
+            type: "image_url",
+            image_url: %{
+              url: url
+            }
+          }
+
+        {:encoded, base64_image} ->
+          %{
+            type: "image_url",
+            image_url: %{
+              url: "data:image/jpeg;base64,#{base64_image}"
+            }
+          }
+      end)
+
+    messages = [
+      %{
+        role: "user",
+        content: content ++ image_content
+      }
+    ]
+
+    request_body = %{
+      model: "gpt-4o",
+      messages: messages,
+      max_tokens: 1500,
+      temperature: 0.1
+    }
+
+    # Use Req instead of ExOpenAI to avoid JSON serialization issues
+    api_key = System.get_env("OPENAI_API_KEY")
+
+    case Req.post("https://api.openai.com/v1/chat/completions",
+           headers: [
+             {"Authorization", "Bearer #{api_key}"},
+             {"Content-Type", "application/json"}
+           ],
+           json: request_body
+         ) do
+      {:ok, %{status: 200, body: response}} ->
+        content = get_in(response, ["choices", Access.at(0), "message", "content"])
+        {:ok, content}
+
+      {:ok, %{status: status, body: error_body}} ->
+        Logger.error("OpenAI API error #{status}: #{inspect(error_body)}")
+        {:error, error_body}
+
+      {:error, error} ->
+        Logger.error("HTTP request failed: #{inspect(error)}")
+        {:error, error}
+    end
+  end
+
   defp call_openai_vision_multi(encoded_images) do
     # Build content array with text prompt and multiple images
     content = [
@@ -142,6 +277,56 @@ defmodule Medpack.AI.ImageAnalyzer do
       model: "gpt-4o",
       messages: messages,
       max_tokens: 1500,
+      temperature: 0.1
+    }
+
+    # Use Req instead of ExOpenAI to avoid JSON serialization issues
+    api_key = System.get_env("OPENAI_API_KEY")
+
+    case Req.post("https://api.openai.com/v1/chat/completions",
+           headers: [
+             {"Authorization", "Bearer #{api_key}"},
+             {"Content-Type", "application/json"}
+           ],
+           json: request_body
+         ) do
+      {:ok, %{status: 200, body: response}} ->
+        content = get_in(response, ["choices", Access.at(0), "message", "content"])
+        {:ok, content}
+
+      {:ok, %{status: status, body: error_body}} ->
+        Logger.error("OpenAI API error #{status}: #{inspect(error_body)}")
+        {:error, error_body}
+
+      {:error, error} ->
+        Logger.error("HTTP request failed: #{inspect(error)}")
+        {:error, error}
+    end
+  end
+
+  defp call_openai_vision_url(image_url) do
+    messages = [
+      %{
+        role: "user",
+        content: [
+          %{
+            type: "text",
+            text: build_analysis_prompt()
+          },
+          %{
+            type: "image_url",
+            image_url: %{
+              url: image_url
+            }
+          }
+        ]
+      }
+    ]
+
+    request_body = %{
+      model: "gpt-4o",
+      messages: messages,
+      max_tokens: 1000,
       temperature: 0.1
     }
 

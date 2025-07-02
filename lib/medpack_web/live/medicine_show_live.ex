@@ -141,11 +141,7 @@ defmodule MedpackWeb.MedicineShowLive do
 
       # Clean up the physical file
       if photo_to_remove do
-        file_path = Path.join(["priv", "static", "uploads", photo_to_remove])
-
-        if File.exists?(file_path) do
-          File.rm(file_path)
-        end
+        Medpack.FileManager.delete_file(photo_to_remove)
       end
 
       # Update the medicine in the database
@@ -285,32 +281,30 @@ defmodule MedpackWeb.MedicineShowLive do
   def handle_info({:process_uploaded_files}, socket) do
     # Process all uploaded files
     file_results =
-      consume_uploaded_entries(socket, :photos, fn meta, upload_entry ->
-        # Create destination path in the web-accessible uploads directory
-        dest_dir = Path.join(["priv", "static", "uploads"])
-        File.mkdir_p!(dest_dir)
+      consume_uploaded_entries(socket, :photos, fn _meta, upload_entry ->
+        # Use FileManager to handle storage (local or S3)
+        case Medpack.FileManager.save_uploaded_file(
+               upload_entry,
+               "medicine_#{socket.assigns.medicine.id}"
+             ) do
+          {:ok, result} when is_binary(result) ->
+            # Local storage - return just the filename
+            filename = Path.basename(result)
+            {:ok, filename}
 
-        # Create a unique filename to avoid conflicts
-        timestamp = System.system_time(:second)
-        random_suffix = :rand.uniform(999_999)
-        file_extension = Path.extname(upload_entry.client_name)
+          {:ok, %{s3_key: _s3_key, url: url}} ->
+            # S3 storage - return the URL for display
+            {:ok, url}
 
-        unique_filename =
-          "medicine_#{socket.assigns.medicine.id}_#{timestamp}_#{random_suffix}#{file_extension}"
-
-        dest_path = Path.join(dest_dir, unique_filename)
-
-        # Copy file to destination
-        File.cp!(meta.path, dest_path)
-
-        # Return just the filename (not the full path)
-        {:ok, unique_filename}
+          {:error, reason} ->
+            {:error, reason}
+        end
       end)
 
     case file_results do
-      filenames when is_list(filenames) and length(filenames) > 0 ->
+      file_identifiers when is_list(file_identifiers) and length(file_identifiers) > 0 ->
         medicine = socket.assigns.medicine
-        updated_photo_paths = medicine.photo_paths ++ filenames
+        updated_photo_paths = medicine.photo_paths ++ file_identifiers
 
         # Update the medicine in the database with new photos
         case Medicines.update_medicine(medicine, %{"photo_paths" => updated_photo_paths}) do
@@ -323,9 +317,8 @@ defmodule MedpackWeb.MedicineShowLive do
 
           {:error, _changeset} ->
             # Clean up uploaded files if database update fails
-            Enum.each(filenames, fn filename ->
-              file_path = Path.join(["priv", "static", "uploads", filename])
-              if File.exists?(file_path), do: File.rm(file_path)
+            Enum.each(file_identifiers, fn file_identifier ->
+              Medpack.FileManager.delete_file(file_identifier)
             end)
 
             {:noreply, put_flash(socket, :error, "Failed to save uploaded photos")}
@@ -404,13 +397,24 @@ defmodule MedpackWeb.MedicineShowLive do
 
   # AI Analysis helper
   defp analyze_medicine_photos(photo_paths) do
-    # Convert relative paths to full paths for analysis
-    full_paths =
-      Enum.map(photo_paths, fn filename ->
-        Path.join(["priv", "static", "uploads", filename])
+    # Convert photo identifiers to processable paths/URLs
+    processable_paths =
+      Enum.map(photo_paths, fn photo_identifier ->
+        if Medpack.FileManager.use_s3_storage?() do
+          # For S3, get presigned URL for analysis
+          Medpack.S3FileManager.get_presigned_url(photo_identifier)
+        else
+          # For local files, convert filename to full path
+          Path.join(["priv", "static", "uploads", photo_identifier])
+        end
       end)
+      # Remove any nil URLs (failed presigned URL generation)
+      |> Enum.reject(&is_nil/1)
 
-    case full_paths do
+    case processable_paths do
+      [] ->
+        {:error, "No valid photo paths available for analysis"}
+
       [single_path] ->
         ImageAnalyzer.analyze_medicine_photo(single_path)
 
@@ -424,4 +428,9 @@ defmodule MedpackWeb.MedicineShowLive do
   defp error_to_string(:too_many_files), do: "Too many files (max 3)"
   defp error_to_string(:not_accepted), do: "File type not supported (only JPG, PNG)"
   defp error_to_string(error), do: "Upload error: #{inspect(error)}"
+
+  # Helper function to get displayable photo URL
+  def photo_url(photo_identifier) do
+    Medpack.FileManager.get_photo_url(photo_identifier)
+  end
 end

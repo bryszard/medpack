@@ -62,6 +62,10 @@ defmodule Medpack.MixProject do
       {:oban, "~> 2.17"},
       {:ex_openai, "~> 1.0"},
       {:temp, "~> 0.4"},
+      {:ex_aws, "~> 2.1"},
+      {:ex_aws_s3, "~> 2.0"},
+      {:hackney, "~> 1.9"},
+      {:sweet_xml, "~> 0.6"},
       {:live_debugger, "~> 0.3.0", only: :dev},
       {:tidewave, "~> 0.1", only: :dev}
     ]

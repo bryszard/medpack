@@ -19,7 +19,13 @@
                     <div class="mb-4 relative">
                       <img
                         id="main-photo"
-                        src={"/uploads/" <> (@selected_photo_index && Enum.at(@medicine.photo_paths, @selected_photo_index) || hd(@medicine.photo_paths))}
+                        src={
+                          photo_url(
+                            (@selected_photo_index &&
+                               Enum.at(@medicine.photo_paths, @selected_photo_index)) ||
+                              hd(@medicine.photo_paths)
+                          )
+                        }
                         alt={@medicine.name}
                         class="h-64 md:h-80 w-full object-cover rounded-lg"
                       />
@@ -49,7 +55,7 @@
                         <%= for {photo_path, index} <- Enum.with_index(@medicine.photo_paths) do %>
                           <div class="relative">
                             <img
-                              src={"/uploads/" <> photo_path}
+                              src={photo_url(photo_path)}
                               alt={"#{@medicine.name} - Photo #{index + 1}"}
                               class={"h-16 w-full object-cover rounded cursor-pointer transition-all #{if (@selected_photo_index || 0) == index, do: "ring-2 ring-primary", else: "hover:opacity-80"}"}
                               phx-click="select_photo"
@@ -213,7 +219,13 @@
                 <div class="mb-4">
                   <img
                     id="main-photo"
-                    src={"/uploads/" <> (@selected_photo_index && Enum.at(@medicine.photo_paths, @selected_photo_index) || hd(@medicine.photo_paths))}
+                    src={
+                      photo_url(
+                        (@selected_photo_index &&
+                           Enum.at(@medicine.photo_paths, @selected_photo_index)) ||
+                          hd(@medicine.photo_paths)
+                      )
+                    }
                     alt={@medicine.name}
                     class="h-96 md:h-[32rem] w-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                     phx-click="enlarge_photo"
@@ -226,7 +238,7 @@
                   <div class="grid grid-cols-3 gap-2">
                     <%= for {photo_path, index} <- Enum.with_index(@medicine.photo_paths) do %>
                       <img
-                        src={"/uploads/" <> photo_path}
+                        src={photo_url(photo_path)}
                         alt={"#{@medicine.name} - Photo #{index + 1}"}
                         class={"h-16 w-full object-cover rounded cursor-pointer transition-all #{if (@selected_photo_index || 0) == index, do: "ring-2 ring-primary", else: "hover:opacity-80"}"}
                         phx-click="select_photo"
@@ -647,7 +659,7 @@
     >
       <div class="relative max-w-4xl max-h-full p-4">
         <img
-          src={"/uploads/" <> Enum.at(@medicine.photo_paths, @enlarged_photo_index || 0)}
+          src={photo_url(Enum.at(@medicine.photo_paths, @enlarged_photo_index || 0))}
           alt={"#{@medicine.name} - Enlarged"}
           class="max-w-full max-h-full object-contain rounded-lg"
           phx-click={JS.dispatch("click", to: "body")}

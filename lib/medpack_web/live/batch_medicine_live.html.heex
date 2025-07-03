@@ -457,7 +457,7 @@
                         </div>
 
                         <%= if entry.approval_status == :pending do %>
-                          <%= if @selected_for_edit == entry.id do %>
+                          <%= if @selected_for_edit && normalize_entry_id(@selected_for_edit) == normalize_entry_id(entry.id) do %>
                             <!-- Edit Form -->
                             <div class="card bg-warning text-warning-content mt-4">
                               <div class="card-body">

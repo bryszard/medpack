@@ -141,7 +141,17 @@ defmodule Medpack.S3FileManager do
   def generate_s3_key(upload_entry, entry_id) do
     unique_filename = generate_unique_filename(upload_entry.client_name)
     date_folder = Date.utc_today() |> Date.to_string()
-    s3_key = "uploads/#{date_folder}/entry_#{entry_id}_#{unique_filename}"
+
+    # Clean entry_id to avoid double prefixes and ensure it's safe for S3 keys
+    clean_entry_id =
+      entry_id
+      |> to_string()
+      # Remove "entry_" prefix if present
+      |> String.replace(~r/^entry_/, "")
+      # Replace unsafe characters with underscores
+      |> String.replace(~r/[^a-zA-Z0-9_-]/, "_")
+
+    s3_key = "uploads/#{date_folder}/entry_#{clean_entry_id}_#{unique_filename}"
     {:ok, s3_key}
   end
 
@@ -151,7 +161,8 @@ defmodule Medpack.S3FileManager do
   def generate_unique_filename(original_filename) do
     extension = Path.extname(original_filename)
     timestamp = DateTime.utc_now() |> DateTime.to_unix()
-    random_string = :crypto.strong_rand_bytes(8) |> Base.encode64(padding: false)
+    # Use URL-safe Base64 encoding to avoid slashes and plus signs
+    random_string = :crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)
 
     "#{timestamp}_#{random_string}#{extension}"
   end
@@ -171,6 +182,26 @@ defmodule Medpack.S3FileManager do
       {:error, reason} ->
         Logger.error("Failed to generate presigned URL for #{s3_key}: #{inspect(reason)}")
         nil
+    end
+  end
+
+  @doc """
+  Copies an S3 object from one key to another within the same bucket.
+  """
+  def copy_object(source_key, dest_key) do
+    bucket_name = get_bucket_name()
+
+    Logger.info("Copying S3 object from #{source_key} to #{dest_key}")
+
+    case S3.put_object_copy(bucket_name, dest_key, bucket_name, source_key)
+         |> ExAws.request() do
+      {:ok, response} ->
+        Logger.info("Successfully copied S3 object to #{dest_key}")
+        {:ok, response}
+
+      {:error, reason} ->
+        Logger.error("Failed to copy S3 object: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 

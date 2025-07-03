@@ -2,16 +2,14 @@ defmodule Medpack.BatchProcessing.Entry do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Medpack.BatchProcessing.EntryImage
+
   schema "batch_entries" do
     field :batch_id, :string
     field :entry_number, :integer
     field :status, Ecto.Enum, values: [:pending, :processing, :complete, :failed]
 
-    # File information
-    field :photo_path, :string
-    field :original_filename, :string
-    field :file_size, :integer
-    field :content_type, :string
+    # File information is now handled by EntryImage schema
 
     # AI analysis
     field :ai_analysis_status, Ecto.Enum, values: [:pending, :processing, :complete, :failed]
@@ -25,6 +23,9 @@ defmodule Medpack.BatchProcessing.Entry do
     field :reviewed_at, :utc_datetime
     field :review_notes, :string
 
+    # Relationships
+    has_many :images, EntryImage, foreign_key: :batch_entry_id
+
     timestamps()
   end
 
@@ -35,10 +36,6 @@ defmodule Medpack.BatchProcessing.Entry do
       :batch_id,
       :entry_number,
       :status,
-      :photo_path,
-      :original_filename,
-      :file_size,
-      :content_type,
       :ai_analysis_status,
       :ai_results,
       :analyzed_at,
@@ -50,23 +47,26 @@ defmodule Medpack.BatchProcessing.Entry do
     ])
     |> validate_required([:batch_id, :entry_number])
     |> validate_number(:entry_number, greater_than: 0)
-    |> validate_number(:file_size, greater_than: 0)
-    |> validate_inclusion(:content_type, ["image/jpeg", "image/png", "image/jpg"])
     |> unique_constraint([:batch_id, :entry_number])
   end
 
   @doc """
-  Returns true if the entry has an uploaded photo.
+  Returns true if the entry has uploaded photos.
   """
-  def has_photo?(%__MODULE__{} = entry) do
-    not is_nil(entry.photo_path) and File.exists?(entry.photo_path)
+  def has_photos?(%__MODULE__{images: images}) when is_list(images) do
+    length(images) > 0
+  end
+
+  def has_photos?(%__MODULE__{} = entry) do
+    # For entries without preloaded images, we need to query
+    Medpack.BatchProcessing.list_entry_images(entry.id) |> length() > 0
   end
 
   @doc """
   Returns true if the entry is ready for analysis.
   """
   def ready_for_analysis?(%__MODULE__{} = entry) do
-    has_photo?(entry) and entry.ai_analysis_status == :pending
+    has_photos?(entry) and entry.ai_analysis_status == :pending
   end
 
   @doc """
@@ -87,9 +87,9 @@ defmodule Medpack.BatchProcessing.Entry do
   Returns a human-readable status for the entry.
   """
   def status_text(%__MODULE__{} = entry) do
-    case {has_photo?(entry), entry.ai_analysis_status, entry.approval_status} do
+    case {has_photos?(entry), entry.ai_analysis_status, entry.approval_status} do
       {false, _, _} -> "Ready for upload"
-      {true, :pending, _} -> "Photo uploaded"
+      {true, :pending, _} -> "Photos uploaded"
       {true, :processing, _} -> "Analyzing..."
       {true, :complete, :pending} -> "Pending review"
       {true, :complete, :approved} -> "Approved"
@@ -102,7 +102,7 @@ defmodule Medpack.BatchProcessing.Entry do
   Returns an emoji icon for the entry status.
   """
   def status_icon(%__MODULE__{} = entry) do
-    case {has_photo?(entry), entry.ai_analysis_status, entry.approval_status} do
+    case {has_photos?(entry), entry.ai_analysis_status, entry.approval_status} do
       {false, _, _} -> "⬆️"
       {true, :pending, _} -> "📸"
       {true, :processing, _} -> "🔍"

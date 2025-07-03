@@ -6,6 +6,9 @@ defmodule MedpackWeb.BatchMedicineLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    # Generate a unique batch_id for this session
+    batch_id = generate_batch_id()
+
     # Start with in-memory entries only - create DB entries when photos are uploaded
     initial_entries = create_empty_entries(3)
 
@@ -18,6 +21,7 @@ defmodule MedpackWeb.BatchMedicineLive do
     {:ok,
      socket_with_uploads
      |> assign(:entries, initial_entries)
+     |> assign(:batch_id, batch_id)
      |> assign(:batch_status, :ready)
      |> assign(:selected_for_edit, nil)
      |> assign(:analyzing, false)
@@ -73,7 +77,11 @@ defmodule MedpackWeb.BatchMedicineLive do
   end
 
   def handle_event("remove_entry", %{"id" => entry_id}, socket) do
-    updated_entries = Enum.reject(socket.assigns.entries, &(&1.id == entry_id))
+    # Convert entry_id to proper type for comparison
+    normalized_id = normalize_entry_id(entry_id)
+
+    updated_entries =
+      Enum.reject(socket.assigns.entries, &(normalize_entry_id(&1.id) == normalized_id))
 
     # Reconfigure uploads for remaining entries
     socket_with_uploads = configure_uploads_for_entries(socket, updated_entries)
@@ -103,9 +111,12 @@ defmodule MedpackWeb.BatchMedicineLive do
   end
 
   def handle_event("approve_entry", %{"id" => entry_id}, socket) do
+    # Convert entry_id to proper type for comparison
+    normalized_id = normalize_entry_id(entry_id)
+
     updated_entries =
       Enum.map(socket.assigns.entries, fn entry ->
-        if entry.id == entry_id do
+        if normalize_entry_id(entry.id) == normalized_id do
           %{entry | approval_status: :approved}
         else
           entry
@@ -116,9 +127,12 @@ defmodule MedpackWeb.BatchMedicineLive do
   end
 
   def handle_event("reject_entry", %{"id" => entry_id}, socket) do
+    # Convert entry_id to proper type for comparison
+    normalized_id = normalize_entry_id(entry_id)
+
     updated_entries =
       Enum.map(socket.assigns.entries, fn entry ->
-        if entry.id == entry_id do
+        if normalize_entry_id(entry.id) == normalized_id do
           %{entry | approval_status: :rejected}
         else
           entry
@@ -129,7 +143,9 @@ defmodule MedpackWeb.BatchMedicineLive do
   end
 
   def handle_event("edit_entry", %{"id" => entry_id}, socket) do
-    {:noreply, assign(socket, selected_for_edit: entry_id)}
+    # Convert entry_id to proper type for comparison
+    normalized_id = normalize_entry_id(entry_id)
+    {:noreply, assign(socket, selected_for_edit: normalized_id)}
   end
 
   def handle_event("cancel_edit", _params, socket) do
@@ -137,9 +153,12 @@ defmodule MedpackWeb.BatchMedicineLive do
   end
 
   def handle_event("retry_analysis", %{"id" => entry_id}, socket) do
+    # Convert entry_id to proper type for comparison
+    normalized_id = normalize_entry_id(entry_id)
+
     updated_entries =
       Enum.map(socket.assigns.entries, fn entry ->
-        if entry.id == entry_id do
+        if normalize_entry_id(entry.id) == normalized_id do
           %{entry | ai_analysis_status: :pending}
         else
           entry
@@ -151,16 +170,21 @@ defmodule MedpackWeb.BatchMedicineLive do
 
   def handle_event("remove_photo", %{"id" => entry_id, "photo_index" => photo_index_str}, socket) do
     photo_index = String.to_integer(photo_index_str)
+    # Convert entry_id to proper type for comparison
+    normalized_id = normalize_entry_id(entry_id)
 
     updated_entries =
       Enum.map(socket.assigns.entries, fn entry ->
-        if entry.id == entry_id do
-          # Clean up the specific physical file if it exists
-          if Enum.at(entry.photo_paths, photo_index) do
-            photo_path = Enum.at(entry.photo_paths, photo_index)
+        if normalize_entry_id(entry.id) == normalized_id do
+          # Remove from database if this is a database entry
+          if is_integer(entry.id) do
+            images = Medpack.BatchProcessing.list_entry_images(entry.id)
 
-            if File.exists?(photo_path) do
-              File.rm(photo_path)
+            if image = Enum.at(images, photo_index) do
+              # Delete the file
+              Medpack.FileManager.delete_file(image.s3_key)
+              # Delete the database record
+              Medpack.BatchProcessing.delete_entry_image(image)
             end
           end
 
@@ -200,15 +224,23 @@ defmodule MedpackWeb.BatchMedicineLive do
   end
 
   def handle_event("remove_all_photos", %{"id" => entry_id}, socket) do
+    # Convert entry_id to proper type for comparison
+    normalized_id = normalize_entry_id(entry_id)
+
     updated_entries =
       Enum.map(socket.assigns.entries, fn entry ->
-        if entry.id == entry_id do
-          # Clean up all physical files
-          Enum.each(entry.photo_paths, fn photo_path ->
-            if File.exists?(photo_path) do
-              File.rm(photo_path)
-            end
-          end)
+        if normalize_entry_id(entry.id) == normalized_id do
+          # Remove from database if this is a database entry
+          if is_integer(entry.id) do
+            images = Medpack.BatchProcessing.list_entry_images(entry.id)
+
+            Enum.each(images, fn image ->
+              # Delete the file
+              Medpack.FileManager.delete_file(image.s3_key)
+              # Delete the database record
+              Medpack.BatchProcessing.delete_entry_image(image)
+            end)
+          end
 
           %{
             entry
@@ -237,9 +269,12 @@ defmodule MedpackWeb.BatchMedicineLive do
         %{"medicine" => medicine_params, "entry_id" => entry_id},
         socket
       ) do
+    # Convert entry_id to proper type for comparison
+    normalized_id = normalize_entry_id(entry_id)
+
     updated_entries =
       Enum.map(socket.assigns.entries, fn entry ->
-        if entry.id == entry_id do
+        if normalize_entry_id(entry.id) == normalized_id do
           %{entry | ai_results: medicine_params, approval_status: :approved}
         else
           entry
@@ -273,7 +308,12 @@ defmodule MedpackWeb.BatchMedicineLive do
       {:noreply, put_flash(socket, :error, "No approved entries to save")}
     else
       try do
-        save_results = save_approved_medicines(approved_entries)
+        save_results =
+          case Medpack.BatchProcessing.save_approved_medicines(socket.assigns.batch_id) do
+            {:ok, %{results: results}} -> results
+            {:error, _reason} -> []
+          end
+
         handle_save_results(socket, save_results)
       rescue
         e ->
@@ -285,7 +325,10 @@ defmodule MedpackWeb.BatchMedicineLive do
   end
 
   def handle_event("save_single_entry", %{"id" => entry_id}, socket) do
-    case Enum.find(socket.assigns.entries, &(&1.id == entry_id)) do
+    # Convert entry_id to proper type for comparison
+    normalized_id = normalize_entry_id(entry_id)
+
+    case Enum.find(socket.assigns.entries, &(normalize_entry_id(&1.id) == normalized_id)) do
       nil ->
         {:noreply, put_flash(socket, :error, "Entry not found")}
 
@@ -294,7 +337,19 @@ defmodule MedpackWeb.BatchMedicineLive do
 
       entry ->
         try do
-          save_results = save_approved_medicines([entry])
+          # For single entry, we need to get the entry from database with images preloaded
+          save_results =
+            case Medpack.BatchProcessing.get_entry_with_images!(entry.id) do
+              db_entry ->
+                case Medpack.BatchProcessing.save_entry_as_medicine(db_entry) do
+                  {:ok, medicine} ->
+                    [{:ok, medicine}]
+
+                  {:error, changeset} ->
+                    [{:error, entry.id, changeset}]
+                end
+            end
+
           handle_single_save_results(socket, save_results, entry_id)
         rescue
           e ->
@@ -353,10 +408,14 @@ defmodule MedpackWeb.BatchMedicineLive do
     # Consume all uploaded files for this entry
     file_results =
       consume_uploaded_entries(socket, upload_config_name, fn meta, upload_entry ->
+        Logger.info("Processing file: #{upload_entry.client_name} for entry #{entry.id}")
+
         # Use FileManager to handle auto-uploaded files (local or S3)
         case Medpack.FileManager.save_auto_uploaded_file(meta, upload_entry, entry.id) do
           {:ok, result} when is_binary(result) ->
             # Local storage - result is file path
+            Logger.info("File saved locally: #{result}")
+
             # Generate web path by removing the priv/static prefix and ensuring it starts with /
             web_path =
               result
@@ -379,6 +438,8 @@ defmodule MedpackWeb.BatchMedicineLive do
 
           {:ok, %{s3_key: s3_key, url: url}} ->
             # S3 storage - use URL for both path and web_path
+            Logger.info("File saved to S3: #{s3_key}")
+
             {:ok,
              %{
                # Store S3 key as path for deletion later
@@ -391,6 +452,10 @@ defmodule MedpackWeb.BatchMedicineLive do
              }}
 
           {:error, reason} ->
+            Logger.error(
+              "Failed to save file #{upload_entry.client_name} for entry #{entry.id}: #{inspect(reason)}"
+            )
+
             {:error, reason}
         end
       end)
@@ -407,42 +472,122 @@ defmodule MedpackWeb.BatchMedicineLive do
           end)
 
         # Create database entry if this is the first photo for this entry
-        first_photo_path = List.first(entry.photo_paths ++ new_photo_paths)
-
-        # Determine the final entry ID (either existing DB ID or new DB ID)
         final_entry_id =
-          if first_photo_path do
-            # Check if this entry already exists in the database (string IDs won't exist)
-            if is_integer(entry.id) do
-              # Entry ID is already an integer, check if it exists in DB
-              try do
-                db_entry = Medpack.BatchProcessing.get_entry!(entry.id)
-                Medpack.BatchProcessing.update_entry(db_entry, %{photo_path: first_photo_path})
-                entry.id
-              rescue
-                Ecto.NoResultsError ->
-                  # Entry doesn't exist, create new one
-                  case Medpack.BatchProcessing.create_entry(%{
-                         entry_number: entry.number,
-                         photo_path: first_photo_path,
-                         ai_analysis_status: :pending,
-                         approval_status: :pending
+          if length(file_info_list) > 0 do
+            Logger.info(
+              "Creating/updating database entry for #{entry.id} with #{length(file_info_list)} new photos"
+            )
+
+            # Check if this entry already exists in the database
+            case safe_get_entry(entry.id) do
+              {:ok, db_entry} ->
+                # Entry exists, create EntryImage records for new photos
+                Logger.info(
+                  "Adding #{length(file_info_list)} images to existing entry #{db_entry.id}"
+                )
+
+                # Get current image count for upload_order
+                current_image_count =
+                  length(Medpack.BatchProcessing.list_entry_images(db_entry.id))
+
+                # Create EntryImage records for each new photo
+                Enum.with_index(file_info_list, current_image_count)
+                |> Enum.each(fn {file_info, index} ->
+                  case Medpack.BatchProcessing.create_entry_image(%{
+                         batch_entry_id: db_entry.id,
+                         s3_key: file_info.path,
+                         original_filename: file_info.filename,
+                         file_size: file_info.size,
+                         content_type: get_content_type(file_info.filename),
+                         upload_order: index
                        }) do
-                    {:ok, db_entry} -> db_entry.id
-                    {:error, _reason} -> entry.id
+                    {:ok, _image} ->
+                      Logger.info("Created image record for #{file_info.filename}")
+
+                    {:error, reason} ->
+                      Logger.error("Failed to create image record: #{inspect(reason)}")
                   end
-              end
-            else
-              # Entry ID is a string like "entry_6311", create new DB entry
-              case Medpack.BatchProcessing.create_entry(%{
-                     entry_number: entry.number,
-                     photo_path: first_photo_path,
-                     ai_analysis_status: :pending,
-                     approval_status: :pending
-                   }) do
-                {:ok, db_entry} -> db_entry.id
-                {:error, _reason} -> entry.id
-              end
+                end)
+
+                entry.id
+
+              {:error, :not_found} ->
+                # Entry doesn't exist, create new one
+                Logger.info("Creating new database entry for integer ID #{entry.id}")
+
+                case Medpack.BatchProcessing.create_entry(%{
+                       batch_id: socket.assigns.batch_id,
+                       entry_number: entry.number,
+                       ai_analysis_status: :pending,
+                       approval_status: :pending
+                     }) do
+                  {:ok, db_entry} ->
+                    Logger.info("Created database entry with ID #{db_entry.id}")
+
+                    # Create EntryImage records for photos
+                    Enum.with_index(file_info_list)
+                    |> Enum.each(fn {file_info, index} ->
+                      case Medpack.BatchProcessing.create_entry_image(%{
+                             batch_entry_id: db_entry.id,
+                             s3_key: file_info.path,
+                             original_filename: file_info.filename,
+                             file_size: file_info.size,
+                             content_type: get_content_type(file_info.filename),
+                             upload_order: index
+                           }) do
+                        {:ok, _image} ->
+                          Logger.info("Created image record for #{file_info.filename}")
+
+                        {:error, reason} ->
+                          Logger.error("Failed to create image record: #{inspect(reason)}")
+                      end
+                    end)
+
+                    db_entry.id
+
+                  {:error, reason} ->
+                    Logger.error("Failed to create database entry: #{inspect(reason)}")
+                    entry.id
+                end
+
+              {:error, :invalid_id} ->
+                # String ID like "entry_6311", create new DB entry
+                Logger.info("Creating new database entry for string ID #{entry.id}")
+
+                case Medpack.BatchProcessing.create_entry(%{
+                       batch_id: socket.assigns.batch_id,
+                       entry_number: entry.number,
+                       ai_analysis_status: :pending,
+                       approval_status: :pending
+                     }) do
+                  {:ok, db_entry} ->
+                    Logger.info("Created database entry with ID #{db_entry.id}")
+
+                    # Create EntryImage records for photos
+                    Enum.with_index(file_info_list)
+                    |> Enum.each(fn {file_info, index} ->
+                      case Medpack.BatchProcessing.create_entry_image(%{
+                             batch_entry_id: db_entry.id,
+                             s3_key: file_info.path,
+                             original_filename: file_info.filename,
+                             file_size: file_info.size,
+                             content_type: get_content_type(file_info.filename),
+                             upload_order: index
+                           }) do
+                        {:ok, _image} ->
+                          Logger.info("Created image record for #{file_info.filename}")
+
+                        {:error, reason} ->
+                          Logger.error("Failed to create image record: #{inspect(reason)}")
+                      end
+                    end)
+
+                    db_entry.id
+
+                  {:error, reason} ->
+                    Logger.error("Failed to create database entry: #{inspect(reason)}")
+                    entry.id
+                end
             end
           else
             entry.id
@@ -637,44 +782,65 @@ defmodule MedpackWeb.BatchMedicineLive do
       {:noreply, assign(socket, entries: updated_entries)}
     else
       # Time's up, start analysis via Oban job
+      require Logger
       entry = Enum.find(socket.assigns.entries, &(&1.id == entry_id))
 
       if entry && entry.photos_uploaded > 0 do
+        Logger.info("Analysis countdown finished for entry #{entry_id}, submitting to Oban")
+
         # Submit analysis job to Oban
-        try do
-          db_entry = Medpack.BatchProcessing.get_entry!(entry.id)
+        case safe_get_entry(entry.id) do
+          {:ok, db_entry} ->
+            Logger.info("Found database entry #{db_entry.id}, submitting analysis job")
 
-          case Medpack.BatchProcessing.submit_for_analysis(db_entry) do
-            {:ok, _updated_entry} ->
-              # Update the UI to show processing status
-              updated_entries =
-                Enum.map(updated_entries, fn e ->
-                  if e.id == entry_id do
-                    %{e | ai_analysis_status: :processing}
-                  else
-                    e
-                  end
-                end)
+            case Medpack.BatchProcessing.submit_for_analysis(db_entry) do
+              {:ok, _updated_entry} ->
+                Logger.info("Analysis job submitted successfully for entry #{entry.number}")
 
-              {:noreply,
-               socket
-               |> assign(entries: updated_entries)
-               |> put_flash(:info, "Analysis started for entry #{entry.number}...")}
+                # Update the UI to show processing status
+                updated_entries =
+                  Enum.map(updated_entries, fn e ->
+                    if e.id == entry_id do
+                      %{e | ai_analysis_status: :processing}
+                    else
+                      e
+                    end
+                  end)
 
-            {:error, _reason} ->
-              {:noreply,
-               socket
-               |> assign(entries: updated_entries)
-               |> put_flash(:error, "Failed to start analysis for entry #{entry.number}")}
-          end
-        rescue
-          Ecto.NoResultsError ->
+                {:noreply,
+                 socket
+                 |> assign(entries: updated_entries)
+                 |> put_flash(:info, "Analysis started for entry #{entry.number}...")}
+
+              {:error, reason} ->
+                Logger.error(
+                  "Failed to submit analysis job for entry #{entry.number}: #{inspect(reason)}"
+                )
+
+                {:noreply,
+                 socket
+                 |> assign(entries: updated_entries)
+                 |> put_flash(:error, "Failed to start analysis for entry #{entry.number}")}
+            end
+
+          {:error, :not_found} ->
+            Logger.error("Database entry not found for analysis: #{entry.id}")
+
             {:noreply,
              socket
              |> assign(entries: updated_entries)
              |> put_flash(:error, "Entry not found in database for analysis")}
+
+          {:error, :invalid_id} ->
+            Logger.error("Invalid entry ID for analysis: #{entry.id}")
+
+            {:noreply,
+             socket
+             |> assign(entries: updated_entries)
+             |> put_flash(:error, "Invalid entry ID - cannot start analysis")}
         end
       else
+        Logger.warning("Cannot start analysis - entry #{entry_id} not found or has no photos")
         {:noreply, assign(socket, entries: updated_entries)}
       end
     end
@@ -687,9 +853,12 @@ defmodule MedpackWeb.BatchMedicineLive do
 
   # Handle analysis updates from Oban jobs via PubSub
   def handle_info({:analysis_update, %{entry_id: entry_id, status: status, data: data}}, socket) do
+    # Normalize entry_id for comparison (it comes from Oban as integer)
+    normalized_id = normalize_entry_id(entry_id)
+
     updated_entries =
       Enum.map(socket.assigns.entries, fn entry ->
-        if entry.id == entry_id do
+        if normalize_entry_id(entry.id) == normalized_id do
           case status do
             :complete ->
               %{entry | ai_analysis_status: :complete, ai_results: data}
@@ -762,10 +931,6 @@ defmodule MedpackWeb.BatchMedicineLive do
   defp handle_progress(upload_config_name, upload_entry, socket) do
     require Logger
 
-    Logger.info(
-      "Upload progress: #{upload_entry.progress}% for #{upload_entry.client_name} (config: #{upload_config_name})"
-    )
-
     # When upload is complete (progress == 100), check if all uploads for this entry are done
     if upload_entry.done? do
       Logger.info("Upload complete for config: #{upload_config_name}")
@@ -813,6 +978,24 @@ defmodule MedpackWeb.BatchMedicineLive do
     end)
   end
 
+  # Safely get entry from database, handling string IDs
+  defp safe_get_entry(entry_id) when is_integer(entry_id) do
+    try do
+      {:ok, Medpack.BatchProcessing.get_entry!(entry_id)}
+    rescue
+      Ecto.NoResultsError -> {:error, :not_found}
+    end
+  end
+
+  defp safe_get_entry(entry_id) when is_binary(entry_id) do
+    # String IDs like "entry_6311" don't exist in database
+    {:error, :invalid_id}
+  end
+
+  defp safe_get_entry(_entry_id) do
+    {:error, :invalid_id}
+  end
+
   defp create_empty_entries(count, start_number \\ 0) do
     (start_number + 1)..(start_number + count)
     |> Enum.map(fn i ->
@@ -834,18 +1017,22 @@ defmodule MedpackWeb.BatchMedicineLive do
   end
 
   # Convert database entry to LiveView entry format
-  defp convert_db_entry_to_live_entry(%Medpack.BatchProcessing.Entry{} = db_entry) do
+  defp convert_db_entry_to_live_entry(%Medpack.BatchProcessing.Entry{images: images} = db_entry) do
+    photo_paths = Enum.map(images, & &1.s3_key)
+    photo_web_paths = Enum.map(images, &Medpack.BatchProcessing.EntryImage.get_s3_url/1)
+
+    photo_entries =
+      Enum.map(images, fn image ->
+        %{client_name: image.original_filename, client_size: image.file_size}
+      end)
+
     %{
       id: db_entry.id,
       number: db_entry.entry_number,
-      photos_uploaded: if(db_entry.photo_path, do: 1, else: 0),
-      photo_entries: [],
-      photo_paths: if(db_entry.photo_path, do: [db_entry.photo_path], else: []),
-      photo_web_paths:
-        if(db_entry.photo_path,
-          do: [Medpack.FileManager.get_photo_url(db_entry.photo_path)],
-          else: []
-        ),
+      photos_uploaded: length(images),
+      photo_entries: photo_entries,
+      photo_paths: photo_paths,
+      photo_web_paths: photo_web_paths,
       ai_analysis_status: db_entry.ai_analysis_status,
       ai_results: db_entry.ai_results || %{},
       approval_status: db_entry.approval_status,
@@ -950,29 +1137,6 @@ defmodule MedpackWeb.BatchMedicineLive do
     end)
   end
 
-  defp save_approved_medicines(approved_entries) do
-    approved_entries
-    |> Enum.map(fn entry ->
-      # Prepare medicine data with photos if available
-      medicine_data =
-        if entry.photo_web_paths != [] do
-          # Extract just the filenames from the web paths (remove /uploads/)
-          photo_filenames =
-            entry.photo_web_paths
-            |> Enum.map(&String.replace(&1, "/uploads/", ""))
-
-          Map.put(entry.ai_results, "photo_paths", photo_filenames)
-        else
-          entry.ai_results
-        end
-
-      case Medicines.create_medicine(medicine_data) do
-        {:ok, medicine} -> {:ok, medicine}
-        {:error, changeset} -> {:error, entry.id, changeset}
-      end
-    end)
-  end
-
   defp handle_save_results(socket, save_results) do
     successes = Enum.count(save_results, &match?({:ok, _}, &1))
     failures = Enum.count(save_results, &match?({:error, _, _}, &1))
@@ -1071,6 +1235,19 @@ defmodule MedpackWeb.BatchMedicineLive do
   end
 
   # Helper functions for the template
+  def normalize_entry_id(nil), do: nil
+  def normalize_entry_id(entry_id) when is_integer(entry_id), do: entry_id
+
+  def normalize_entry_id(entry_id) when is_binary(entry_id) do
+    case Integer.parse(entry_id) do
+      {id, _} -> id
+      # Keep as string if it's not a valid integer
+      :error -> entry_id
+    end
+  end
+
+  def normalize_entry_id(entry_id), do: entry_id
+
   def entry_status_icon(entry) do
     case {entry.photos_uploaded > 0, entry.ai_analysis_status, entry.approval_status} do
       {false, _, _} -> "⬆️"
@@ -1234,6 +1411,22 @@ defmodule MedpackWeb.BatchMedicineLive do
 
       _ ->
         nil
+    end
+  end
+
+  # Generate a unique batch ID for the session
+  defp generate_batch_id do
+    :crypto.strong_rand_bytes(16) |> Base.encode64(padding: false)
+  end
+
+  # Helper to determine content type from filename
+  defp get_content_type(filename) do
+    case Path.extname(filename) |> String.downcase() do
+      ".jpg" -> "image/jpeg"
+      ".jpeg" -> "image/jpeg"
+      ".png" -> "image/png"
+      # default
+      _ -> "image/jpeg"
     end
   end
 end

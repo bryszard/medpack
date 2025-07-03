@@ -204,7 +204,8 @@ defmodule Medpack.FileManager do
   def generate_unique_filename_locally(original_filename) do
     extension = Path.extname(original_filename)
     timestamp = DateTime.utc_now() |> DateTime.to_unix()
-    random_string = :crypto.strong_rand_bytes(8) |> Base.encode64(padding: false)
+    # Use URL-safe Base64 encoding to avoid slashes and plus signs
+    random_string = :crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)
 
     "#{timestamp}_#{random_string}#{extension}"
   end
@@ -329,7 +330,18 @@ defmodule Medpack.FileManager do
     # Organize by date for better file management
     date_folder = Date.utc_today() |> Date.to_string()
 
-    file_path = Path.join([upload_path, date_folder, "entry_#{entry_id}_#{unique_filename}"])
+    # Clean entry_id to avoid double prefixes and ensure it's safe for file paths
+    clean_entry_id =
+      entry_id
+      |> to_string()
+      # Remove "entry_" prefix if present
+      |> String.replace(~r/^entry_/, "")
+      # Replace unsafe characters with underscores
+      |> String.replace(~r/[^a-zA-Z0-9_-]/, "_")
+
+    file_path =
+      Path.join([upload_path, date_folder, "entry_#{clean_entry_id}_#{unique_filename}"])
+
     {:ok, file_path}
   end
 

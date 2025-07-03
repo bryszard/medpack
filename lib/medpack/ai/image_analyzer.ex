@@ -5,6 +5,12 @@ defmodule Medpack.AI.ImageAnalyzer do
 
   require Logger
 
+  # Retry configuration
+  @max_retries 3
+  @base_delay_ms 1000
+  @max_delay_ms 10000
+  @timeout_ms 60000
+
   @doc """
   Analyzes a medicine photo using OpenAI's Vision API.
 
@@ -179,6 +185,103 @@ defmodule Medpack.AI.ImageAnalyzer do
     end
   end
 
+  defp call_openai_with_retry(request_body) do
+    api_key = System.get_env("OPENAI_API_KEY")
+
+    do_retry(
+      fn ->
+        Req.post("https://api.openai.com/v1/chat/completions",
+          headers: [
+            {"Authorization", "Bearer #{api_key}"},
+            {"Content-Type", "application/json"}
+          ],
+          json: request_body,
+          receive_timeout: @timeout_ms
+        )
+      end,
+      @max_retries
+    )
+  end
+
+  defp do_retry(fun, retries_left, attempt \\ 1)
+
+  defp do_retry(_fun, 0, attempt) do
+    Logger.error(
+      "All #{@max_retries} retry attempts failed for OpenAI API call (attempt #{attempt})"
+    )
+
+    {:error, :max_retries_exceeded}
+  end
+
+  defp do_retry(fun, retries_left, attempt) do
+    case fun.() do
+      {:ok, %{status: 200, body: response}} ->
+        content = get_in(response, ["choices", Access.at(0), "message", "content"])
+        {:ok, content}
+
+      {:ok, %{status: status, body: error_body}} when status in [429, 500, 502, 503, 504] ->
+        # Retryable errors: rate limit, server errors
+        Logger.warning(
+          "OpenAI API retryable error #{status} (attempt #{attempt}/#{@max_retries}): #{inspect(error_body)}"
+        )
+
+        if retries_left > 0 do
+          delay = calculate_delay(attempt)
+          Logger.info("Retrying OpenAI API call in #{delay}ms...")
+          Process.sleep(delay)
+          do_retry(fun, retries_left - 1, attempt + 1)
+        else
+          Logger.error("OpenAI API error #{status}: #{inspect(error_body)}")
+          {:error, error_body}
+        end
+
+      {:ok, %{status: status, body: error_body}} ->
+        # Non-retryable errors: 400, 401, 403, etc.
+        Logger.error("OpenAI API non-retryable error #{status}: #{inspect(error_body)}")
+        {:error, error_body}
+
+      {:error, %Req.TransportError{reason: :timeout}} ->
+        Logger.warning("OpenAI API timeout (attempt #{attempt}/#{@max_retries})")
+
+        if retries_left > 0 do
+          delay = calculate_delay(attempt)
+          Logger.info("Retrying OpenAI API call after timeout in #{delay}ms...")
+          Process.sleep(delay)
+          do_retry(fun, retries_left - 1, attempt + 1)
+        else
+          Logger.error("OpenAI API timeout after #{@max_retries} attempts")
+          {:error, :timeout}
+        end
+
+      {:error, error} ->
+        Logger.warning(
+          "OpenAI API transport error (attempt #{attempt}/#{@max_retries}): #{inspect(error)}"
+        )
+
+        if retries_left > 0 do
+          delay = calculate_delay(attempt)
+          Logger.info("Retrying OpenAI API call after transport error in #{delay}ms...")
+          Process.sleep(delay)
+          do_retry(fun, retries_left - 1, attempt + 1)
+        else
+          Logger.error(
+            "OpenAI API transport error after #{@max_retries} attempts: #{inspect(error)}"
+          )
+
+          {:error, error}
+        end
+    end
+  end
+
+  defp calculate_delay(attempt) do
+    # Exponential backoff with jitter
+    base_delay = @base_delay_ms * :math.pow(2, attempt - 1)
+    # Add up to 1 second of jitter
+    jitter = :rand.uniform(1000)
+    delay = round(base_delay + jitter)
+    min(delay, @max_delay_ms)
+  end
+
   defp call_openai_vision_multi_mixed(image_data) do
     # Build content array with text prompt and multiple images (mixed URLs and base64)
     content = [
@@ -222,28 +325,7 @@ defmodule Medpack.AI.ImageAnalyzer do
       temperature: 0.1
     }
 
-    # Use Req instead of ExOpenAI to avoid JSON serialization issues
-    api_key = System.get_env("OPENAI_API_KEY")
-
-    case Req.post("https://api.openai.com/v1/chat/completions",
-           headers: [
-             {"Authorization", "Bearer #{api_key}"},
-             {"Content-Type", "application/json"}
-           ],
-           json: request_body
-         ) do
-      {:ok, %{status: 200, body: response}} ->
-        content = get_in(response, ["choices", Access.at(0), "message", "content"])
-        {:ok, content}
-
-      {:ok, %{status: status, body: error_body}} ->
-        Logger.error("OpenAI API error #{status}: #{inspect(error_body)}")
-        {:error, error_body}
-
-      {:error, error} ->
-        Logger.error("HTTP request failed: #{inspect(error)}")
-        {:error, error}
-    end
+    call_openai_with_retry(request_body)
   end
 
   defp call_openai_vision_multi(encoded_images) do
@@ -280,28 +362,7 @@ defmodule Medpack.AI.ImageAnalyzer do
       temperature: 0.1
     }
 
-    # Use Req instead of ExOpenAI to avoid JSON serialization issues
-    api_key = System.get_env("OPENAI_API_KEY")
-
-    case Req.post("https://api.openai.com/v1/chat/completions",
-           headers: [
-             {"Authorization", "Bearer #{api_key}"},
-             {"Content-Type", "application/json"}
-           ],
-           json: request_body
-         ) do
-      {:ok, %{status: 200, body: response}} ->
-        content = get_in(response, ["choices", Access.at(0), "message", "content"])
-        {:ok, content}
-
-      {:ok, %{status: status, body: error_body}} ->
-        Logger.error("OpenAI API error #{status}: #{inspect(error_body)}")
-        {:error, error_body}
-
-      {:error, error} ->
-        Logger.error("HTTP request failed: #{inspect(error)}")
-        {:error, error}
-    end
+    call_openai_with_retry(request_body)
   end
 
   defp call_openai_vision_url(image_url) do
@@ -330,28 +391,7 @@ defmodule Medpack.AI.ImageAnalyzer do
       temperature: 0.1
     }
 
-    # Use Req instead of ExOpenAI to avoid JSON serialization issues
-    api_key = System.get_env("OPENAI_API_KEY")
-
-    case Req.post("https://api.openai.com/v1/chat/completions",
-           headers: [
-             {"Authorization", "Bearer #{api_key}"},
-             {"Content-Type", "application/json"}
-           ],
-           json: request_body
-         ) do
-      {:ok, %{status: 200, body: response}} ->
-        content = get_in(response, ["choices", Access.at(0), "message", "content"])
-        {:ok, content}
-
-      {:ok, %{status: status, body: error_body}} ->
-        Logger.error("OpenAI API error #{status}: #{inspect(error_body)}")
-        {:error, error_body}
-
-      {:error, error} ->
-        Logger.error("HTTP request failed: #{inspect(error)}")
-        {:error, error}
-    end
+    call_openai_with_retry(request_body)
   end
 
   defp call_openai_vision(base64_image) do
@@ -384,28 +424,7 @@ defmodule Medpack.AI.ImageAnalyzer do
       temperature: 0.1
     }
 
-    # Use Req instead of ExOpenAI to avoid JSON serialization issues
-    api_key = System.get_env("OPENAI_API_KEY")
-
-    case Req.post("https://api.openai.com/v1/chat/completions",
-           headers: [
-             {"Authorization", "Bearer #{api_key}"},
-             {"Content-Type", "application/json"}
-           ],
-           json: request_body
-         ) do
-      {:ok, %{status: 200, body: response}} ->
-        content = get_in(response, ["choices", Access.at(0), "message", "content"])
-        {:ok, content}
-
-      {:ok, %{status: status, body: error_body}} ->
-        Logger.error("OpenAI API error #{status}: #{inspect(error_body)}")
-        {:error, error_body}
-
-      {:error, error} ->
-        Logger.error("HTTP request failed: #{inspect(error)}")
-        {:error, error}
-    end
+    call_openai_with_retry(request_body)
   end
 
   defp build_multi_analysis_prompt do

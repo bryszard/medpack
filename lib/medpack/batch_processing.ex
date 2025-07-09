@@ -21,6 +21,11 @@ defmodule Medpack.BatchProcessing do
   @doc """
   Gets a batch entry by ID.
   """
+  def get_entry(id), do: Repo.get(Entry, id)
+
+  @doc """
+  Gets a batch entry by ID, raising if not found.
+  """
   def get_entry!(id), do: Repo.get!(Entry, id)
 
   @doc """
@@ -94,6 +99,61 @@ defmodule Medpack.BatchProcessing do
   """
   def delete_entry_image(%EntryImage{} = image) do
     Repo.delete(image)
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking entry changes.
+  """
+  def change_entry(%Entry{} = entry, attrs \\ %{}) do
+    Entry.changeset(entry, attrs)
+  end
+
+  @doc """
+  Gets statistics for a batch (alias for get_batch_summary for test compatibility).
+  """
+  def get_batch_statistics(batch_id) do
+    get_batch_summary(batch_id)
+  end
+
+  @doc """
+  Returns entries that are ready for analysis (have photos and pending analysis).
+  """
+  def list_ready_for_analysis() do
+    # Get entry IDs that have images first
+    entry_ids_with_images =
+      EntryImage
+      |> select([i], i.batch_entry_id)
+      |> distinct(true)
+      |> Repo.all()
+
+    # Then get entries with those IDs that are pending analysis
+    Entry
+    |> where([e], e.id in ^entry_ids_with_images)
+    |> where([e], e.ai_analysis_status == :pending)
+    |> preload(:images)
+    |> Repo.all()
+  end
+
+  @doc """
+  Returns entries that are complete and pending review.
+  """
+  def list_pending_review() do
+    Entry
+    |> where([e], e.ai_analysis_status == :complete)
+    |> where([e], e.approval_status == :pending)
+    |> where([e], not is_nil(e.ai_results))
+    |> Repo.all()
+  end
+
+  @doc """
+  Returns entries that are approved and ready to save.
+  """
+  def list_approved_entries() do
+    Entry
+    |> where([e], e.ai_analysis_status == :complete)
+    |> where([e], e.approval_status == :approved)
+    |> where([e], not is_nil(e.ai_results))
+    |> Repo.all()
   end
 
   @doc """

@@ -28,15 +28,8 @@ defmodule MedpackWeb.CoreComponents do
   """
   use Phoenix.Component
 
-  import Phoenix.Controller,
-    only: [get_csrf_token: 0, view_module: 1, view_template: 1]
-
-  # HTML escaping functionality
-  import Phoenix.HTML
-
   # Common modules used in templates
   alias Phoenix.LiveView.JS
-  alias MedpackWeb.Layouts
 
   # Routes generation with the ~p sigil
   use Phoenix.VerifiedRoutes,

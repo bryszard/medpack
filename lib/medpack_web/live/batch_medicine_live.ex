@@ -1,7 +1,6 @@
 defmodule MedpackWeb.BatchMedicineLive do
   use MedpackWeb, :live_view
 
-  alias Medpack.Medicines
   alias Medpack.AI.ImageAnalyzer
 
   @impl true
@@ -1014,32 +1013,6 @@ defmodule MedpackWeb.BatchMedicineLive do
         analysis_timer_ref: nil
       }
     end)
-  end
-
-  # Convert database entry to LiveView entry format
-  defp convert_db_entry_to_live_entry(%Medpack.BatchProcessing.Entry{images: images} = db_entry) do
-    photo_paths = Enum.map(images, & &1.s3_key)
-    photo_web_paths = Enum.map(images, &Medpack.BatchProcessing.EntryImage.get_s3_url/1)
-
-    photo_entries =
-      Enum.map(images, fn image ->
-        %{client_name: image.original_filename, client_size: image.file_size}
-      end)
-
-    %{
-      id: db_entry.id,
-      number: db_entry.entry_number,
-      photos_uploaded: length(images),
-      photo_entries: photo_entries,
-      photo_paths: photo_paths,
-      photo_web_paths: photo_web_paths,
-      ai_analysis_status: db_entry.ai_analysis_status,
-      ai_results: db_entry.ai_results || %{},
-      approval_status: db_entry.approval_status,
-      validation_errors: [],
-      analysis_countdown: 0,
-      analysis_timer_ref: nil
-    }
   end
 
   defp configure_uploads_for_entries(socket, entries) do

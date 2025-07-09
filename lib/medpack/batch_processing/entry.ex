@@ -48,6 +48,14 @@ defmodule Medpack.BatchProcessing.Entry do
     |> validate_required([:batch_id, :entry_number])
     |> validate_number(:entry_number, greater_than: 0)
     |> unique_constraint([:batch_id, :entry_number])
+    |> put_default_values()
+  end
+
+  defp put_default_values(changeset) do
+    changeset
+    |> put_change(:status, get_change(changeset, :status) || :pending)
+    |> put_change(:ai_analysis_status, get_change(changeset, :ai_analysis_status) || :pending)
+    |> put_change(:approval_status, get_change(changeset, :approval_status) || :pending)
   end
 
   @doc """

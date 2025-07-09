@@ -147,6 +147,8 @@ defmodule Medpack.Medicines do
   @doc """
   Searches medicines by name, brand name, generic name, active ingredient, and manufacturer.
   """
+  def search_medicines(nil), do: []
+
   def search_medicines(query) when is_binary(query) do
     search_term = "%#{String.downcase(query)}%"
 

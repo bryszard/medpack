@@ -75,48 +75,9 @@ defmodule Medpack.AI.ImageAnalyzer do
     end
   end
 
-  defp validate_and_encode_images(image_paths) do
-    if length(image_paths) == 0 do
-      {:error, :no_images_provided}
-    else
-      case Enum.reduce_while(image_paths, [], fn path, acc ->
-             case File.exists?(path) do
-               true ->
-                 case encode_image(path) do
-                   {:ok, encoded} -> {:cont, [encoded | acc]}
-                   {:error, reason} -> {:halt, {:error, reason}}
-                 end
-
-               false ->
-                 {:halt, {:error, {:file_not_found, path}}}
-             end
-           end) do
-        {:error, reason} -> {:error, reason}
-        encoded_images -> {:ok, Enum.reverse(encoded_images)}
-      end
-    end
-  end
-
   defp perform_multi_analysis_mixed(image_data) do
     try do
       case call_openai_vision_multi_mixed(image_data) do
-        {:ok, analysis_result} ->
-          parse_analysis_result(analysis_result)
-
-        {:error, reason} ->
-          Logger.error("OpenAI API call failed: #{inspect(reason)}")
-          {:error, :api_call_failed}
-      end
-    rescue
-      e ->
-        Logger.error("Multi-analysis failed with exception: #{inspect(e)}")
-        {:error, :analysis_exception}
-    end
-  end
-
-  defp perform_multi_analysis(encoded_images) do
-    try do
-      case call_openai_vision_multi(encoded_images) do
         {:ok, analysis_result} ->
           parse_analysis_result(analysis_result)
 
@@ -309,43 +270,6 @@ defmodule Medpack.AI.ImageAnalyzer do
               url: "data:image/jpeg;base64,#{base64_image}"
             }
           }
-      end)
-
-    messages = [
-      %{
-        role: "user",
-        content: content ++ image_content
-      }
-    ]
-
-    request_body = %{
-      model: "gpt-4o",
-      messages: messages,
-      max_tokens: 1500,
-      temperature: 0.1
-    }
-
-    call_openai_with_retry(request_body)
-  end
-
-  defp call_openai_vision_multi(encoded_images) do
-    # Build content array with text prompt and multiple images
-    content = [
-      %{
-        type: "text",
-        text: build_multi_analysis_prompt()
-      }
-    ]
-
-    # Add each image to the content
-    image_content =
-      Enum.map(encoded_images, fn base64_image ->
-        %{
-          type: "image_url",
-          image_url: %{
-            url: "data:image/jpeg;base64,#{base64_image}"
-          }
-        }
       end)
 
     messages = [

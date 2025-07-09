@@ -415,17 +415,8 @@ defmodule MedpackWeb.BatchMedicineLive do
             # Local storage - result is file path
             Logger.info("File saved locally: #{result}")
 
-            # Generate web path by removing the priv/static prefix and ensuring it starts with /
-            web_path =
-              result
-              |> String.replace(~r/.*priv\/static/, "")
-              |> then(fn path ->
-                if String.starts_with?(path, "/") do
-                  path
-                else
-                  "/" <> path
-                end
-              end)
+            # Use FileManager to generate proper web URL
+            web_path = Medpack.FileManager.get_photo_url(result)
 
             {:ok,
              %{

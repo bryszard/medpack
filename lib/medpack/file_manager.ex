@@ -46,7 +46,9 @@ defmodule Medpack.FileManager do
          {:ok, file_path} <- generate_file_path(upload_entry, entry_id),
          :ok <- ensure_directory_exists(file_path),
          {:ok, _} <- copy_file(upload_entry.path, file_path) do
-      {:ok, file_path}
+      # Return a relative path that can be consistently processed
+      relative_path = get_relative_path(file_path)
+      {:ok, relative_path}
     else
       {:error, reason} -> {:error, reason}
     end
@@ -61,7 +63,9 @@ defmodule Medpack.FileManager do
          {:ok, file_path} <- generate_file_path(upload_entry, entry_id),
          :ok <- ensure_directory_exists(file_path),
          {:ok, _} <- copy_file(meta.path, file_path) do
-      {:ok, file_path}
+      # Return a relative path that can be consistently processed
+      relative_path = get_relative_path(file_path)
+      {:ok, relative_path}
     else
       {:error, reason} -> {:error, reason}
     end
@@ -121,13 +125,38 @@ defmodule Medpack.FileManager do
   Deletes a file from local storage.
   """
   def delete_file_locally(file_path) when is_binary(file_path) do
-    case File.rm(file_path) do
+    # Convert to absolute path based on the format
+    absolute_path =
+      cond do
+        # Already an absolute path containing priv/static
+        String.contains?(file_path, "priv/static") ->
+          file_path
+
+        # Web path starting with /uploads/
+        String.starts_with?(file_path, "/uploads/") ->
+          # Convert web path to absolute path
+          relative_path = String.replace_prefix(file_path, "/uploads/", "")
+          upload_path = get_upload_path()
+          Path.join([upload_path, relative_path])
+
+        # Relative path from uploads directory
+        String.starts_with?(file_path, "uploads/") ->
+          upload_path = get_upload_path()
+          Path.join([upload_path, String.replace_prefix(file_path, "uploads/", "")])
+
+        # Just a filename
+        true ->
+          upload_path = get_upload_path()
+          Path.join([upload_path, file_path])
+      end
+
+    case File.rm(absolute_path) do
       :ok ->
-        Logger.info("Deleted file: #{file_path}")
+        Logger.info("Deleted file: #{absolute_path}")
         :ok
 
       {:error, reason} ->
-        Logger.warning("Failed to delete file #{file_path}: #{inspect(reason)}")
+        Logger.warning("Failed to delete file #{absolute_path}: #{inspect(reason)}")
         {:error, reason}
     end
   end
@@ -220,11 +249,7 @@ defmodule Medpack.FileManager do
       S3FileManager.get_presigned_url(photo_path)
     else
       cond do
-        # Already a web path (starts with /)
-        String.starts_with?(photo_path, "/") ->
-          photo_path
-
-        # Full file path (contains priv/static)
+        # Full absolute path (starts with absolute directory)
         String.contains?(photo_path, "priv/static") ->
           photo_path
           |> String.replace(~r/.*priv\/static/, "")
@@ -235,6 +260,14 @@ defmodule Medpack.FileManager do
               "/" <> path
             end
           end)
+
+        # Already a web path (starts with /)
+        String.starts_with?(photo_path, "/") ->
+          photo_path
+
+        # Relative path from priv/static (e.g., "uploads/2025-07-03/file.jpg")
+        String.starts_with?(photo_path, "uploads/") ->
+          "/" <> photo_path
 
         # Legacy filename only (e.g., "entry_123_456.jpg")
         true ->
@@ -361,11 +394,22 @@ defmodule Medpack.FileManager do
     end
   end
 
-  defp get_upload_path do
+  def get_upload_path do
     Application.get_env(:medpack, :upload_path, "uploads")
   end
 
   defp get_temp_upload_path do
     Application.get_env(:medpack, :temp_upload_path, "tmp/uploads")
+  end
+
+  # Helper function to convert absolute file paths to relative paths
+  # that can be consistently processed by get_photo_url
+  defp get_relative_path(absolute_path) when is_binary(absolute_path) do
+    # Convert absolute path to relative from priv/static
+    case String.split(absolute_path, "priv/static/") do
+      [_prefix, suffix] -> suffix
+      # fallback to original if pattern doesn't match
+      _ -> absolute_path
+    end
   end
 end

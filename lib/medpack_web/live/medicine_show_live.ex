@@ -1,38 +1,48 @@
 defmodule MedpackWeb.MedicineShowLive do
   use MedpackWeb, :live_view
 
+  require Logger
+
   alias Medpack.Medicines
   alias Medpack.AI.ImageAnalyzer
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    case Medicines.get_medicine(id) do
-      nil ->
+    try do
+      case Medicines.get_medicine(id) do
+        nil ->
+          {:ok,
+           socket
+           |> put_flash(:error, "Medicine not found")
+           |> push_navigate(to: ~p"/inventory")}
+
+        medicine ->
+          {:ok,
+           socket
+           |> assign(:medicine, medicine)
+           |> assign(:page_title, medicine.name)
+           |> assign(:selected_photo_index, 0)
+           |> assign(:show_enlarged_photo, false)
+           |> assign(:enlarged_photo_index, 0)
+           |> assign(:edit_mode, false)
+           |> assign(:form, to_form(Medicines.change_medicine(medicine)))
+           |> assign(:analyzing, false)
+           |> assign(:upload_progress, 0)
+           |> assign(:slider_debounce_timer, nil)
+           |> allow_upload(:photos,
+             accept: ~w(.jpg .jpeg .png),
+             max_entries: 3,
+             max_file_size: 10_000_000,
+             auto_upload: true,
+             progress: &handle_progress/3
+           )}
+      end
+    rescue
+      Ecto.Query.CastError ->
         {:ok,
          socket
          |> put_flash(:error, "Medicine not found")
-         |> redirect(to: ~p"/inventory")}
-
-      medicine ->
-        {:ok,
-         socket
-         |> assign(:medicine, medicine)
-         |> assign(:page_title, medicine.name)
-         |> assign(:selected_photo_index, 0)
-         |> assign(:show_enlarged_photo, false)
-         |> assign(:enlarged_photo_index, 0)
-         |> assign(:edit_mode, false)
-         |> assign(:form, to_form(Medicines.change_medicine(medicine)))
-         |> assign(:analyzing, false)
-         |> assign(:upload_progress, 0)
-         |> assign(:slider_debounce_timer, nil)
-         |> allow_upload(:photos,
-           accept: ~w(.jpg .jpeg .png),
-           max_entries: 3,
-           max_file_size: 10_000_000,
-           auto_upload: true,
-           progress: &handle_progress/3
-         )}
+         |> push_navigate(to: ~p"/inventory")}
     end
   end
 
@@ -84,6 +94,19 @@ defmodule MedpackWeb.MedicineShowLive do
 
   def handle_event("edit_medicine", _params, socket) do
     {:noreply, assign(socket, edit_mode: true)}
+  end
+
+  def handle_event("toggle_edit", _params, socket) do
+    new_edit_mode = !socket.assigns.edit_mode
+
+    if new_edit_mode do
+      {:noreply, assign(socket, edit_mode: true)}
+    else
+      {:noreply,
+       socket
+       |> assign(edit_mode: false)
+       |> assign(form: to_form(Medicines.change_medicine(socket.assigns.medicine)))}
+    end
   end
 
   def handle_event("cancel_edit", _params, socket) do
@@ -268,7 +291,6 @@ defmodule MedpackWeb.MedicineShowLive do
   end
 
   def handle_async(:analyze_photos, {:exit, reason}, socket) do
-    require Logger
     Logger.error("AI analysis process exited: #{inspect(reason)}")
 
     {:noreply,
@@ -288,9 +310,9 @@ defmodule MedpackWeb.MedicineShowLive do
                "medicine_#{socket.assigns.medicine.id}"
              ) do
           {:ok, result} when is_binary(result) ->
-            # Local storage - return just the filename
-            filename = Path.basename(result)
-            {:ok, filename}
+            # Local storage - convert to web path for storage
+            web_path = Medpack.FileManager.get_photo_url(result)
+            {:ok, web_path}
 
           {:ok, %{s3_key: _s3_key, url: url}} ->
             # S3 storage - return the URL for display
@@ -337,6 +359,34 @@ defmodule MedpackWeb.MedicineShowLive do
     {:noreply, assign(socket, medicine: medicine)}
   end
 
+  @impl true
+  def handle_info({:ai_analysis_complete, analysis_result}, socket) do
+    # Filter out remaining_quantity from AI results to preserve manual quantity management
+    filtered_ai_results = Map.delete(analysis_result, "remaining_quantity")
+
+    # Apply filtered AI results to form
+    updated_form =
+      to_form(Medicines.change_medicine(socket.assigns.medicine, filtered_ai_results))
+
+    {:noreply,
+     socket
+     |> assign(:analyzing, false)
+     |> assign(:form, updated_form)
+     |> put_flash(
+       :info,
+       "AI analysis completed! Review the suggested values and save to apply changes."
+     )}
+  end
+
+  @impl true
+  def handle_info({:upload_error, error_message}, socket) do
+    Logger.warning("Upload error handled gracefully: #{error_message}")
+
+    {:noreply,
+     socket
+     |> put_flash(:error, "Upload failed: #{error_message}")}
+  end
+
   def handle_info({:save_remaining_quantity, remaining_quantity}, socket) do
     # Get the current medicine ID, but use the passed remaining_quantity value
     medicine_id = socket.assigns.medicine.id
@@ -360,7 +410,6 @@ defmodule MedpackWeb.MedicineShowLive do
          )}
 
       {:error, changeset} ->
-        require Logger
         Logger.error("Failed to update remaining quantity: #{inspect(changeset.errors)}")
 
         {:noreply,
@@ -397,15 +446,30 @@ defmodule MedpackWeb.MedicineShowLive do
 
   # AI Analysis helper
   defp analyze_medicine_photos(photo_paths) do
-    # Convert photo identifiers to processable paths/URLs
+    # Convert photo paths to processable paths/URLs
     processable_paths =
-      Enum.map(photo_paths, fn photo_identifier ->
+      Enum.map(photo_paths, fn photo_path ->
         if Medpack.FileManager.use_s3_storage?() do
-          # For S3, get presigned URL for analysis
-          Medpack.S3FileManager.get_presigned_url(photo_identifier)
+          # For S3, photo_path is already the S3 key or URL
+          if String.starts_with?(photo_path, "http") do
+            # Already a URL
+            photo_path
+          else
+            Medpack.S3FileManager.get_presigned_url(photo_path)
+          end
         else
-          # For local files, convert filename to full path
-          Path.join(["priv", "static", "uploads", photo_identifier])
+          # For local files, convert web path to absolute filesystem path
+          case photo_path do
+            "/uploads/" <> relative_path ->
+              # Web path format - convert to absolute path
+              upload_base = Medpack.FileManager.get_upload_path()
+              Path.join([upload_base, relative_path])
+
+            _ ->
+              # Legacy format - might be just filename
+              upload_base = Medpack.FileManager.get_upload_path()
+              Path.join([upload_base, photo_path])
+          end
         end
       end)
       # Remove any nil URLs (failed presigned URL generation)

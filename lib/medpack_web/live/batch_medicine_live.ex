@@ -35,12 +35,12 @@ defmodule MedpackWeb.BatchMedicineLive do
 
   @impl true
   def handle_event("validate", _params, socket) do
-    # Handle form validation (not used for file uploads with auto_upload: true)
+    # Handle form validation - required even with auto_upload: true
     {:noreply, socket}
   end
 
   def handle_event("upload", _params, socket) do
-    # This handles the form submit, but we'll process uploads automatically
+    # Handle form submit - provides fallback for manual form submission
     {:noreply, socket}
   end
 
@@ -423,12 +423,6 @@ defmodule MedpackWeb.BatchMedicineLive do
       send(self(), {:analyze_photos, entry})
     end
 
-    {:noreply, socket}
-  end
-
-  def handle_event("file_input_clicked", %{"id" => entry_id}, socket) do
-    # Cancel countdown when user opens file selection dialog
-    send(self(), {:cancel_analysis_timer, entry_id})
     {:noreply, socket}
   end
 

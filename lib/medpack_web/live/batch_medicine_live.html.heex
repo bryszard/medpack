@@ -207,8 +207,6 @@
                       <div
                         phx-drop-target={get_upload_key_for_entry(entry)}
                         class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center hover:border-base-400 transition duration-200"
-                        phx-click="file_input_clicked"
-                        phx-value-id={entry.id}
                       >
                         <div class="text-base-600 mb-2">
                           <svg
@@ -225,11 +223,9 @@
                             />
                           </svg>
                         </div>
-                        <label
-                          for={get_upload_key_for_entry(entry)}
+                        <div
                           class="cursor-pointer"
-                          phx-click="file_input_clicked"
-                          phx-value-id={entry.id}
+                          onclick="this.querySelector('input[type=file]').click()"
                         >
                           <span class="text-base-700 font-semibold hover:text-base-600">
                             📸 Add photo ({3 - entry.photos_uploaded} remaining)
@@ -238,7 +234,7 @@
                             upload={@uploads[get_upload_key_for_entry(entry)]}
                             class="sr-only"
                           />
-                        </label>
+                        </div>
                         <p class="text-base-500 text-sm mt-1">JPG, PNG up to 10MB each</p>
                       </div>
                     </form>

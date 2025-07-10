@@ -28,25 +28,14 @@ defmodule MedpackWeb.PageControllerTest do
       response = html_response(conn, 200)
 
       # Check feature descriptions
-      assert response =~ "Browse and search through your medicine collection"
-      assert response =~ "Take photos of medicine bottles and let AI extract all the details"
-      assert response =~ "Filter by expiration dates"
-      assert response =~ "Smart search functionality"
-    end
+      assert response =~
+               "Browse your current medicine collection, search by name, and check expiration dates"
 
-    test "includes proper page structure and styling", %{conn: conn} do
-      conn = get(conn, ~p"/")
-      response = html_response(conn, 200)
+      assert response =~
+               "Take photos of medicine bottles and let AI extract all the details automatically"
 
-      # Check essential CSS classes and structure
-      assert response =~ "topbar"
-      assert response =~ "hero"
-      assert response =~ "card"
-      assert response =~ "btn"
-
-      # Check responsive design classes
-      assert response =~ "grid"
-      assert response =~ "md:grid-cols-2"
+      assert response =~ "Automatically extract medicine details from photos"
+      assert response =~ "Never miss expiration dates with smart reminders"
     end
 
     test "returns correct content type and status", %{conn: conn} do

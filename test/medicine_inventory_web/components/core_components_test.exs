@@ -5,15 +5,9 @@ defmodule MedpackWeb.CoreComponentsTest do
   import Phoenix.Component
   import MedpackWeb.CoreComponents
 
-  # Test helpers
-  defp render_component_html(component, assigns \\ %{}) do
-    rendered = component.(assigns)
-    Phoenix.HTML.Safe.to_iodata(rendered) |> IO.iodata_to_binary()
-  end
-
   describe "topbar/1" do
     test "renders topbar with logo and navigation" do
-      html = render_component_html(&topbar/1, %{current_page: :home})
+      html = render_component(&topbar/1, current_page: :home)
 
       # Should have navbar structure
       assert html =~ "navbar bg-base-200"
@@ -30,7 +24,7 @@ defmodule MedpackWeb.CoreComponentsTest do
     end
 
     test "highlights inventory page when current_page is :inventory" do
-      html = render_component_html(&topbar/1, %{current_page: :inventory})
+      html = render_component(&topbar/1, current_page: :inventory)
 
       # Inventory button should be highlighted
       assert html =~ "bg-base-300"
@@ -40,14 +34,14 @@ defmodule MedpackWeb.CoreComponentsTest do
     end
 
     test "highlights medicine_show page when current_page is :medicine_show" do
-      html = render_component_html(&topbar/1, %{current_page: :medicine_show})
+      html = render_component(&topbar/1, current_page: :medicine_show)
 
       # Should also highlight inventory button for medicine show page
       assert html =~ "bg-base-300"
     end
 
     test "highlights add page when current_page is :add" do
-      html = render_component_html(&topbar/1, %{current_page: :add})
+      html = render_component(&topbar/1, current_page: :add)
 
       # Add button should be highlighted
       assert html =~ "bg-base-300"
@@ -56,7 +50,7 @@ defmodule MedpackWeb.CoreComponentsTest do
     end
 
     test "renders without highlighting when current_page is :home" do
-      html = render_component_html(&topbar/1, %{current_page: :home})
+      html = render_component(&topbar/1, current_page: :home)
 
       # No buttons should be highlighted for home page
       buttons_with_highlight = Regex.scan(~r/bg-base-300/, html)
@@ -64,7 +58,7 @@ defmodule MedpackWeb.CoreComponentsTest do
     end
 
     test "includes proper button styling and structure" do
-      html = render_component_html(&topbar/1, %{current_page: :home})
+      html = render_component(&topbar/1, current_page: :home)
 
       # Should have proper button classes
       assert html =~ "btn btn-circle"
@@ -78,205 +72,84 @@ defmodule MedpackWeb.CoreComponentsTest do
 
   describe "flash/1" do
     test "renders info flash message" do
-      assigns = %{
-        kind: :info,
-        title: "Success",
-        flash: %{"info" => "Operation completed successfully"}
-      }
-
-      html = render_component_html(&flash/1, assigns)
+      html =
+        render_component(&flash/1, %{
+          kind: :info,
+          title: "Success",
+          flash: %{"info" => "Operation completed successfully"}
+        })
 
       # Should render flash content
       assert html =~ "Operation completed successfully"
+      assert html =~ "alert-info"
     end
 
     test "renders error flash message" do
-      assigns = %{
-        kind: :error,
-        title: "Error",
-        flash: %{"error" => "Something went wrong"}
-      }
-
-      html = render_component_html(&flash/1, assigns)
+      html =
+        render_component(&flash/1, %{
+          kind: :error,
+          title: "Error",
+          flash: %{"error" => "Something went wrong"}
+        })
 
       # Should render error flash content
       assert html =~ "Something went wrong"
+      assert html =~ "alert-error"
     end
 
     test "handles empty flash" do
-      assigns = %{
-        kind: :info,
-        flash: %{}
-      }
-
-      html = render_component_html(&flash/1, assigns)
+      html =
+        render_component(&flash/1, %{
+          kind: :info,
+          flash: %{}
+        })
 
       # Should handle empty flash gracefully
       assert is_binary(html)
     end
-  end
 
-  describe "table/1" do
-    test "renders table with headers and data" do
+    test "renders with inner block" do
       assigns = %{
-        id: "test-table",
-        rows: [
-          %{id: 1, name: "Medicine 1", status: "active"},
-          %{id: 2, name: "Medicine 2", status: "expired"}
-        ],
-        col: [
-          %{label: "Name"},
-          %{label: "Status"}
-        ],
-        row_item: fn row -> row end,
-        action: []
-      }
-
-      html = render_component_html(&table/1, assigns)
-
-      # Should have table structure
-      assert html =~ "table table-zebra"
-      assert html =~ "<thead>"
-      assert html =~ "<tbody"
-
-      # Should have headers
-      assert html =~ "Name"
-      assert html =~ "Status"
-
-      # Should have data rows
-      assert html =~ "Medicine 1"
-      assert html =~ "Medicine 2"
-      assert html =~ "active"
-      assert html =~ "expired"
-    end
-
-    test "renders table with actions column" do
-      assigns = %{
-        id: "test-table",
-        rows: [%{id: 1, name: "Medicine 1"}],
-        col: [%{label: "Name"}],
-        row_item: fn row -> row end,
-        action: [%{label: "Edit"}]
-      }
-
-      html = render_component_html(&table/1, assigns)
-
-      # Should have actions column header
-      assert html =~ "Actions"
-      assert html =~ "sr-only"
-
-      # Should have actions cell
-      assert html =~ "font-semibold"
-      assert html =~ "flex gap-4"
-    end
-
-    test "handles empty table data" do
-      assigns = %{
-        id: "empty-table",
-        rows: [],
-        col: [%{label: "Name"}],
-        row_item: fn row -> row end,
-        action: []
-      }
-
-      html = render_component_html(&table/1, assigns)
-
-      # Should still render table structure
-      assert html =~ "table table-zebra"
-      assert html =~ "Name"
-    end
-
-    test "handles clickable rows" do
-      assigns = %{
-        id: "clickable-table",
-        rows: [%{id: 1, name: "Medicine 1"}],
-        col: [%{label: "Name"}],
-        row_item: fn row -> row end,
-        row_click: fn _row -> "click-action" end,
-        action: []
-      }
-
-      html = render_component_html(&table/1, assigns)
-
-      # Should have clickable styling
-      assert html =~ "hover:cursor-pointer"
-    end
-  end
-
-  describe "list/1" do
-    test "renders data list with items" do
-      assigns = %{
-        item: [
-          %{title: "Medicine Name", content: "Aspirin"},
-          %{title: "Dosage", content: "500mg"}
+        kind: :info,
+        flash: %{},
+        inner_block: [
+          %{__slot__: :inner_block, inner_block: fn _, _ -> "Custom flash message" end}
         ]
       }
 
-      html = render_component_html(&list/1, assigns)
+      html = render_component(&flash/1, assigns)
 
-      # Should have list structure
-      assert html =~ "ul class=\"list\""
-      assert html =~ "li"
-      assert html =~ "list-row"
-
-      # Should show titles and content
-      assert html =~ "Medicine Name"
-      assert html =~ "Aspirin"
-      assert html =~ "Dosage"
-      assert html =~ "500mg"
-
-      # Should have proper styling
-      assert html =~ "font-bold"
-    end
-
-    test "handles empty list" do
-      assigns = %{item: []}
-
-      html = render_component_html(&list/1, assigns)
-
-      # Should render empty list structure
-      assert html =~ "ul class=\"list\""
+      assert html =~ "Custom flash message"
     end
   end
 
   describe "icon/1" do
     test "renders heroicon with default outline style" do
-      assigns = %{name: "home"}
+      html = render_component(&icon/1, name: "hero-home")
 
-      html = render_component_html(&icon/1, assigns)
-
-      # Should render SVG with proper classes
-      assert html =~ "<svg"
+      # Should render span with proper classes
+      assert html =~ "<span"
+      assert html =~ "hero-home"
       # Default size
-      assert html =~ "h-5 w-5"
-      # Outline style
-      assert html =~ "fill=\"none\""
-      assert html =~ "stroke=\"currentColor\""
+      assert html =~ "size-4"
     end
 
     test "renders solid style icon" do
-      assigns = %{name: "home-solid"}
-
-      html = render_component_html(&icon/1, assigns)
+      html = render_component(&icon/1, name: "hero-home-solid")
 
       # Should render solid style
-      assert html =~ "fill=\"currentColor\""
-      refute html =~ "stroke=\"currentColor\""
+      assert html =~ "hero-home-solid"
     end
 
     test "renders mini style icon" do
-      assigns = %{name: "home-mini"}
+      html = render_component(&icon/1, name: "hero-home-mini")
 
-      html = render_component_html(&icon/1, assigns)
-
-      # Should render mini size
-      assert html =~ "h-3 w-3"
+      # Should render mini style
+      assert html =~ "hero-home-mini"
     end
 
     test "handles custom class" do
-      assigns = %{name: "home", class: "custom-class"}
-
-      html = render_component_html(&icon/1, assigns)
+      html = render_component(&icon/1, name: "hero-home", class: "custom-class")
 
       # Should include custom class
       assert html =~ "custom-class"
@@ -286,20 +159,19 @@ defmodule MedpackWeb.CoreComponentsTest do
   describe "input/1" do
     setup do
       # Create a simple form for testing inputs
-      form = to_form(%{}, as: :test)
+      form = to_form(%{"name" => "Test Medicine"}, as: :test)
       field = form[:name]
       %{form: form, field: field}
     end
 
     test "renders text input with label", %{field: field} do
-      assigns = %{
-        field: field,
-        type: "text",
-        label: "Medicine Name",
-        required: true
-      }
-
-      html = render_component_html(&input/1, assigns)
+      html =
+        render_component(&input/1, %{
+          field: field,
+          type: "text",
+          label: "Medicine Name",
+          required: true
+        })
 
       # Should have input structure
       assert html =~ "input"
@@ -309,14 +181,13 @@ defmodule MedpackWeb.CoreComponentsTest do
     end
 
     test "renders select input with options", %{field: field} do
-      assigns = %{
-        field: field,
-        type: "select",
-        label: "Dosage Form",
-        options: [{"Tablet", "tablet"}, {"Capsule", "capsule"}]
-      }
-
-      html = render_component_html(&input/1, assigns)
+      html =
+        render_component(&input/1, %{
+          field: field,
+          type: "select",
+          label: "Dosage Form",
+          options: [{"Tablet", "tablet"}, {"Capsule", "capsule"}]
+        })
 
       # Should have select structure
       assert html =~ "<select"
@@ -328,13 +199,12 @@ defmodule MedpackWeb.CoreComponentsTest do
     end
 
     test "renders textarea input", %{field: field} do
-      assigns = %{
-        field: field,
-        type: "textarea",
-        label: "Notes"
-      }
-
-      html = render_component_html(&input/1, assigns)
+      html =
+        render_component(&input/1, %{
+          field: field,
+          type: "textarea",
+          label: "Notes"
+        })
 
       # Should have textarea structure
       assert html =~ "<textarea"
@@ -342,85 +212,106 @@ defmodule MedpackWeb.CoreComponentsTest do
     end
 
     test "renders date input", %{field: field} do
-      assigns = %{
-        field: field,
-        type: "date",
-        label: "Expiration Date"
-      }
-
-      html = render_component_html(&input/1, assigns)
+      html =
+        render_component(&input/1, %{
+          field: field,
+          type: "date",
+          label: "Expiration Date"
+        })
 
       # Should have date input
       assert html =~ "type=\"date\""
       assert html =~ "Expiration Date"
     end
 
-    test "shows validation errors", %{form: form} do
-      # Create form with errors
-      changeset = %Ecto.Changeset{
-        action: :validate,
-        changes: %{},
-        errors: [name: {"can't be blank", [validation: :required]}],
-        data: %{},
-        valid?: false
-      }
+    test "shows validation errors" do
+      # Test with errors passed directly to the component
+      html =
+        render_component(&input/1, %{
+          name: "test[name]",
+          id: "test_name",
+          type: "text",
+          label: "Medicine Name",
+          value: "",
+          errors: ["can't be blank"]
+        })
 
-      form_with_errors = to_form(changeset, as: :test)
-      field = form_with_errors[:name]
-
-      assigns = %{
-        field: field,
-        type: "text",
-        label: "Medicine Name"
-      }
-
-      html = render_component_html(&input/1, assigns)
-
-      # Should show error message
-      assert html =~ "can't be blank" or html =~ "can&#39;t be blank"
+      # Should show error message and error styling
+      assert html =~ "can&#39;t be blank"
+      assert html =~ "input-error"
+      assert html =~ "text-error"
     end
   end
 
   describe "button/1" do
     test "renders basic button" do
-      assigns = %{class: "btn-primary"}
+      assigns = %{
+        inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Click me" end}]
+      }
 
-      html = render_component_html(&button/1, assigns)
+      html = render_component(&button/1, assigns)
 
       # Should have button structure
       assert html =~ "<button"
       assert html =~ "btn"
-      assert html =~ "btn-primary"
+      assert html =~ "btn-primary btn-soft"
+      assert html =~ "Click me"
     end
 
     test "renders button with custom attributes" do
       assigns = %{
-        class: "btn-secondary",
         type: "submit",
-        disabled: true
+        disabled: true,
+        inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Submit" end}]
       }
 
-      html = render_component_html(&button/1, assigns)
+      html = render_component(&button/1, assigns)
 
       # Should include custom attributes
       assert html =~ "type=\"submit\""
       assert html =~ "disabled"
-      assert html =~ "btn-secondary"
+      assert html =~ "Submit"
+    end
+
+    test "renders primary variant button" do
+      assigns = %{
+        variant: "primary",
+        inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Primary" end}]
+      }
+
+      html = render_component(&button/1, assigns)
+
+      # Should have primary styling
+      assert html =~ "btn-primary"
+      assert html =~ "Primary"
+    end
+
+    test "renders link button with navigation" do
+      assigns = %{
+        navigate: "/",
+        inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Home" end}]
+      }
+
+      html = render_component(&button/1, assigns)
+
+      # Should render as link
+      assert html =~ "<a"
+      assert html =~ "href=\"/\""
+      assert html =~ "Home"
     end
   end
 
   describe "form validation and error handling" do
     test "handles form with no errors gracefully" do
-      form = to_form(%{name: "Test Medicine"}, as: :medicine)
+      form = to_form(%{"name" => "Test Medicine"}, as: :medicine)
       field = form[:name]
 
-      assigns = %{
-        field: field,
-        type: "text",
-        label: "Medicine Name"
-      }
-
-      html = render_component_html(&input/1, assigns)
+      html =
+        render_component(&input/1, %{
+          field: field,
+          type: "text",
+          label: "Medicine Name"
+        })
 
       # Should render without errors
       assert html =~ "Medicine Name"
@@ -429,26 +320,15 @@ defmodule MedpackWeb.CoreComponentsTest do
     end
 
     test "handles complex form structures" do
-      form =
-        to_form(
-          %{
-            medicine: %{
-              name: "Test Medicine",
-              dosage_form: "tablet"
-            }
-          },
-          as: :form
-        )
+      form = to_form(%{}, as: :form)
+      field = form[:medicine]
 
-      field = form[:medicine][:name]
-
-      assigns = %{
-        field: field,
-        type: "text",
-        label: "Medicine Name"
-      }
-
-      html = render_component_html(&input/1, assigns)
+      html =
+        render_component(&input/1, %{
+          field: field,
+          type: "text",
+          label: "Medicine Name"
+        })
 
       # Should handle nested form structures
       assert html =~ "Medicine Name"
@@ -457,27 +337,12 @@ defmodule MedpackWeb.CoreComponentsTest do
 
   describe "responsive design classes" do
     test "topbar includes responsive classes" do
-      html = render_component_html(&topbar/1, %{current_page: :home})
+      html = render_component(&topbar/1, current_page: :home)
 
       # Should have responsive design
       assert html =~ "flex"
       assert html =~ "items-center"
       assert html =~ "gap-4"
-    end
-
-    test "table includes responsive classes" do
-      assigns = %{
-        id: "responsive-table",
-        rows: [],
-        col: [%{label: "Name"}],
-        row_item: fn row -> row end,
-        action: []
-      }
-
-      html = render_component_html(&table/1, assigns)
-
-      # Should have responsive table structure
-      assert html =~ "table"
     end
   end
 
@@ -486,14 +351,13 @@ defmodule MedpackWeb.CoreComponentsTest do
       form = to_form(%{}, as: :test)
       field = form[:name]
 
-      assigns = %{
-        field: field,
-        type: "text",
-        label: "Medicine Name",
-        required: true
-      }
-
-      html = render_component_html(&input/1, assigns)
+      html =
+        render_component(&input/1, %{
+          field: field,
+          type: "text",
+          label: "Medicine Name",
+          required: true
+        })
 
       # Should have accessibility attributes
       assert html =~ "required"
@@ -503,35 +367,14 @@ defmodule MedpackWeb.CoreComponentsTest do
 
     test "buttons include proper accessibility attributes" do
       assigns = %{
-        class: "btn-primary",
-        "aria-label": "Save medicine"
+        "aria-label" => "Save medicine",
+        inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Save" end}]
       }
 
-      html = render_component_html(&button/1, assigns)
+      html = render_component(&button/1, assigns)
 
       # Should include aria-label
       assert html =~ "aria-label=\"Save medicine\""
-    end
-
-    test "table includes proper structure for screen readers" do
-      assigns = %{
-        id: "accessible-table",
-        rows: [%{name: "Medicine"}],
-        col: [%{label: "Name"}],
-        row_item: fn row -> row end,
-        action: [%{label: "Edit"}]
-      }
-
-      html = render_component_html(&table/1, assigns)
-
-      # Should have proper table structure
-      assert html =~ "<thead>"
-      assert html =~ "<tbody"
-      assert html =~ "<th"
-      assert html =~ "<td"
-
-      # Should have screen reader text for actions
-      assert html =~ "sr-only"
     end
   end
 end

@@ -12,7 +12,7 @@ defmodule MedpackWeb.Integration.MedicineCrudIntegrationTest do
     test "can navigate from home to inventory and view medicines", %{conn: conn} do
       # Create some test medicines
       medicine1 = insert(:medicine, name: "Aspirin", brand_name: "Bayer")
-      medicine2 = insert(:medicine, name: "Ibuprofen", brand_name: "Advil")
+      _medicine2 = insert(:medicine, name: "Ibuprofen", brand_name: "Advil")
 
       # Start at home page
       conn = get(conn, ~p"/")
@@ -28,7 +28,7 @@ defmodule MedpackWeb.Integration.MedicineCrudIntegrationTest do
       assert html =~ "Advil"
 
       # Click on first medicine to view details
-      {:ok, detail_view, detail_html} =
+      {:ok, _detail_view, detail_html} =
         inventory_view
         |> element("a[href='/inventory/#{medicine1.id}']")
         |> render_click()
@@ -78,7 +78,7 @@ defmodule MedpackWeb.Integration.MedicineCrudIntegrationTest do
       # Should exit edit mode and show updated data
       assert html =~ "Updated Medicine Name"
       assert html =~ "Updated Brand"
-      assert html =~ "capsule"
+      assert html =~ "Capsule"
       assert html =~ "New Ingredient"
 
       # Verify changes were persisted to database
@@ -190,7 +190,7 @@ defmodule MedpackWeb.Integration.MedicineCrudIntegrationTest do
       # Navigate to add page
       {:ok, add_view, add_html} = live(conn, ~p"/add")
 
-      assert add_html =~ "📸 Batch Medicine Entry"
+      assert add_html =~ "Medicine Entry #1"
       # Add button should be highlighted
       assert render(add_view) =~ "bg-base-300"
 
@@ -283,44 +283,47 @@ defmodule MedpackWeb.Integration.MedicineCrudIntegrationTest do
     end
 
     test "photo display and management workflow", %{conn: conn} do
-      medicine =
-        insert(:medicine,
-          name: "Photo Medicine",
-          photo_paths: ["/uploads/test1.jpg", "/uploads/test2.jpg"]
-        )
+      # Suppress expected file deletion warnings for test files that don't exist
+      ExUnit.CaptureLog.capture_log(fn ->
+        medicine =
+          insert(:medicine,
+            name: "Photo Medicine",
+            photo_paths: ["/uploads/test1.jpg", "/uploads/test2.jpg"]
+          )
 
-      {:ok, view, html} = live(conn, ~p"/inventory/#{medicine.id}")
+        {:ok, view, html} = live(conn, ~p"/inventory/#{medicine.id}")
 
-      # Should show first photo by default
-      assert html =~ "src=\"/uploads/test1.jpg\""
+        # Should show first photo by default
+        assert html =~ "src=\"/uploads/test1.jpg\""
 
-      # Select second photo
-      html = render_click(view, "select_photo", %{"index" => "1"})
+        # Select second photo
+        html = render_click(view, "select_photo", %{"index" => "1"})
 
-      assert html =~ "src=\"/uploads/test2.jpg\""
+        assert html =~ "src=\"/uploads/test2.jpg\""
 
-      # Enlarge photo
-      html = render_click(view, "enlarge_photo", %{"index" => "1"})
+        # Enlarge photo
+        html = render_click(view, "enlarge_photo", %{"index" => "1"})
 
-      # Modal overlay
-      assert html =~ "fixed inset-0"
+        # Modal overlay
+        assert html =~ "fixed inset-0"
 
-      # Close enlarged photo
-      html = render_click(view, "close_enlarged_photo")
+        # Close enlarged photo
+        html = render_click(view, "close_enlarged_photo")
 
-      refute html =~ "fixed inset-0"
+        refute html =~ "fixed inset-0"
 
-      # Enter edit mode and remove a photo
-      render_click(view, "toggle_edit")
-      html = render_click(view, "remove_photo", %{"index" => "0"})
+        # Enter edit mode and remove a photo
+        render_click(view, "toggle_edit")
+        html = render_click(view, "remove_photo", %{"index" => "0"})
 
-      # Should remove first photo
-      refute html =~ "src=\"/uploads/test1.jpg\""
-      assert html =~ "src=\"/uploads/test2.jpg\""
+        # Should remove first photo
+        refute html =~ "src=\"/uploads/test1.jpg\""
+        assert html =~ "src=\"/uploads/test2.jpg\""
 
-      # Verify in database
-      updated_medicine = Medicines.get_medicine!(medicine.id)
-      assert updated_medicine.photo_paths == ["/uploads/test2.jpg"]
+        # Verify in database
+        updated_medicine = Medicines.get_medicine!(medicine.id)
+        assert updated_medicine.photo_paths == ["/uploads/test2.jpg"]
+      end)
     end
 
     test "complete user journey from discovery to medicine management", %{conn: conn} do
@@ -333,17 +336,17 @@ defmodule MedpackWeb.Integration.MedicineCrudIntegrationTest do
       assert home_html =~ "Add Medicines"
 
       # User navigates to inventory to see what medicines they have
-      {:ok, inventory_view, inventory_html} = live(conn, ~p"/inventory")
+      {:ok, _inventory_view, inventory_html} = live(conn, ~p"/inventory")
 
       # Empty inventory initially
       # No medicine cards
       refute inventory_html =~ "💊"
 
       # User goes to add medicines page
-      {:ok, add_view, add_html} = live(conn, ~p"/add")
+      {:ok, _add_view, add_html} = live(conn, ~p"/add")
 
-      assert add_html =~ "📸 Batch Medicine Entry"
-      assert add_html =~ "Add photos of your medicines"
+      assert add_html =~ "Medicine Entry #1"
+      assert add_html =~ "📸 Add photo"
 
       # User would upload photos here (simulated)
       # After photos are uploaded and analyzed, user creates medicine

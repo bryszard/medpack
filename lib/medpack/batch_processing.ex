@@ -392,7 +392,13 @@ defmodule Medpack.BatchProcessing do
 
       {:error, reason} ->
         Logger.error("Failed to copy photos for entry #{entry.id}: #{reason}")
-        {:error, "Failed to copy photos: #{reason}"}
+        # Return a properly formatted changeset-like error
+        error_changeset = %{
+          errors: [photo_paths: {"Failed to copy photos: #{reason}", []}],
+          valid?: false
+        }
+
+        {:error, error_changeset}
     end
   end
 
@@ -453,8 +459,8 @@ defmodule Medpack.BatchProcessing do
   defp copy_local_photo_for_medicine(image, new_filename) do
     require Logger
 
-    # For local storage, s3_key contains the full path
-    source_path = image.s3_key
+    # Use the centralized path resolution utility
+    source_path = Medpack.FileManager.resolve_file_path(image.s3_key)
 
     # Use the project's priv/static directory (not the compiled app directory)
     dest_path = Path.join(["priv", "static", "uploads", "medicines", new_filename])
@@ -463,7 +469,8 @@ defmodule Medpack.BatchProcessing do
     dest_dir = Path.dirname(dest_path)
     File.mkdir_p!(dest_dir)
 
-    Logger.info("Copying batch photo: #{source_path} -> #{dest_path}")
+    Logger.info("Copying batch photo: #{image.s3_key} -> #{dest_path}")
+    Logger.info("Resolved source path: #{source_path}")
 
     # Check if source file exists before copying
     if File.exists?(source_path) do

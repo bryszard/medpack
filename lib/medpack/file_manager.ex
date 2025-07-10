@@ -412,4 +412,29 @@ defmodule Medpack.FileManager do
       _ -> absolute_path
     end
   end
+
+  @doc """
+  Resolves a stored file path to an absolute filesystem path for local storage.
+
+  For local storage, files are stored with relative paths from priv/static/
+  like "uploads/2025-07-09/file.jpg" and need to be resolved to absolute paths
+  like "priv/static/uploads/2025-07-09/file.jpg" for file operations.
+
+  For S3 storage, returns the path as-is since it's an S3 key.
+  """
+  def resolve_file_path(stored_path) do
+    if use_s3_storage?() do
+      # For S3, the stored path is the S3 key - return as-is
+      stored_path
+    else
+      # For local storage, resolve to absolute filesystem path
+      if String.starts_with?(stored_path, "/") do
+        # Already absolute path
+        stored_path
+      else
+        # Relative path from priv/static/ - resolve it
+        Path.join(["priv", "static", stored_path])
+      end
+    end
+  end
 end

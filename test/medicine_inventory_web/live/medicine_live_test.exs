@@ -4,9 +4,11 @@ defmodule MedpackWeb.MedicineLiveTest do
   import Phoenix.LiveViewTest
   import Medpack.Factory
 
-  alias Medpack.Medicines
-
   # Need async: false because we're testing database interactions
+
+  defp get_assigns(view) do
+    :sys.get_state(view.pid).socket.assigns
+  end
 
   describe "mount" do
     test "displays empty state when no medicines exist", %{conn: conn} do
@@ -20,8 +22,8 @@ defmodule MedpackWeb.MedicineLiveTest do
     end
 
     test "displays medicines in card view by default", %{conn: conn} do
-      medicine1 = insert(:medicine, name: "Aspirin", brand_name: "Bayer")
-      medicine2 = insert(:medicine, name: "Ibuprofen", brand_name: "Advil")
+      _medicine1 = insert(:medicine, name: "Aspirin", brand_name: "Bayer")
+      _medicine2 = insert(:medicine, name: "Ibuprofen", brand_name: "Advil")
 
       {:ok, _view, html} = live(conn, ~p"/inventory")
 
@@ -36,12 +38,14 @@ defmodule MedpackWeb.MedicineLiveTest do
     test "initializes with correct default assigns", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/inventory")
 
+      assigns = get_assigns(view)
+
       # Check default state
-      assert view.assigns.search_query == ""
-      assert view.assigns.view_mode == :cards
-      assert view.assigns.filters == %{}
-      assert view.assigns.show_filters == false
-      assert is_list(view.assigns.medicines)
+      assert assigns.search_query == ""
+      assert assigns.view_mode == :cards
+      assert assigns.filters == %{}
+      assert assigns.show_filters == false
+      assert is_list(assigns.medicines)
     end
   end
 
@@ -62,8 +66,9 @@ defmodule MedpackWeb.MedicineLiveTest do
       assert html =~ "Bayer"
       refute html =~ "Ibuprofen"
 
-      # Verify search query is stored
-      assert view.assigns.search_query == "Aspirin"
+      # Verify search query is stored - get assigns after the search
+      assigns = get_assigns(view)
+      assert assigns.search_query == "Aspirin"
     end
 
     test "searches medicines by brand name", %{conn: conn} do
@@ -135,7 +140,10 @@ defmodule MedpackWeb.MedicineLiveTest do
       # Should show all medicines again
       assert html =~ "Aspirin"
       assert html =~ "Ibuprofen"
-      assert view.assigns.search_query == ""
+
+      # Verify search query is cleared - get assigns after clearing
+      assigns = get_assigns(view)
+      assert assigns.search_query == ""
     end
   end
 
@@ -145,17 +153,23 @@ defmodule MedpackWeb.MedicineLiveTest do
 
       {:ok, view, html} = live(conn, ~p"/inventory")
 
+      # Get initial assigns
+      assigns = get_assigns(view)
+
       # Initially in card view
       assert html =~ "📋 Table View"
       assert html =~ "card bg-base-100"
-      assert view.assigns.view_mode == :cards
+      assert assigns.view_mode == :cards
 
       # Toggle to table view
       html = render_click(view, "toggle_view")
 
       assert html =~ "🗃️ Card View"
       assert html =~ "table table-zebra"
-      assert view.assigns.view_mode == :table
+
+      # Get assigns after the toggle
+      assigns = get_assigns(view)
+      assert assigns.view_mode == :table
     end
 
     test "switches from table view back to card view", %{conn: conn} do
@@ -171,7 +185,10 @@ defmodule MedpackWeb.MedicineLiveTest do
 
       assert html =~ "📋 Table View"
       assert html =~ "card bg-base-100"
-      assert view.assigns.view_mode == :cards
+
+      # Get assigns after the second toggle
+      assigns = get_assigns(view)
+      assert assigns.view_mode == :cards
     end
 
     test "preserves search results when switching view modes", %{conn: conn} do
@@ -191,7 +208,10 @@ defmodule MedpackWeb.MedicineLiveTest do
       # Should still show only search results
       assert html =~ "Aspirin"
       refute html =~ "Ibuprofen"
-      assert view.assigns.search_query == "Aspirin"
+
+      # Verify search query is preserved - get assigns after the view toggle
+      assigns = get_assigns(view)
+      assert assigns.search_query == "Aspirin"
     end
   end
 
@@ -199,21 +219,30 @@ defmodule MedpackWeb.MedicineLiveTest do
     test "toggles filter panel visibility", %{conn: conn} do
       {:ok, view, html} = live(conn, ~p"/inventory")
 
+      # Get initial assigns
+      assigns = get_assigns(view)
+
       # Initially filters are hidden
       refute html =~ "🔍 Filter Medicines"
-      assert view.assigns.show_filters == false
+      assert assigns.show_filters == false
 
       # Show filters
       html = render_click(view, "toggle_filters")
 
       assert html =~ "🔍 Filter Medicines"
-      assert view.assigns.show_filters == true
+
+      # Get assigns after showing filters
+      assigns = get_assigns(view)
+      assert assigns.show_filters == true
 
       # Hide filters again
       html = render_click(view, "toggle_filters")
 
       refute html =~ "🔍 Filter Medicines"
-      assert view.assigns.show_filters == false
+
+      # Get assigns after hiding filters
+      assigns = get_assigns(view)
+      assert assigns.show_filters == false
     end
 
     test "filters by dosage form", %{conn: conn} do
@@ -233,7 +262,10 @@ defmodule MedpackWeb.MedicineLiveTest do
 
       assert html =~ "Aspirin Tablet"
       refute html =~ "Ibuprofen Capsule"
-      assert view.assigns.filters.dosage_form == "tablet"
+
+      # Get assigns after the filter change
+      assigns = get_assigns(view)
+      assert assigns.filters.dosage_form == "tablet"
     end
 
     test "filters by status", %{conn: conn} do
@@ -253,7 +285,10 @@ defmodule MedpackWeb.MedicineLiveTest do
 
       assert html =~ "Expired Medicine"
       refute html =~ "Active Medicine"
-      assert view.assigns.filters.status == "expired"
+
+      # Get assigns after the filter change
+      assigns = get_assigns(view)
+      assert assigns.filters.status == "expired"
     end
 
     test "shows filter count badge when filters are applied", %{conn: conn} do
@@ -296,7 +331,10 @@ defmodule MedpackWeb.MedicineLiveTest do
       # Should show all medicines again
       assert html =~ "Tablet Medicine"
       assert html =~ "Capsule Medicine"
-      assert view.assigns.filters == %{}
+
+      # Get assigns after clearing filters
+      assigns = get_assigns(view)
+      assert assigns.filters == %{}
     end
 
     test "combines search and filters", %{conn: conn} do
@@ -330,14 +368,14 @@ defmodule MedpackWeb.MedicineLiveTest do
     test "navigates to medicine detail page when clicking on medicine card", %{conn: conn} do
       medicine = insert(:medicine, name: "Aspirin")
 
-      {:ok, view, html} = live(conn, ~p"/inventory")
+      {:ok, _view, html} = live(conn, ~p"/inventory")
 
       # Should have link to medicine detail
       assert html =~ "href=\"/inventory/#{medicine.id}\""
     end
 
     test "displays medicine photos when available", %{conn: conn} do
-      medicine = insert(:medicine, name: "Aspirin", photo_paths: ["/uploads/test.jpg"])
+      _medicine = insert(:medicine, name: "Aspirin", photo_paths: ["/uploads/test.jpg"])
 
       {:ok, _view, html} = live(conn, ~p"/inventory")
 

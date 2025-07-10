@@ -96,8 +96,10 @@ defmodule Medpack.Jobs.AnalyzeMedicinePhotoJob do
               url
             else
               Logger.info("Using local storage, s3_key: #{image.s3_key}")
-              # For local files, s3_key is already the full path
-              image.s3_key
+              # For local files, use centralized path resolution
+              processable_path = Medpack.FileManager.resolve_file_path(image.s3_key)
+              Logger.info("Converted to processable path: #{processable_path}")
+              processable_path
             end
           end)
           # Remove any nil URLs

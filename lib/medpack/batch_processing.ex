@@ -9,6 +9,8 @@ defmodule Medpack.BatchProcessing do
   alias Medpack.BatchProcessing.EntryImage
   alias Medpack.Jobs.AnalyzeMedicinePhotoJob
 
+  require Logger
+
   @doc """
   Creates a new batch processing entry.
   """
@@ -357,7 +359,6 @@ defmodule Medpack.BatchProcessing do
   Saves a single batch entry as a medicine with photo handling.
   """
   def save_entry_as_medicine(entry) do
-    require Logger
     Logger.info("Saving entry #{entry.id} as medicine with #{length(entry.images)} images")
 
     # First, copy photos to permanent medicine storage
@@ -457,8 +458,6 @@ defmodule Medpack.BatchProcessing do
 
   # Copy local photo to medicine storage
   defp copy_local_photo_for_medicine(image, new_filename) do
-    require Logger
-
     # Use the centralized path resolution utility
     source_path = Medpack.FileManager.resolve_file_path(image.s3_key)
 
@@ -526,5 +525,236 @@ defmodule Medpack.BatchProcessing do
 
   defp generate_batch_id do
     :crypto.strong_rand_bytes(16) |> Base.encode64(padding: false)
+  end
+
+  @doc """
+  Updates an entry's approval status.
+  """
+  def update_entry_approval_status(entry_id, status)
+      when status in [:pending, :approved, :rejected] do
+    case get_entry(entry_id) do
+      nil -> {:error, :not_found}
+      entry -> update_entry(entry, %{approval_status: status})
+    end
+  end
+
+  @doc """
+  Updates an entry's AI analysis results and marks as complete.
+  """
+  def complete_entry_analysis(entry_id, ai_results) do
+    case get_entry(entry_id) do
+      nil ->
+        {:error, :not_found}
+
+      entry ->
+        update_entry(entry, %{
+          ai_analysis_status: :complete,
+          ai_results: ai_results,
+          analyzed_at: DateTime.utc_now()
+        })
+    end
+  end
+
+  @doc """
+  Validates if an entry is ready to be saved as a medicine.
+  """
+  def validate_entry_for_saving(entry) do
+    cond do
+      entry.approval_status != :approved ->
+        {:error, "Entry must be approved before saving"}
+
+      entry.ai_analysis_status != :complete ->
+        {:error, "Entry analysis must be complete"}
+
+      is_nil(entry.ai_results) or map_size(entry.ai_results) == 0 ->
+        {:error, "Entry must have AI analysis results"}
+
+      true ->
+        :ok
+    end
+  end
+
+  @doc """
+  Gets comprehensive batch statistics for UI display.
+  """
+  def get_batch_display_stats(batch_id) do
+    base_stats = get_batch_summary(batch_id)
+
+    # Add additional computed stats
+    pending_review = base_stats.complete - base_stats.approved - base_stats.rejected
+
+    analysis_rate =
+      if base_stats.total > 0, do: round(base_stats.complete / base_stats.total * 100), else: 0
+
+    Map.merge(base_stats, %{
+      pending_review: pending_review,
+      analysis_completion_rate: analysis_rate,
+      ready_to_save: base_stats.approved
+    })
+  end
+
+  @doc """
+  Handles photo upload processing for an entry.
+  """
+  def handle_entry_photo_upload(entry_id, file_info_list) when is_list(file_info_list) do
+    case get_entry(entry_id) do
+      nil -> {:error, :entry_not_found}
+      entry -> process_entry_photos(entry, file_info_list)
+    end
+  end
+
+  @doc """
+  Removes a specific photo from an entry by index.
+  """
+  def remove_entry_photo_by_index(entry_id, photo_index) do
+    try do
+      entry = get_entry_with_images!(entry_id)
+      images = entry.images
+
+      if photo_index >= 0 and photo_index < length(images) do
+        image_to_remove = Enum.at(images, photo_index)
+
+        # Delete the file
+        Medpack.FileManager.delete_file(image_to_remove.s3_key)
+
+        # Delete the database record
+        delete_entry_image(image_to_remove)
+
+        {:ok, :photo_removed}
+      else
+        {:error, :invalid_photo_index}
+      end
+    rescue
+      Ecto.NoResultsError -> {:error, :entry_not_found}
+    end
+  end
+
+  @doc """
+  Removes all photos from an entry.
+  """
+  def remove_all_entry_photos(entry_id) do
+    try do
+      entry = get_entry_with_images!(entry_id)
+
+      Enum.each(entry.images, fn image ->
+        Medpack.FileManager.delete_file(image.s3_key)
+        delete_entry_image(image)
+      end)
+
+      {:ok, :all_photos_removed}
+    rescue
+      Ecto.NoResultsError -> {:error, :entry_not_found}
+    end
+  end
+
+  @doc """
+  Schedules AI analysis for an entry with debounce logic.
+  """
+  def schedule_entry_analysis(entry_id, delay_seconds \\ 5) do
+    # Send message to trigger analysis after delay
+    # This will be handled by the LiveView process
+    Process.send_after(self(), {:start_analysis_countdown, entry_id, delay_seconds}, 0)
+    :ok
+  end
+
+  @doc """
+  Gets photo display data for an entry.
+  """
+  def get_entry_photo_display_data(entry_id) do
+    try do
+      entry = get_entry_with_images!(entry_id)
+
+      photo_data =
+        entry.images
+        |> Enum.sort_by(& &1.upload_order)
+        |> Enum.map(fn image ->
+          %{
+            s3_key: image.s3_key,
+            web_url: EntryImage.get_s3_url(image),
+            filename: image.original_filename,
+            size: image.file_size,
+            human_size: EntryImage.human_file_size(image)
+          }
+        end)
+
+      {:ok, photo_data}
+    rescue
+      Ecto.NoResultsError -> {:error, :entry_not_found}
+    end
+  end
+
+  @doc """
+  Creates empty in-memory entry structs for the LiveView.
+  """
+  def create_empty_entries(count, start_number \\ 0) do
+    (start_number + 1)..(start_number + count)
+    |> Enum.map(fn i ->
+      %{
+        id: "entry_#{System.unique_integer([:positive])}",
+        number: i,
+        photos_uploaded: 0,
+        photo_entries: [],
+        photo_paths: [],
+        photo_web_paths: [],
+        ai_analysis_status: :pending,
+        ai_results: %{},
+        approval_status: :pending,
+        validation_errors: [],
+        analysis_countdown: 0,
+        analysis_timer_ref: nil
+      }
+    end)
+  end
+
+  @doc """
+  Gets entries ready for analysis in a batch.
+  """
+  def get_batch_entries_ready_for_analysis(batch_id) do
+    Entry
+    |> join(:inner, [e], i in assoc(e, :images))
+    |> where([e], e.batch_id == ^batch_id)
+    |> where([e], e.ai_analysis_status == :pending)
+    |> distinct([e], e.id)
+    |> preload(:images)
+    |> Repo.all()
+  end
+
+  # Private helper functions
+
+  defp process_entry_photos(entry, file_info_list) do
+    try do
+      # Create EntryImage records for each photo
+      results =
+        file_info_list
+        |> Enum.with_index()
+        |> Enum.map(fn {file_info, index} ->
+          create_entry_image(%{
+            batch_entry_id: entry.id,
+            s3_key: file_info.path,
+            original_filename: file_info.filename,
+            file_size: file_info.size,
+            content_type: get_content_type_from_filename(file_info.filename),
+            upload_order: index
+          })
+        end)
+
+      # Check if all images were created successfully
+      if Enum.all?(results, &match?({:ok, _}, &1)) do
+        {:ok, length(file_info_list)}
+      else
+        {:error, :failed_to_save_some_images}
+      end
+    rescue
+      e -> {:error, "Failed to process photos: #{Exception.message(e)}"}
+    end
+  end
+
+  defp get_content_type_from_filename(filename) do
+    case Path.extname(filename) |> String.downcase() do
+      ".jpg" -> "image/jpeg"
+      ".jpeg" -> "image/jpeg"
+      ".png" -> "image/png"
+      _ -> "image/jpeg"
+    end
   end
 end

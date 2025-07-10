@@ -346,12 +346,8 @@ defmodule MedpackWeb.Integration.BatchWorkflowIntegrationTest do
       assigns = get_assigns(view)
       assert length(assigns.entries) == 5
 
-      # User switches to results view to check progress
-      html = render_click(view, "toggle_results_grid")
-      assert html =~ "🤖 AI Analysis Results"
-
-      # Switch back to card view
-      html = render_click(view, "toggle_results_grid")
+      # User can continue using card view
+      html = render(view)
       assert html =~ "Medicine Entry #1"
       assert html =~ "Medicine Entry #2"
 

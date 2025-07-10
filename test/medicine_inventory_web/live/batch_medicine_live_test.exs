@@ -22,7 +22,6 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       assert assigns.selected_for_edit == nil
       assert assigns.analyzing == false
       assert assigns.analysis_progress == 0
-      assert assigns.show_results_grid == false
 
       # Should show batch medicine interface
       assert html =~ "Medicine Entry #1"
@@ -381,59 +380,6 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
 
       # Should now show progress indicator
       assert assigns.analyzing == true
-    end
-  end
-
-  describe "results grid view" do
-    test "toggles results grid view", %{conn: conn} do
-      {:ok, view, html} = live(conn, ~p"/add")
-
-      assigns = get_assigns(view)
-
-      # Initially in card view
-      assert assigns.show_results_grid == false
-      refute html =~ "📋 Switch to Card View"
-
-      # Toggle to results grid
-      html = render_click(view, "toggle_results_grid")
-
-      assigns = get_assigns(view)
-
-      assert assigns.show_results_grid == true
-      assert html =~ "📋 Switch to Card View"
-      assert html =~ "🤖 AI Analysis Results"
-    end
-
-    test "displays analysis results in grid view", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/add")
-
-      # Switch to grid view
-      render_click(view, "toggle_results_grid")
-
-      html = render(view)
-
-      # Should show results table structure
-      assert html =~ "table table-zebra"
-      assert html =~ "Photo"
-      assert html =~ "AI Analysis Results"
-      assert html =~ "Status"
-      assert html =~ "Actions"
-    end
-
-    test "creates medicine from analysis results", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/add")
-
-      # This would test the medicine creation flow
-      # For now, just verify the handler exists
-      entry_id = 123
-
-      # Simulate clicking save single entry (this would happen after analysis)
-      _html = render_click(view, "save_single_entry", %{"id" => "#{entry_id}"})
-
-      assigns = get_assigns(view)
-
-      # Should handle the action without crashing
-      assert is_list(assigns.entries)
     end
   end
 

@@ -184,7 +184,7 @@
                       Medpack.Medicine.search_matches(medicine, @search_query) %>
                     <%= if matches != [] do %>
                       <div class="flex flex-wrap gap-1 mb-2">
-                        <%= for {field, value} <- matches do %>
+                        <%= for {field, _value} <- matches do %>
                           <div class="badge badge-outline badge-xs">
                             <%= case field do %>
                               <% :name -> %>

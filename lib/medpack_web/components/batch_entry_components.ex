@@ -197,7 +197,11 @@ defmodule MedpackWeb.BatchEntryComponents do
           <span class="text-base-700 font-semibold hover:text-base-600">
             📸 Add photo ({@remaining_slots} remaining)
           </span>
-          <.live_file_input upload={@uploads[@upload_key]} class="sr-only" />
+          <.live_file_input
+            upload={@uploads[@upload_key]}
+            id={"file-input-#{@entry.id}"}
+            class="sr-only"
+          />
         </div>
         <p class="text-base-500 text-sm mt-1">JPG, PNG up to 10MB each</p>
       </div>

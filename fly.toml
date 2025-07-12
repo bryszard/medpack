@@ -10,7 +10,7 @@ kill_signal = 'SIGTERM'
 [build]
 
 [env]
-  DATABASE_PATH = '/mnt/name/name.db'
+  DATABASE_PATH = '/mnt/name/medpack.db'
   PHX_HOST = 'medpack.fly.dev'
   PORT = '8080'
 

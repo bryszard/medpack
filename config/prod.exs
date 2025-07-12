@@ -18,3 +18,15 @@ config :logger, level: :info
 
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.
+
+config :medpack, Medpack.Repo,
+  adapter: Ecto.Adapters.SQLite3,
+  database: "path/to/your/prod.sqlite3",
+  # 60 seconds, adjust as needed
+  busy_timeout: 60000
+
+config :medpack, Oban,
+  repo: Medpack.Repo,
+  # Lower this number to reduce concurrency (e.g., 1 or 2)
+  queues: [default: 2],
+  plugins: [Oban.Plugins.Pruner]

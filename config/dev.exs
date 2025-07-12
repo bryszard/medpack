@@ -2,7 +2,9 @@ import Config
 
 # Configure your database
 config :medpack, Medpack.Repo,
-  database: Path.expand("../medpack_dev.db", __DIR__),
+  hostname: "localhost",
+  database: "medpack_dev",
+  port: 5432,
   pool_size: 5,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true

@@ -6,7 +6,9 @@ import Config
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
 config :medpack, Medpack.Repo,
-  database: Path.expand("../medpack_test.db", __DIR__),
+  hostname: "localhost",
+  database: "medpack_test",
+  port: 5432,
   pool_size: 5,
   pool: Ecto.Adapters.SQL.Sandbox
 

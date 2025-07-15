@@ -2,8 +2,10 @@ defmodule Medpack.Repo.Migrations.CreateBatchEntries do
   use Ecto.Migration
 
   def change do
-    create table(:batch_entries) do
-      add :batch_id, :string, null: false
+    execute("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
+
+    create table(:batch_entries, primary_key: false) do
+      add :id, :uuid, primary_key: true, default: fragment("uuid_generate_v4()")
       add :entry_number, :integer, null: false
       add :status, :string, default: "pending"
 
@@ -29,10 +31,8 @@ defmodule Medpack.Repo.Migrations.CreateBatchEntries do
     end
 
     # Indexes for efficient queries
-    create index(:batch_entries, [:batch_id])
     create index(:batch_entries, [:ai_analysis_status])
     create index(:batch_entries, [:approval_status])
     create index(:batch_entries, [:status])
-    create unique_index(:batch_entries, [:batch_id, :entry_number])
   end
 end

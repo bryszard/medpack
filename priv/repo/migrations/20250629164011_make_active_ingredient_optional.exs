@@ -13,8 +13,6 @@ defmodule Medpack.Repo.Migrations.MakeActiveIngredientOptional do
       add :name, :string, null: false
       add :brand_name, :string
       add :generic_name, :string
-      # National Drug Code or similar identifier
-      add :ndc_code, :string
       add :lot_number, :string
 
       # FHIR Medication.form - dosage form
@@ -44,14 +42,9 @@ defmodule Medpack.Repo.Migrations.MakeActiveIngredientOptional do
 
       # Dates and tracking
       add :expiration_date, :date
-      add :date_opened, :date
-      add :purchase_date, :date
 
       # Additional information
       add :manufacturer, :string
-      # what it's used for
-      add :indication, :text
-      add :notes, :text
       add :photo_paths, {:array, :string}, default: []
 
       # Status tracking
@@ -64,18 +57,18 @@ defmodule Medpack.Repo.Migrations.MakeActiveIngredientOptional do
     # Copy data from old table to new table
     execute """
     INSERT INTO medicines (
-      name, brand_name, generic_name, ndc_code, lot_number, dosage_form,
+      name, brand_name, generic_name, lot_number, dosage_form,
       active_ingredient, strength_value, strength_unit, strength_denominator_value,
       strength_denominator_unit, container_type, total_quantity, remaining_quantity,
-      quantity_unit, expiration_date, date_opened, purchase_date, manufacturer,
-      indication, notes, photo_paths, status, inserted_at, updated_at
+      quantity_unit, expiration_date, manufacturer,
+      photo_paths, status, inserted_at, updated_at
     )
     SELECT
-      name, brand_name, generic_name, ndc_code, lot_number, dosage_form,
+      name, brand_name, generic_name, lot_number, dosage_form,
       active_ingredient, strength_value, strength_unit, strength_denominator_value,
       strength_denominator_unit, container_type, total_quantity, remaining_quantity,
-      quantity_unit, expiration_date, date_opened, purchase_date, manufacturer,
-      indication, notes, photo_paths, status, inserted_at, updated_at
+      quantity_unit, expiration_date, manufacturer,
+      photo_paths, status, inserted_at, updated_at
     FROM medicines_old
     """
 

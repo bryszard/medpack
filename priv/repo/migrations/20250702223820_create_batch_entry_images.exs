@@ -3,7 +3,9 @@ defmodule Medpack.Repo.Migrations.CreateBatchEntryImages do
 
   def change do
     create table(:batch_entry_images) do
-      add :batch_entry_id, references(:batch_entries, on_delete: :delete_all), null: false
+      add :batch_entry_id, references(:batch_entries, type: :uuid, on_delete: :delete_all),
+        null: false
+
       add :s3_key, :string, null: false
       add :original_filename, :string, null: false
       add :file_size, :integer

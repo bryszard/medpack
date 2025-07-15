@@ -27,13 +27,9 @@ defmodule Medpack.Medicine do
 
     # Dates and tracking
     field :expiration_date, :date
-    field :date_opened, :date
-    field :purchase_date, :date
 
     # Additional information
     field :manufacturer, :string
-    field :indication, :string
-    field :notes, :string
     field :photo_paths, {:array, :string}, default: []
 
     # Status tracking
@@ -65,11 +61,7 @@ defmodule Medpack.Medicine do
       :remaining_quantity,
       :quantity_unit,
       :expiration_date,
-      :date_opened,
-      :purchase_date,
       :manufacturer,
-      :indication,
-      :notes,
       :photo_paths,
       :status
     ])

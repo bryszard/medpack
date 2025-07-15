@@ -4,8 +4,10 @@ defmodule Medpack.BatchProcessing.Entry do
 
   alias Medpack.BatchProcessing.EntryImage
 
+  @primary_key {:id, :binary_id, autogenerate: true}
+  @foreign_key_type :binary_id
+
   schema "batch_entries" do
-    field :batch_id, :string
     field :entry_number, :integer
     field :status, Ecto.Enum, values: [:pending, :processing, :complete, :failed]
 
@@ -33,7 +35,6 @@ defmodule Medpack.BatchProcessing.Entry do
   def changeset(entry, attrs) do
     entry
     |> cast(attrs, [
-      :batch_id,
       :entry_number,
       :status,
       :ai_analysis_status,
@@ -45,9 +46,8 @@ defmodule Medpack.BatchProcessing.Entry do
       :reviewed_at,
       :review_notes
     ])
-    |> validate_required([:batch_id, :entry_number])
+    |> validate_required([:entry_number])
     |> validate_number(:entry_number, greater_than: 0)
-    |> unique_constraint([:batch_id, :entry_number])
     |> put_default_values()
   end
 

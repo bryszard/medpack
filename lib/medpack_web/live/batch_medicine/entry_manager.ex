@@ -13,7 +13,7 @@ defmodule MedpackWeb.BatchMedicineLive.EntryManager do
     (start_number + 1)..(start_number + count)
     |> Enum.map(fn i ->
       %{
-        id: "entry_#{System.unique_integer([:positive])}",
+        id: Ecto.UUID.generate(),
         number: i,
         photos_uploaded: 0,
         photo_entries: [],

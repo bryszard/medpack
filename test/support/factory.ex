@@ -25,9 +25,7 @@ defmodule Medpack.Factory do
       quantity_unit: "tablets",
       status: "active",
       expiration_date: Date.add(Date.utc_today(), 365),
-      manufacturer: sequence(:manufacturer, &"Manufacturer #{&1}"),
-      indication: "For testing purposes",
-      notes: "Test medicine notes"
+      manufacturer: sequence(:manufacturer, &"Manufacturer #{&1}")
     }
   end
 
@@ -73,7 +71,6 @@ defmodule Medpack.Factory do
 
   def batch_entry_factory do
     %Entry{
-      batch_id: sequence(:batch_id, &"batch_#{&1}"),
       entry_number: sequence(:entry_number, & &1),
       status: :pending,
       ai_analysis_status: :pending,

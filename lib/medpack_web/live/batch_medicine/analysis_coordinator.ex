@@ -49,19 +49,19 @@ defmodule MedpackWeb.BatchMedicineLive.AnalysisCoordinator do
   Triggers immediate analysis for an entry.
   """
   def trigger_entry_analysis(entries, entry_id) do
-    # Find the entry
+    # Always use entry.id (UUID) for DB lookups
     entry = Enum.find(entries, &(&1.id == entry_id))
 
     if entry && entry.photos_uploaded > 0 do
-      # Check if this is a database entry or in-memory entry
       case safe_get_database_entry(entry.id) do
         {:ok, db_entry} ->
-          # Database entry - submit to Oban for processing
           submit_database_entry_for_analysis(entries, db_entry)
 
         {:error, _} ->
-          # In-memory entry - process immediately
-          process_in_memory_entry_analysis(entries, entry)
+          entries_processing =
+            EntryManager.update_entry_analysis_status(entries, entry_id, :processing)
+
+          process_in_memory_entry_analysis(entries_processing, entry)
       end
     else
       {entries, nil}
@@ -260,11 +260,15 @@ defmodule MedpackWeb.BatchMedicineLive.AnalysisCoordinator do
     end)
   end
 
-  defp safe_get_database_entry(entry_id) when is_integer(entry_id) do
-    try do
-      {:ok, Medpack.BatchProcessing.get_entry!(entry_id)}
-    rescue
-      Ecto.NoResultsError -> {:error, :not_found}
+  defp safe_get_database_entry(entry_id) when is_binary(entry_id) do
+    if String.length(entry_id) == 36 and String.contains?(entry_id, "-") do
+      try do
+        {:ok, Medpack.BatchProcessing.get_entry!(entry_id)}
+      rescue
+        Ecto.NoResultsError -> {:error, :not_found}
+      end
+    else
+      {:error, :invalid_id}
     end
   end
 

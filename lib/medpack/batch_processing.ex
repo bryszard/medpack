@@ -41,27 +41,6 @@ defmodule Medpack.BatchProcessing do
   end
 
   @doc """
-  Lists all batch entries for a given batch ID.
-  """
-  def list_entries_by_batch(batch_id) do
-    Entry
-    |> where([e], e.batch_id == ^batch_id)
-    |> order_by([e], e.entry_number)
-    |> Repo.all()
-  end
-
-  @doc """
-  Lists all batch entries for a given batch ID with preloaded images.
-  """
-  def list_entries_by_batch_with_images(batch_id) do
-    Entry
-    |> where([e], e.batch_id == ^batch_id)
-    |> order_by([e], e.entry_number)
-    |> preload(:images)
-    |> Repo.all()
-  end
-
-  @doc """
   Updates a batch entry.
   """
   def update_entry(%Entry{} = entry, attrs) do
@@ -111,13 +90,6 @@ defmodule Medpack.BatchProcessing do
   end
 
   @doc """
-  Gets statistics for a batch (alias for get_batch_summary for test compatibility).
-  """
-  def get_batch_statistics(batch_id) do
-    get_batch_summary(batch_id)
-  end
-
-  @doc """
   Returns entries that are ready for analysis (have photos and pending analysis).
   """
   def list_ready_for_analysis() do
@@ -159,10 +131,17 @@ defmodule Medpack.BatchProcessing do
   end
 
   @doc """
+  Generates a new batch_id as a UUID string.
+  """
+  def generate_batch_id do
+    Ecto.UUID.generate()
+  end
+
+  @doc """
   Creates multiple batch entries at once.
   """
-  def create_batch_entries(count, batch_id \\ nil) when is_integer(count) and count > 0 do
-    batch_id = batch_id || generate_batch_id()
+  def create_batch_entries(count) when is_integer(count) and count > 0 do
+    batch_id = generate_batch_id()
 
     entries =
       1..count
@@ -246,116 +225,6 @@ defmodule Medpack.BatchProcessing do
   end
 
   @doc """
-  Rejects a batch entry.
-  """
-  def reject_entry(%Entry{} = entry) do
-    update_entry(entry, %{approval_status: :rejected})
-  end
-
-  @doc """
-  Gets entries that are ready for saving (approved and have analysis results).
-  """
-  def get_saveable_entries(batch_id) do
-    Entry
-    |> where([e], e.batch_id == ^batch_id)
-    |> where([e], e.approval_status == :approved)
-    |> where([e], e.ai_analysis_status == :complete)
-    |> where([e], not is_nil(e.ai_results))
-    |> Repo.all()
-  end
-
-  @doc """
-  Gets summary statistics for a batch.
-  """
-  def get_batch_summary(batch_id) do
-    query = from e in Entry, where: e.batch_id == ^batch_id
-
-    total = Repo.aggregate(query, :count)
-
-    pending =
-      query
-      |> where([e], e.ai_analysis_status == :pending)
-      |> Repo.aggregate(:count)
-
-    processing =
-      query
-      |> where([e], e.ai_analysis_status == :processing)
-      |> Repo.aggregate(:count)
-
-    complete =
-      query
-      |> where([e], e.ai_analysis_status == :complete)
-      |> Repo.aggregate(:count)
-
-    failed =
-      query
-      |> where([e], e.ai_analysis_status == :failed)
-      |> Repo.aggregate(:count)
-
-    approved =
-      query
-      |> where([e], e.approval_status == :approved)
-      |> Repo.aggregate(:count)
-
-    rejected =
-      query
-      |> where([e], e.approval_status == :rejected)
-      |> Repo.aggregate(:count)
-
-    %{
-      total: total,
-      pending: pending,
-      processing: processing,
-      complete: complete,
-      failed: failed,
-      approved: approved,
-      rejected: rejected
-    }
-  end
-
-  @doc """
-  Saves approved batch entries as medicines in the main inventory.
-  """
-  def save_approved_medicines(batch_id) do
-    approved_entries = get_saveable_entries(batch_id)
-
-    if approved_entries == [] do
-      {:ok, %{saved: 0, failed: 0, results: []}}
-    else
-      # Preload images for all entries
-      entries_with_images =
-        Enum.map(approved_entries, fn entry ->
-          get_entry_with_images!(entry.id)
-        end)
-
-      results =
-        Enum.map(entries_with_images, fn entry ->
-          case save_entry_as_medicine(entry) do
-            {:ok, medicine} -> {:ok, medicine}
-            {:error, changeset} -> {:error, entry.id, changeset}
-          end
-        end)
-
-      saved = Enum.count(results, &match?({:ok, _}, &1))
-      failed = Enum.count(results, &match?({:error, _, _}, &1))
-
-      # Remove successfully saved entries
-      if saved > 0 do
-        successful_entry_ids = get_successful_entry_ids(results, entries_with_images)
-
-        Enum.each(successful_entry_ids, fn entry_id ->
-          case get_entry!(entry_id) do
-            nil -> :ok
-            entry -> delete_entry(entry)
-          end
-        end)
-      end
-
-      {:ok, %{saved: saved, failed: failed, results: results}}
-    end
-  end
-
-  @doc """
   Saves a single batch entry as a medicine with photo handling.
   """
   def save_entry_as_medicine(entry) do
@@ -382,7 +251,17 @@ defmodule Medpack.BatchProcessing do
             Logger.info("Successfully created medicine #{medicine.id}, cleaning up batch photos")
             # Clean up batch photos only after successful medicine creation
             cleanup_batch_photos(entry.images)
-            {:ok, medicine}
+            # Mark entry as complete
+            case update_entry(entry, %{status: :complete}) do
+              {:ok, _updated_entry} ->
+                Logger.info("Successfully marked entry #{entry.id} as complete")
+                {:ok, medicine}
+
+              {:error, changeset} ->
+                Logger.error("Failed to mark entry as complete: #{inspect(changeset.errors)}")
+                # Still return success for medicine creation, but log the error
+                {:ok, medicine}
+            end
 
           {:error, changeset} ->
             Logger.error("Failed to create medicine: #{inspect(changeset.errors)}")
@@ -499,32 +378,93 @@ defmodule Medpack.BatchProcessing do
   end
 
   @doc """
-  Gets entries with uploaded photos that are ready for analysis.
+  Gets entries that are ready for saving (approved and have analysis results).
   """
-  def get_entries_ready_for_analysis(batch_id) do
-    # Get entries that have at least one image and are pending analysis
+  def get_saveable_entries() do
     Entry
-    |> join(:inner, [e], i in assoc(e, :images))
-    |> where([e], e.batch_id == ^batch_id)
-    |> where([e], e.ai_analysis_status == :pending)
-    |> distinct([e], e.id)
-    |> preload(:images)
+    |> where([e], e.approval_status == :approved)
+    |> where([e], e.ai_analysis_status == :complete)
+    |> where([e], not is_nil(e.ai_results))
     |> Repo.all()
   end
 
-  # Private functions
+  @doc """
+  Gets summary statistics for a batch.
+  """
+  def get_batch_summary() do
+    query = from(e in Entry)
 
-  defp get_successful_entry_ids(results, entries) do
-    results
-    |> Enum.with_index()
-    |> Enum.filter(&match?({{:ok, _}, _}, &1))
-    |> Enum.map(fn {{:ok, _}, index} ->
-      Enum.at(entries, index).id
-    end)
+    total = Repo.aggregate(query, :count)
+
+    pending =
+      query
+      |> where([e], e.ai_analysis_status == :pending)
+      |> Repo.aggregate(:count)
+
+    processing =
+      query
+      |> where([e], e.ai_analysis_status == :processing)
+      |> Repo.aggregate(:count)
+
+    complete =
+      query
+      |> where([e], e.ai_analysis_status == :complete)
+      |> Repo.aggregate(:count)
+
+    failed =
+      query
+      |> where([e], e.ai_analysis_status == :failed)
+      |> Repo.aggregate(:count)
+
+    approved =
+      query
+      |> where([e], e.approval_status == :approved)
+      |> Repo.aggregate(:count)
+
+    rejected =
+      query
+      |> where([e], e.approval_status == :rejected)
+      |> Repo.aggregate(:count)
+
+    %{
+      total: total,
+      pending: pending,
+      processing: processing,
+      complete: complete,
+      failed: failed,
+      approved: approved,
+      rejected: rejected
+    }
   end
 
-  defp generate_batch_id do
-    :crypto.strong_rand_bytes(16) |> Base.encode64(padding: false)
+  @doc """
+  Saves approved batch entries as medicines in the main inventory.
+  """
+  def save_approved_medicines() do
+    approved_entries = get_saveable_entries()
+
+    if approved_entries == [] do
+      {:ok, %{saved: 0, failed: 0, results: []}}
+    else
+      # Preload images for all entries
+      entries_with_images =
+        Enum.map(approved_entries, fn entry ->
+          get_entry_with_images!(entry.id)
+        end)
+
+      results =
+        Enum.map(entries_with_images, fn entry ->
+          case save_entry_as_medicine(entry) do
+            {:ok, medicine} -> {:ok, medicine}
+            {:error, changeset} -> {:error, entry.id, changeset}
+          end
+        end)
+
+      saved = Enum.count(results, &match?({:ok, _}, &1))
+      failed = Enum.count(results, &match?({:error, _, _}, &1))
+
+      {:ok, %{saved: saved, failed: failed, results: results}}
+    end
   end
 
   @doc """
@@ -577,8 +517,8 @@ defmodule Medpack.BatchProcessing do
   @doc """
   Gets comprehensive batch statistics for UI display.
   """
-  def get_batch_display_stats(batch_id) do
-    base_stats = get_batch_summary(batch_id)
+  def get_batch_display_stats() do
+    base_stats = get_batch_summary()
 
     # Add additional computed stats
     pending_review = base_stats.complete - base_stats.approved - base_stats.rejected
@@ -709,12 +649,27 @@ defmodule Medpack.BatchProcessing do
   @doc """
   Gets entries ready for analysis in a batch.
   """
-  def get_batch_entries_ready_for_analysis(batch_id) do
+  def get_batch_entries_ready_for_analysis() do
     Entry
     |> join(:inner, [e], i in assoc(e, :images))
-    |> where([e], e.batch_id == ^batch_id)
     |> where([e], e.ai_analysis_status == :pending)
     |> distinct([e], e.id)
+    |> preload(:images)
+    |> Repo.all()
+  end
+
+  @doc """
+  Lists all batch entries that are not fully processed (i.e., not complete/approved/rejected).
+  Used to show in-progress batch entries on the /add page after reload.
+  """
+  def list_unprocessed_entries do
+    Entry
+    |> where(
+      [e],
+      e.status != :complete and
+        (e.ai_analysis_status != :complete or e.approval_status not in [:approved, :rejected])
+    )
+    |> order_by([e], asc: e.inserted_at)
     |> preload(:images)
     |> Repo.all()
   end

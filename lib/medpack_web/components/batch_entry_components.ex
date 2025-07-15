@@ -39,7 +39,9 @@ defmodule MedpackWeb.BatchEntryComponents do
       <div class="p-6">
         <.photo_upload_section entry={@entry} uploads={@uploads} />
         <.status_display_section entry={@entry} />
-        <.analysis_results_section entry={@entry} selected_for_edit={@selected_for_edit} />
+        <%= if @entry.ai_analysis_status in [:processing, :failed, :complete] do %>
+          <.analysis_results_section entry={@entry} selected_for_edit={@selected_for_edit} />
+        <% end %>
       </div>
     </div>
     """
@@ -49,9 +51,24 @@ defmodule MedpackWeb.BatchEntryComponents do
   Renders the entry card header with title and remove button.
   """
   def entry_header(assigns) do
+    # Try to get the medicine name from AI results if available
+    medicine_name =
+      case Map.get(assigns.entry, :ai_results) do
+        %{"name" => name} when is_binary(name) and name != "" -> name
+        _ -> nil
+      end
+
+    assigns = assign(assigns, :medicine_name, medicine_name)
+
     ~H"""
     <div class="bg-base-100 px-6 py-4 border-b border-base-200 flex justify-between items-center">
-      <h3 class="text-lg font-bold text-base-900">Medicine Entry #{@entry.number}</h3>
+      <h3 class="text-lg font-bold text-base-900">
+        <%= if @medicine_name do %>
+          {@medicine_name}
+        <% else %>
+          Medicine Entry
+        <% end %>
+      </h3>
       <button
         phx-click="remove_entry"
         phx-value-id={@entry.id}
@@ -178,7 +195,7 @@ defmodule MedpackWeb.BatchEntryComponents do
   Renders the upload form for new photos.
   """
   def upload_form(assigns) do
-    upload_key = get_upload_key_for_entry(assigns.entry)
+    upload_key = String.to_atom("entry_#{assigns.entry.id}_photos")
     remaining_slots = 3 - Map.get(assigns.entry, :photos_uploaded, 0)
 
     assigns =
@@ -197,11 +214,15 @@ defmodule MedpackWeb.BatchEntryComponents do
           <span class="text-base-700 font-semibold hover:text-base-600">
             📸 Add photo ({@remaining_slots} remaining)
           </span>
-          <.live_file_input
-            upload={@uploads[@upload_key]}
-            id={"file-input-#{@entry.id}"}
-            class="sr-only"
-          />
+          <%= if @uploads[@upload_key] do %>
+            <.live_file_input
+              upload={@uploads[@upload_key]}
+              id={"file-input-#{@entry.id}"}
+              class="sr-only"
+            />
+          <% else %>
+            <span class="text-error">Upload config not ready</span>
+          <% end %>
         </div>
         <p class="text-base-500 text-sm mt-1">JPG, PNG up to 10MB each</p>
       </div>
@@ -235,12 +256,19 @@ defmodule MedpackWeb.BatchEntryComponents do
   def analysis_countdown_display(assigns) do
     countdown = Map.get(assigns.entry, :analysis_countdown, 0)
     photos_count = Map.get(assigns.entry, :photos_uploaded, 0)
+    timer_active = countdown > 0
+    analysis_status = Map.get(assigns.entry, :ai_analysis_status, :pending)
 
-    assigns = assigns |> assign(:countdown, countdown) |> assign(:photos_count, photos_count)
+    assigns =
+      assigns
+      |> assign(:countdown, countdown)
+      |> assign(:photos_count, photos_count)
+      |> assign(:timer_active, timer_active)
+      |> assign(:analysis_status, analysis_status)
 
     ~H"""
     <%= cond do %>
-      <% @countdown > 0 -> %>
+      <% @timer_active -> %>
         <div class="flex items-center space-x-3">
           <.countdown_timer countdown={@countdown} />
           <div class="text-center">
@@ -248,10 +276,17 @@ defmodule MedpackWeb.BatchEntryComponents do
             <button phx-click="analyze_now" phx-value-id={@entry.id} class="btn btn-primary btn-xs">
               Analyze Now
             </button>
+            <button
+              phx-click="stop_countdown"
+              phx-value-id={@entry.id}
+              class="btn btn-warning btn-xs ml-2"
+            >
+              Stop Countdown
+            </button>
           </div>
         </div>
-      <% @entry.ai_analysis_status == :pending and @photos_count > 0 -> %>
-        <div class="flex justify-end">
+      <% @analysis_status == :pending and @photos_count > 0 -> %>
+        <div class="flex justify-end space-x-2">
           <button phx-click="analyze_now" phx-value-id={@entry.id} class="btn btn-primary btn-sm">
             🤖 Analyze Now
           </button>
@@ -263,16 +298,19 @@ defmodule MedpackWeb.BatchEntryComponents do
   end
 
   @doc """
-  Renders a circular countdown timer.
+  Renders a circular countdown timer with smooth animation.
   """
   def countdown_timer(assigns) do
-    progress = 100 - assigns.countdown / 5 * 100
+    # For a 5-second timer, progress is (countdown / 5) * 100
+    total = 5.0
+    countdown = assigns.countdown
+    progress = countdown / total * 100
     assigns = assign(assigns, :progress, progress)
 
     ~H"""
     <div class="relative">
       <!-- Circular Progress Bar -->
-      <svg class="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
+      <svg class="w-12 h-12 transform -rotate-90 transition-all duration-1000" viewBox="0 0 36 36">
         <path
           class="text-base-200"
           stroke="currentColor"
@@ -303,19 +341,26 @@ defmodule MedpackWeb.BatchEntryComponents do
   Renders the AI analysis results section.
   """
   def analysis_results_section(assigns) do
+    entry_id_normalized = normalize_entry_id(assigns.entry.id)
+    selected_id_normalized = normalize_entry_id(assigns.selected_for_edit)
+    is_editing = entry_id_normalized == selected_id_normalized
+    assigns = assign(assigns, :is_editing, is_editing)
+
     ~H"""
     <div class="bg-base-100 rounded-lg p-4 border border-base-200">
       <h4 class="font-semibold text-base-900 mb-2">🤖 AI Analysis Results:</h4>
 
-      <%= case @entry.ai_analysis_status do %>
-        <% :processing -> %>
-          <.processing_indicator />
-        <% :failed -> %>
-          <.failed_analysis_display entry={@entry} />
-        <% :complete -> %>
-          <.complete_analysis_display entry={@entry} selected_for_edit={@selected_for_edit} />
-        <% _ -> %>
-          <p class="text-base-600">⏳ Waiting for photos...</p>
+      <%= if @is_editing do %>
+        <.entry_edit_form entry={@entry} />
+      <% else %>
+        <%= case @entry.ai_analysis_status do %>
+          <% :processing -> %>
+            <.processing_indicator />
+          <% :failed -> %>
+            <.failed_analysis_display entry={@entry} />
+          <% :complete -> %>
+            <.complete_analysis_display entry={@entry} selected_for_edit={@selected_for_edit} />
+        <% end %>
       <% end %>
     </div>
     """
@@ -403,7 +448,6 @@ defmodule MedpackWeb.BatchEntryComponents do
         <.field_status_row entry={@entry} field_key="brand_name" field_name="Brand Name" />
         <.field_status_row entry={@entry} field_key="manufacturer" field_name="Manufacturer" />
         <.field_status_row entry={@entry} field_key="expiration_date" field_name="Expiration Date" />
-        <.field_status_row entry={@entry} field_key="indication" field_name="Indication" />
         <.field_status_row
           entry={@entry}
           field_key="remaining_quantity"
@@ -472,9 +516,6 @@ defmodule MedpackWeb.BatchEntryComponents do
         </button>
         <button phx-click="edit_entry" phx-value-id={@entry.id} class="btn btn-info">
           ✏️ Edit
-        </button>
-        <button phx-click="reject_entry" phx-value-id={@entry.id} class="btn btn-error">
-          ❌ Reject
         </button>
       </div>
     <% end %>
@@ -571,12 +612,8 @@ defmodule MedpackWeb.BatchEntryComponents do
 
   # Helper functions (matching LiveView helpers)
 
-  defp get_upload_key_for_entry(entry) do
-    String.to_atom("entry_#{entry.number}_photos")
-  end
-
   defp get_upload_entries_for_entry(entry, uploads) do
-    upload_key = get_upload_key_for_entry(entry)
+    upload_key = String.to_atom("entry_#{entry.id}_photos")
     upload_config = Map.get(uploads, upload_key, %{entries: []})
     upload_config.entries
   end
@@ -585,9 +622,16 @@ defmodule MedpackWeb.BatchEntryComponents do
   defp normalize_entry_id(entry_id) when is_integer(entry_id), do: entry_id
 
   defp normalize_entry_id(entry_id) when is_binary(entry_id) do
-    case Integer.parse(entry_id) do
-      {id, _} -> id
-      :error -> entry_id
+    # Check if it's a UUID format (36 characters with dashes)
+    if String.length(entry_id) == 36 and String.contains?(entry_id, "-") do
+      # It's a UUID, return as-is
+      entry_id
+    else
+      # Try to parse as integer for legacy IDs
+      case Integer.parse(entry_id) do
+        {id, _} -> id
+        :error -> entry_id
+      end
     end
   end
 
@@ -637,30 +681,18 @@ defmodule MedpackWeb.BatchEntryComponents do
     # Create form data from entry's AI results
     medicine_data = Map.get(assigns.entry, :ai_results, %{})
 
-    # Create a changeset-like structure for the form
+    # Only include fields shown in analysis details
     form_data = %{
       "name" => Map.get(medicine_data, "name", ""),
-      "brand_name" => Map.get(medicine_data, "brand_name", ""),
-      "generic_name" => Map.get(medicine_data, "generic_name", ""),
-      "dosage_form" => Map.get(medicine_data, "dosage_form", "tablet"),
+      "dosage_form" => Map.get(medicine_data, "dosage_form", ""),
       "active_ingredient" => Map.get(medicine_data, "active_ingredient", ""),
       "strength_value" => to_string(Map.get(medicine_data, "strength_value", "")),
-      "strength_unit" => Map.get(medicine_data, "strength_unit", ""),
-      "strength_denominator_value" =>
-        to_string(Map.get(medicine_data, "strength_denominator_value", "")),
-      "strength_denominator_unit" => Map.get(medicine_data, "strength_denominator_unit", ""),
-      "container_type" => Map.get(medicine_data, "container_type", "bottle"),
+      "container_type" => Map.get(medicine_data, "container_type", ""),
       "total_quantity" => to_string(Map.get(medicine_data, "total_quantity", "")),
-      "remaining_quantity" => to_string(Map.get(medicine_data, "remaining_quantity", "")),
-      "quantity_unit" => Map.get(medicine_data, "quantity_unit", ""),
-      "expiration_date" => Map.get(medicine_data, "expiration_date", ""),
-      "purchase_date" => Map.get(medicine_data, "purchase_date", ""),
-      "date_opened" => Map.get(medicine_data, "date_opened", ""),
+      "brand_name" => Map.get(medicine_data, "brand_name", ""),
       "manufacturer" => Map.get(medicine_data, "manufacturer", ""),
-      "lot_number" => Map.get(medicine_data, "lot_number", ""),
-      "indication" => Map.get(medicine_data, "indication", ""),
-      "notes" => Map.get(medicine_data, "notes", ""),
-      "status" => Map.get(medicine_data, "status", "active")
+      "expiration_date" => Map.get(medicine_data, "expiration_date", ""),
+      "remaining_quantity" => to_string(Map.get(medicine_data, "remaining_quantity", ""))
     }
 
     assigns = assign(assigns, :form_data, form_data)
@@ -668,7 +700,6 @@ defmodule MedpackWeb.BatchEntryComponents do
     ~H"""
     <div class="card bg-base-100 border-2 border-info mt-4">
       <div class="card-body">
-        <h2 class="card-title text-info">✏️ Edit Medicine Information</h2>
         <form
           id={"edit-form-#{@entry.id}"}
           phx-submit="save_entry_edit"
@@ -677,9 +708,9 @@ defmodule MedpackWeb.BatchEntryComponents do
         >
           <input type="hidden" name="entry_id" value={@entry.id} />
           
-    <!-- Basic Information -->
+    <!-- Essential Information -->
           <div>
-            <h3 class="text-lg font-bold text-base-content mb-3">📋 Basic Information</h3>
+            <h3 class="text-lg font-bold text-green-800 mb-3">✅ Essential Information</h3>
             <div class="space-y-3">
               <div class="form-control">
                 <label class="label">
@@ -693,72 +724,18 @@ defmodule MedpackWeb.BatchEntryComponents do
                   required
                 />
               </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Brand Name</span>
-                </label>
-                <input
-                  type="text"
-                  name="medicine[brand_name]"
-                  value={@form_data["brand_name"]}
-                  class="input input-bordered"
-                />
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Generic Name</span>
-                </label>
-                <input
-                  type="text"
-                  name="medicine[generic_name]"
-                  value={@form_data["generic_name"]}
-                  class="input input-bordered"
-                />
-              </div>
-
               <div class="form-control">
                 <label class="label">
                   <span class="label-text">Dosage Form *</span>
                 </label>
-                <select name="medicine[dosage_form]" class="select select-bordered" required>
-                  <option value="tablet" selected={@form_data["dosage_form"] == "tablet"}>
-                    Tablet
-                  </option>
-                  <option value="capsule" selected={@form_data["dosage_form"] == "capsule"}>
-                    Capsule
-                  </option>
-                  <option value="syrup" selected={@form_data["dosage_form"] == "syrup"}>Syrup</option>
-                  <option value="suspension" selected={@form_data["dosage_form"] == "suspension"}>
-                    Suspension
-                  </option>
-                  <option value="solution" selected={@form_data["dosage_form"] == "solution"}>
-                    Solution
-                  </option>
-                  <option value="cream" selected={@form_data["dosage_form"] == "cream"}>Cream</option>
-                  <option value="ointment" selected={@form_data["dosage_form"] == "ointment"}>
-                    Ointment
-                  </option>
-                  <option value="gel" selected={@form_data["dosage_form"] == "gel"}>Gel</option>
-                  <option value="lotion" selected={@form_data["dosage_form"] == "lotion"}>
-                    Lotion
-                  </option>
-                  <option value="drops" selected={@form_data["dosage_form"] == "drops"}>Drops</option>
-                  <option value="injection" selected={@form_data["dosage_form"] == "injection"}>
-                    Injection
-                  </option>
-                  <option value="inhaler" selected={@form_data["dosage_form"] == "inhaler"}>
-                    Inhaler
-                  </option>
-                  <option value="spray" selected={@form_data["dosage_form"] == "spray"}>Spray</option>
-                  <option value="patch" selected={@form_data["dosage_form"] == "patch"}>Patch</option>
-                  <option value="suppository" selected={@form_data["dosage_form"] == "suppository"}>
-                    Suppository
-                  </option>
-                </select>
+                <input
+                  type="text"
+                  name="medicine[dosage_form]"
+                  value={@form_data["dosage_form"]}
+                  class="input input-bordered"
+                  required
+                />
               </div>
-
               <div class="form-control">
                 <label class="label">
                   <span class="label-text">Active Ingredient</span>
@@ -770,71 +747,18 @@ defmodule MedpackWeb.BatchEntryComponents do
                   class="input input-bordered"
                 />
               </div>
-            </div>
-          </div>
-          
-    <!-- Strength & Dosage -->
-          <div>
-            <h3 class="text-lg font-bold text-base-content mb-3">💪 Strength & Dosage</h3>
-            <div class="grid grid-cols-2 gap-3">
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text">Strength Value</span>
+                  <span class="label-text">Strength</span>
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
                   name="medicine[strength_value]"
                   value={@form_data["strength_value"]}
                   class="input input-bordered"
+                  placeholder="e.g. 500mg"
                 />
               </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Strength Unit</span>
-                </label>
-                <input
-                  type="text"
-                  name="medicine[strength_unit]"
-                  value={@form_data["strength_unit"]}
-                  class="input input-bordered"
-                  placeholder="mg, g, ml, etc."
-                />
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Denominator Value</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  name="medicine[strength_denominator_value]"
-                  value={@form_data["strength_denominator_value"]}
-                  class="input input-bordered"
-                />
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Denominator Unit</span>
-                </label>
-                <input
-                  type="text"
-                  name="medicine[strength_denominator_unit]"
-                  value={@form_data["strength_denominator_unit"]}
-                  class="input input-bordered"
-                  placeholder="ml, tablet, etc."
-                />
-              </div>
-            </div>
-          </div>
-          
-    <!-- Container & Quantity -->
-          <div>
-            <h3 class="text-lg font-bold text-base-content mb-3">📦 Container & Quantity</h3>
-            <div class="space-y-3">
               <div class="form-control">
                 <label class="label">
                   <span class="label-text">Container Type</span>
@@ -863,112 +787,36 @@ defmodule MedpackWeb.BatchEntryComponents do
                   </option>
                 </select>
               </div>
-
-              <div class="grid grid-cols-3 gap-3">
-                <div class="form-control">
-                  <label class="label">
-                    <span class="label-text">Total Quantity</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="medicine[total_quantity]"
-                    value={@form_data["total_quantity"]}
-                    class="input input-bordered"
-                  />
-                </div>
-
-                <div class="form-control">
-                  <label class="label">
-                    <span class="label-text">Remaining Quantity</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="medicine[remaining_quantity]"
-                    value={@form_data["remaining_quantity"]}
-                    class="input input-bordered"
-                  />
-                </div>
-
-                <div class="form-control">
-                  <label class="label">
-                    <span class="label-text">Quantity Unit</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="medicine[quantity_unit]"
-                    value={@form_data["quantity_unit"]}
-                    class="input input-bordered"
-                    placeholder="tablets, ml, etc."
-                  />
-                </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Total Quantity</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  name="medicine[total_quantity]"
+                  value={@form_data["total_quantity"]}
+                  class="input input-bordered"
+                />
               </div>
             </div>
           </div>
           
-    <!-- Dates & Tracking -->
+    <!-- Additional Information -->
           <div>
-            <h3 class="text-lg font-bold text-base-content mb-3">📅 Dates & Tracking</h3>
-            <div class="grid grid-cols-2 gap-3">
+            <h3 class="text-lg font-bold text-blue-800 mb-3">📋 Additional Information</h3>
+            <div class="space-y-3">
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text">Expiration Date</span>
+                  <span class="label-text">Brand Name</span>
                 </label>
                 <input
-                  type="date"
-                  name="medicine[expiration_date]"
-                  value={@form_data["expiration_date"]}
+                  type="text"
+                  name="medicine[brand_name]"
+                  value={@form_data["brand_name"]}
                   class="input input-bordered"
                 />
               </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Purchase Date</span>
-                </label>
-                <input
-                  type="date"
-                  name="medicine[purchase_date]"
-                  value={@form_data["purchase_date"]}
-                  class="input input-bordered"
-                />
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Date Opened</span>
-                </label>
-                <input
-                  type="date"
-                  name="medicine[date_opened]"
-                  value={@form_data["date_opened"]}
-                  class="input input-bordered"
-                />
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Status</span>
-                </label>
-                <select name="medicine[status]" class="select select-bordered">
-                  <option value="active" selected={@form_data["status"] == "active"}>Active</option>
-                  <option value="expired" selected={@form_data["status"] == "expired"}>
-                    Expired
-                  </option>
-                  <option value="empty" selected={@form_data["status"] == "empty"}>Empty</option>
-                  <option value="recalled" selected={@form_data["status"] == "recalled"}>
-                    Recalled
-                  </option>
-                </select>
-              </div>
-            </div>
-          </div>
-          
-    <!-- Additional Details -->
-          <div>
-            <h3 class="text-lg font-bold text-base-content mb-3">📝 Additional Details</h3>
-            <div class="grid grid-cols-2 gap-3">
               <div class="form-control">
                 <label class="label">
                   <span class="label-text">Manufacturer</span>
@@ -980,52 +828,39 @@ defmodule MedpackWeb.BatchEntryComponents do
                   class="input input-bordered"
                 />
               </div>
-
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text">Lot Number</span>
+                  <span class="label-text">Expiration Date</span>
                 </label>
                 <input
-                  type="text"
-                  name="medicine[lot_number]"
-                  value={@form_data["lot_number"]}
+                  type="date"
+                  name="medicine[expiration_date]"
+                  value={@form_data["expiration_date"]}
                   class="input input-bordered"
                 />
               </div>
-
-              <div class="form-control col-span-2">
+              <div class="form-control">
                 <label class="label">
-                  <span class="label-text">Indication</span>
+                  <span class="label-text">Remaining Quantity</span>
                 </label>
-                <textarea
-                  name="medicine[indication]"
-                  class="textarea textarea-bordered"
-                  rows="2"
-                  placeholder="What is this medicine used for?"
-                >{@form_data["indication"]}</textarea>
-              </div>
-
-              <div class="form-control col-span-2">
-                <label class="label">
-                  <span class="label-text">Notes</span>
-                </label>
-                <textarea
-                  name="medicine[notes]"
-                  class="textarea textarea-bordered"
-                  rows="3"
-                  placeholder="Additional notes or comments..."
-                >{@form_data["notes"]}</textarea>
+                <input
+                  type="number"
+                  step="0.01"
+                  name="medicine[remaining_quantity]"
+                  value={@form_data["remaining_quantity"]}
+                  class="input input-bordered"
+                />
               </div>
             </div>
           </div>
           
     <!-- Action Buttons -->
-          <div class="card-actions justify-end mt-6">
+          <div class="card-actions justify-center mt-6">
+            <button type="submit" class="btn btn-success">
+              💾 Save
+            </button>
             <button type="button" phx-click="cancel_edit" class="btn btn-neutral">
               ❌ Cancel
-            </button>
-            <button type="submit" class="btn btn-success">
-              💾 Save Changes
             </button>
           </div>
         </form>

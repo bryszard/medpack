@@ -4,6 +4,8 @@ defmodule Medpack.BatchProcessing.EntryImage do
 
   alias Medpack.BatchProcessing.Entry
 
+  @foreign_key_type :binary_id
+
   schema "batch_entry_images" do
     belongs_to :batch_entry, Entry
     field :s3_key, :string

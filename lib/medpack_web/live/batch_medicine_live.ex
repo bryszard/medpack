@@ -14,24 +14,49 @@ defmodule MedpackWeb.BatchMedicineLive do
   alias MedpackWeb.BatchMedicineLive.{UploadHandler, EntryManager, AnalysisCoordinator}
   alias Medpack.BatchProcessing
 
+  # Helper to ensure all entries have in-memory fields for UI compatibility
+  def normalize_entry(entry) do
+    entry
+    |> Map.put_new(:photos_uploaded, 0)
+    |> Map.put_new(:photo_entries, [])
+    |> Map.put_new(:photo_paths, [])
+    |> Map.put_new(:photo_web_paths, [])
+    |> Map.put_new(:ai_analysis_status, :pending)
+    |> Map.put_new(:ai_results, %{})
+    |> Map.put_new(:approval_status, :pending)
+    |> Map.put_new(:validation_errors, [])
+    |> Map.put_new(:analysis_countdown, 0)
+    |> Map.put_new(:analysis_timer_ref, nil)
+  end
+
   @impl true
   def mount(_params, _session, socket) do
-    # Generate a unique batch_id for this session
-    batch_id = generate_batch_id()
+    # Fetch all unprocessed batch entries from the DB
+    db_entries = BatchProcessing.list_unprocessed_entries()
 
-    # Start with in-memory entries only - create DB entries when photos are uploaded
-    initial_entries = EntryManager.create_empty_entries(3)
+    entries =
+      if db_entries == [] do
+        EntryManager.create_empty_entries(3)
+      else
+        # Map DB entries to add :number key for UI compatibility and normalize
+        Enum.map(db_entries, fn entry ->
+          entry
+          |> Map.put(:number, entry.entry_number)
+          |> normalize_entry()
+        end)
+      end
 
     # Configure individual uploads for each entry
-    socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, initial_entries)
+    socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, entries)
 
     # Subscribe to analysis updates
     Phoenix.PubSub.subscribe(Medpack.PubSub, "batch_processing")
 
     {:ok,
      socket_with_uploads
-     |> assign(:entries, initial_entries)
-     |> assign(:batch_id, batch_id)
+     |> assign(:entries, entries)
+     # batch_id is not unique per session anymore
+     |> assign(:batch_id, nil)
      |> assign(:batch_status, :ready)
      |> assign(:selected_for_edit, nil)
      |> assign(:analyzing, false)
@@ -78,6 +103,23 @@ defmodule MedpackWeb.BatchMedicineLive do
   end
 
   def handle_event("remove_entry", %{"id" => entry_id}, socket) do
+    case BatchProcessing.get_entry(entry_id) do
+      nil ->
+        :ok
+
+      entry ->
+        # First clean up any associated images
+        images = BatchProcessing.list_entry_images(entry_id)
+
+        Enum.each(images, fn image ->
+          Medpack.FileManager.delete_file(image.s3_key)
+          BatchProcessing.delete_entry_image(image)
+        end)
+
+        # Then delete the entry
+        BatchProcessing.delete_entry(entry)
+    end
+
     updated_entries = EntryManager.remove_entry(socket.assigns.entries, entry_id)
     socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, updated_entries)
 
@@ -102,8 +144,10 @@ defmodule MedpackWeb.BatchMedicineLive do
     updated_entries =
       EntryManager.remove_entry_photo(socket.assigns.entries, entry_id, photo_index)
 
+    socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, updated_entries)
+
     {:noreply,
-     socket
+     socket_with_uploads
      |> assign(entries: updated_entries)
      |> put_flash(:info, "Photo removed successfully")}
   end
@@ -121,9 +165,10 @@ defmodule MedpackWeb.BatchMedicineLive do
     end
 
     updated_entries = EntryManager.remove_all_entry_photos(socket.assigns.entries, entry_id)
+    socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, updated_entries)
 
     {:noreply,
-     socket
+     socket_with_uploads
      |> assign(entries: updated_entries)
      |> put_flash(:info, "All photos removed successfully")}
   end
@@ -147,37 +192,79 @@ defmodule MedpackWeb.BatchMedicineLive do
     end
   end
 
+  # Add event handler to stop the countdown for an entry
+  def handle_event("stop_countdown", %{"id" => entry_id}, socket) do
+    updated_entries =
+      MedpackWeb.BatchMedicineLive.AnalysisCoordinator.cancel_analysis_timer(
+        socket.assigns.entries,
+        entry_id
+      )
+
+    {:noreply, assign(socket, entries: updated_entries)}
+  end
+
+  # Add event handler to start the countdown for an entry
+  def handle_event("start_countdown", %{"id" => entry_id}, socket) do
+    # Always start a new countdown from 5 seconds
+    send(self(), {:start_analysis_countdown, entry_id, 5})
+    {:noreply, socket}
+  end
+
+  # Ensure analyze_now always triggers analysis, even if countdown is running or stopped
   def handle_event("analyze_now", %{"id" => entry_id}, socket) do
-    case AnalysisCoordinator.trigger_entry_analysis(socket.assigns.entries, entry_id) do
-      {updated_entries, {:info, message}} ->
+    # Cancel any running countdown for this entry
+    updated_entries =
+      MedpackWeb.BatchMedicineLive.AnalysisCoordinator.cancel_analysis_timer(
+        socket.assigns.entries,
+        entry_id
+      )
+
+    # Now trigger analysis
+    case MedpackWeb.BatchMedicineLive.AnalysisCoordinator.trigger_entry_analysis(
+           updated_entries,
+           entry_id
+         ) do
+      {new_entries, {:info, message}} ->
         {:noreply,
          socket
-         |> assign(entries: updated_entries)
+         |> assign(entries: new_entries)
          |> put_flash(:info, message)}
 
-      {updated_entries, {:error, message}} ->
+      {new_entries, {:error, message}} ->
         {:noreply,
          socket
-         |> assign(entries: updated_entries)
+         |> assign(entries: new_entries)
          |> put_flash(:error, message)}
 
-      {updated_entries, nil} ->
-        {:noreply, assign(socket, entries: updated_entries)}
+      {new_entries, nil} ->
+        {:noreply, assign(socket, entries: new_entries)}
     end
   end
 
+  # Ensure retry_analysis always works, even if countdown is running or stopped
   def handle_event("retry_analysis", %{"id" => entry_id}, socket) do
-    case AnalysisCoordinator.retry_entry_analysis(socket.assigns.entries, entry_id) do
-      {updated_entries, flash_info} when is_tuple(flash_info) ->
+    # Cancel any running countdown for this entry
+    updated_entries =
+      MedpackWeb.BatchMedicineLive.AnalysisCoordinator.cancel_analysis_timer(
+        socket.assigns.entries,
+        entry_id
+      )
+
+    # Now retry analysis
+    case MedpackWeb.BatchMedicineLive.AnalysisCoordinator.retry_entry_analysis(
+           updated_entries,
+           entry_id
+         ) do
+      {new_entries, flash_info} when is_tuple(flash_info) ->
         {flash_type, message} = flash_info
 
         {:noreply,
          socket
-         |> assign(entries: updated_entries)
+         |> assign(entries: new_entries)
          |> put_flash(flash_type, message)}
 
-      {updated_entries, _} ->
-        {:noreply, assign(socket, entries: updated_entries)}
+      {new_entries, _} ->
+        {:noreply, assign(socket, entries: new_entries)}
     end
   end
 
@@ -185,13 +272,6 @@ defmodule MedpackWeb.BatchMedicineLive do
   def handle_event("approve_entry", %{"id" => entry_id}, socket) do
     updated_entries =
       EntryManager.update_entry_approval_status(socket.assigns.entries, entry_id, :approved)
-
-    {:noreply, assign(socket, entries: updated_entries)}
-  end
-
-  def handle_event("reject_entry", %{"id" => entry_id}, socket) do
-    updated_entries =
-      EntryManager.update_entry_approval_status(socket.assigns.entries, entry_id, :rejected)
 
     {:noreply, assign(socket, entries: updated_entries)}
   end
@@ -265,7 +345,7 @@ defmodule MedpackWeb.BatchMedicineLive do
     else
       try do
         save_results =
-          case BatchProcessing.save_approved_medicines(socket.assigns.batch_id) do
+          case BatchProcessing.save_approved_medicines() do
             {:ok, %{results: results}} -> results
             {:error, _reason} -> []
           end
@@ -373,6 +453,9 @@ defmodule MedpackWeb.BatchMedicineLive do
   def handle_info({:analysis_update, update_data}, socket) do
     updated_entries =
       AnalysisCoordinator.handle_analysis_update(socket.assigns.entries, update_data)
+      |> Enum.map(&normalize_entry/1)
+
+    socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, updated_entries)
 
     flash_message =
       case update_data.status do
@@ -385,9 +468,9 @@ defmodule MedpackWeb.BatchMedicineLive do
     socket =
       if flash_message do
         flash_type = if update_data.status == :failed, do: :error, else: :info
-        put_flash(socket, flash_type, flash_message)
+        put_flash(socket_with_uploads, flash_type, flash_message)
       else
-        socket
+        socket_with_uploads
       end
 
     {:noreply, assign(socket, entries: updated_entries)}
@@ -402,7 +485,9 @@ defmodule MedpackWeb.BatchMedicineLive do
   def handle_info({:entry_created, _}, socket), do: {:noreply, socket}
 
   def handle_info({:update_entries, entries}, socket),
-    do: {:noreply, assign(socket, entries: entries)}
+    do:
+      {:noreply,
+       UploadHandler.configure_uploads_for_entries(socket, entries) |> assign(entries: entries)}
 
   def handle_info({:progress_update, progress}, socket),
     do: {:noreply, assign(socket, analysis_progress: progress)}
@@ -414,6 +499,7 @@ defmodule MedpackWeb.BatchMedicineLive do
   def handle_async(:analyze_batch, {:ok, {:ok, analysis_results}}, socket) do
     updated_entries =
       AnalysisCoordinator.apply_analysis_results(socket.assigns.entries, analysis_results)
+      |> Enum.map(&normalize_entry/1)
 
     {:noreply,
      socket
@@ -431,10 +517,6 @@ defmodule MedpackWeb.BatchMedicineLive do
 
   # Private helper functions
 
-  defp generate_batch_id do
-    :crypto.strong_rand_bytes(16) |> Base.encode64(padding: false)
-  end
-
   defp handle_single_entry_save(socket, entry, entry_id) do
     try do
       save_results =
@@ -446,6 +528,7 @@ defmodule MedpackWeb.BatchMedicineLive do
             end
         end
 
+      # After saving, normalize remaining entries
       handle_single_save_results(socket, save_results, entry_id)
     rescue
       e ->
@@ -472,8 +555,9 @@ defmodule MedpackWeb.BatchMedicineLive do
         Enum.reject(socket.assigns.entries, fn entry ->
           entry.approval_status == :approved
         end)
+        |> Enum.map(&normalize_entry/1)
       else
-        socket.assigns.entries
+        socket.assigns.entries |> Enum.map(&normalize_entry/1)
       end
 
     # Broadcast updates to other clients
@@ -490,7 +574,9 @@ defmodule MedpackWeb.BatchMedicineLive do
   defp handle_single_save_results(socket, save_results, entry_id) do
     case save_results do
       [{:ok, medicine}] ->
-        remaining_entries = Enum.reject(socket.assigns.entries, &(&1.id == entry_id))
+        remaining_entries =
+          Enum.reject(socket.assigns.entries, &(&1.id == entry_id))
+          |> Enum.map(&normalize_entry/1)
 
         Phoenix.PubSub.broadcast(Medpack.PubSub, "medicines", {:batch_medicines_created, 1})
 

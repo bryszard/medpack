@@ -199,7 +199,7 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
 
       assert assigns.selected_for_edit == entry_id
       # Should show edit interface
-      assert html =~ "✏️ Edit Medicine Information" or html =~ "✏️ Edit"
+      assert html =~ "✏️ Edit"
     end
 
     test "saves entry changes", %{conn: conn} do

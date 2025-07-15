@@ -1,5 +1,6 @@
 defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
   require Logger
+  alias MedpackWeb.BatchMedicineLive.EntryManager
 
   @moduledoc """
   Handles file upload logic for batch medicine entries.
@@ -17,7 +18,7 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
 
     entries
     |> Enum.reduce(socket_cleaned, fn entry, acc_socket ->
-      upload_key = String.to_atom("entry_#{entry.number}_photos")
+      upload_key = String.to_atom("entry_#{entry.id}_photos")
 
       Phoenix.LiveView.allow_upload(acc_socket, upload_key,
         accept: ~w(.jpg .jpeg .png),
@@ -43,7 +44,7 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
           existing_uploads
           |> Map.keys()
           |> Enum.filter(fn key ->
-            key |> Atom.to_string() |> String.match?(~r/^entry_\d+_photos$/)
+            key |> Atom.to_string() |> String.match?(~r/^entry_\w+_photos$/)
           end)
 
         # Disallow each existing entry upload to completely remove the configuration
@@ -154,7 +155,7 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
   Gets upload key for an entry.
   """
   def get_upload_key_for_entry(entry) do
-    String.to_atom("entry_#{entry.number}_photos")
+    String.to_atom("entry_#{entry.id}_photos")
   end
 
   @doc """
@@ -204,8 +205,7 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
         photos_uploaded: entry.photos_uploaded + length(file_info_list),
         photo_paths: entry.photo_paths ++ new_photo_paths,
         photo_web_paths: entry.photo_web_paths ++ new_photo_web_paths,
-        photo_entries: entry.photo_entries ++ new_photo_entries,
-        ai_analysis_status: :processing
+        photo_entries: entry.photo_entries ++ new_photo_entries
     }
 
     # Cancel any existing countdown first
@@ -213,7 +213,7 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
 
     # Replace entry in the list, handling ID changes
     updated_entries =
-      replace_entry_by_original_id(socket.assigns.entries, entry.id, updated_entry)
+      EntryManager.replace_entry_by_original_id(socket.assigns.entries, entry.id, updated_entry)
 
     # Start debounce timer for AI analysis instead of immediate analysis
     start_analysis_debounce(updated_entry.id)
@@ -275,11 +275,10 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
     end)
   end
 
-  defp create_new_database_entry(socket, entry, file_info_list) do
+  defp create_new_database_entry(_socket, entry, file_info_list) do
     Logger.info("Creating new database entry for ID #{entry.id}")
 
     case Medpack.BatchProcessing.create_entry(%{
-           batch_id: socket.assigns.batch_id,
            entry_number: entry.number,
            ai_analysis_status: :pending,
            approval_status: :pending
@@ -306,6 +305,7 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
           end
         end)
 
+        # Return the database entry ID
         db_entry.id
 
       {:error, reason} ->
@@ -315,41 +315,30 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
   end
 
   defp find_entry_by_upload_config(entries, upload_config_name) do
-    # The upload_config_name is an atom like :entry_1_photos
-    # Extract the entry number from it
+    # The upload_config_name is an atom like :entry_<uuid>_photos
     upload_config_str = Atom.to_string(upload_config_name)
 
-    case Regex.run(~r/entry_(\d+)_photos/, upload_config_str) do
-      [_, number_str] ->
-        number = String.to_integer(number_str)
-        Enum.find(entries, &(&1.number == number))
+    case Regex.run(~r/entry_([\w-]+)_photos/, upload_config_str) do
+      [_, uuid] ->
+        Enum.find(entries, &(&1.id == uuid))
 
       _ ->
         nil
     end
   end
 
-  defp replace_entry_by_original_id(entries, original_id, updated_entry) do
-    Enum.map(entries, fn entry ->
-      if entry.id == original_id do
-        updated_entry
-      else
-        entry
-      end
-    end)
-  end
-
-  defp safe_get_entry(entry_id) when is_integer(entry_id) do
-    try do
-      {:ok, Medpack.BatchProcessing.get_entry!(entry_id)}
-    rescue
-      Ecto.NoResultsError -> {:error, :not_found}
-    end
-  end
-
   defp safe_get_entry(entry_id) when is_binary(entry_id) do
-    # String IDs like "entry_6311" don't exist in database
-    {:error, :invalid_id}
+    # Check if it's a UUID format
+    if String.length(entry_id) == 36 and String.contains?(entry_id, "-") do
+      try do
+        {:ok, Medpack.BatchProcessing.get_entry!(entry_id)}
+      rescue
+        Ecto.NoResultsError -> {:error, :not_found}
+      end
+    else
+      # String IDs like "entry_6311" don't exist in database
+      {:error, :invalid_id}
+    end
   end
 
   defp safe_get_entry(_entry_id) do

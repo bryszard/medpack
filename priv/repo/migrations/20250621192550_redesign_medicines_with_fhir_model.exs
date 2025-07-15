@@ -11,8 +11,6 @@ defmodule Medpack.Repo.Migrations.RedesignMedicinesWithFhirModel do
       add :name, :string, null: false
       add :brand_name, :string
       add :generic_name, :string
-      # National Drug Code or similar identifier
-      add :ndc_code, :string
       add :lot_number, :string
 
       # FHIR Medication.form - dosage form
@@ -42,14 +40,9 @@ defmodule Medpack.Repo.Migrations.RedesignMedicinesWithFhirModel do
 
       # Dates and tracking
       add :expiration_date, :date
-      add :date_opened, :date
-      add :purchase_date, :date
 
       # Additional information
       add :manufacturer, :string
-      # what it's used for
-      add :indication, :text
-      add :notes, :text
       add :photo_paths, {:array, :string}, default: []
 
       # Status tracking

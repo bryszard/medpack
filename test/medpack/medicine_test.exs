@@ -257,11 +257,7 @@ defmodule Medpack.MedicineTest do
           strength_denominator_value: "5.0",
           strength_denominator_unit: "ml",
           expiration_date: ~D[2025-12-31],
-          date_opened: ~D[2024-01-15],
-          purchase_date: ~D[2024-01-01],
           manufacturer: "Test Manufacturer",
-          indication: "For testing",
-          notes: "Test notes",
           photo_paths: ["/uploads/photo1.jpg", "/uploads/photo2.jpg"]
         })
 

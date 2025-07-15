@@ -488,8 +488,8 @@ defmodule MedpackWeb.BatchEntryComponents do
       <.entry_edit_form entry={@entry} />
     <% else %>
       <div class="card-actions justify-center mt-4">
-        <button phx-click="save_single_entry" phx-value-id={@entry.id} class="btn btn-primary w-full">
-          💾 Save This Entry
+        <button phx-click="save_single_entry" phx-value-id={@entry.id} class="btn btn-primary">
+          💾 Save
         </button>
         <button phx-click="edit_entry" phx-value-id={@entry.id} class="btn btn-info">
           ✏️ Edit

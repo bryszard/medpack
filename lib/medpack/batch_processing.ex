@@ -401,24 +401,6 @@ defmodule Medpack.BatchProcessing do
   end
 
   @doc """
-  Removes all photos from an entry.
-  """
-  def remove_all_entry_photos(entry_id) do
-    try do
-      entry = get_entry_with_images!(entry_id)
-
-      Enum.each(entry.images, fn image ->
-        Medpack.FileManager.delete_file(image.s3_key)
-        delete_entry_image(image)
-      end)
-
-      {:ok, :all_photos_removed}
-    rescue
-      Ecto.NoResultsError -> {:error, :entry_not_found}
-    end
-  end
-
-  @doc """
   Schedules AI analysis for an entry with debounce logic.
   """
   def schedule_entry_analysis(entry_id, delay_seconds \\ 5) do

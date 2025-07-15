@@ -94,11 +94,6 @@ defmodule MedpackWeb.BatchEntryComponents do
         <h4 class="font-semibold text-base-900">
           Photos ({@photos_count}/3):
         </h4>
-        <%= if @photos_count > 0 do %>
-          <button phx-click="remove_all_photos" phx-value-id={@entry.id} class="btn btn-error btn-sm">
-            🗑️ Remove All
-          </button>
-        <% end %>
       </div>
 
       <.uploaded_photos_display entry={@entry} />

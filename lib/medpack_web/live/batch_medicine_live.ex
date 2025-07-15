@@ -151,27 +151,6 @@ defmodule MedpackWeb.BatchMedicineLive do
      |> put_flash(:info, "Photo removed successfully")}
   end
 
-  def handle_event("remove_all_photos", %{"id" => entry_id}, socket) do
-    # Handle database photo deletion if needed
-    if is_integer(EntryManager.normalize_entry_id(entry_id)) do
-      case BatchProcessing.remove_all_entry_photos(entry_id) do
-        {:ok, :all_photos_removed} ->
-          :ok
-
-        {:error, reason} ->
-          Logger.error("Failed to remove photos from database: #{inspect(reason)}")
-      end
-    end
-
-    updated_entries = EntryManager.remove_all_entry_photos(socket.assigns.entries, entry_id)
-    socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, updated_entries)
-
-    {:noreply,
-     socket_with_uploads
-     |> assign(entries: updated_entries)
-     |> put_flash(:info, "All photos removed successfully")}
-  end
-
   # Analysis events
   def handle_event("analyze_all", _params, socket) do
     case AnalysisCoordinator.analyze_batch_entries(socket.assigns.entries) do

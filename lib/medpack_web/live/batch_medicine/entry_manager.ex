@@ -177,31 +177,6 @@ defmodule MedpackWeb.BatchMedicineLive.EntryManager do
   end
 
   @doc """
-  Removes all photos from an entry.
-  """
-  def remove_all_entry_photos(entries, entry_id) do
-    normalized_id = normalize_entry_id(entry_id)
-
-    Enum.map(entries, fn entry ->
-      if normalize_entry_id(entry.id) == normalized_id do
-        %{
-          entry
-          | photos_uploaded: 0,
-            photo_paths: [],
-            photo_web_paths: [],
-            photo_entries: [],
-            ai_analysis_status: :pending,
-            ai_results: %{},
-            analysis_countdown: 0,
-            analysis_timer_ref: nil
-        }
-      else
-        entry
-      end
-    end)
-  end
-
-  @doc """
   Updates entry countdown timer state.
   """
   def update_entry_countdown(entries, entry_id, countdown, timer_ref \\ nil) do

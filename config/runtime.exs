@@ -21,16 +21,18 @@ if System.get_env("PHX_SERVER") do
 end
 
 if config_env() == :prod do
-  database_path =
-    System.get_env("DATABASE_PATH") ||
-      raise """
-      environment variable DATABASE_PATH is missing.
-      For example: /etc/medpack/medpack.db
-      """
+  database_url =
+    System.get_env("DATABASE_URL") ||
+      raise "environment variable DATABASE_URL is missing."
 
   config :medpack, Medpack.Repo,
-    database: database_path,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5")
+    url: database_url,
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+    # Add connection options for better reliability
+    socket_options: [:inet6],
+    timeout: 60_000,
+    queue_target: 5000,
+    queue_interval: 1000
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

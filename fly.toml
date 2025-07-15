@@ -1,4 +1,4 @@
-# fly.toml app configuration file generated for medpack on 2025-07-02T22:10:43+02:00
+# fly.toml app configuration file generated for medpack on 2025-07-12T10:12:07+02:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
@@ -9,17 +9,12 @@ kill_signal = 'SIGTERM'
 
 [build]
 
+[deploy]
+  release_command = '/app/bin/migrate'
+
 [env]
-  DATABASE_PATH = '/mnt/name/medpack.db'
   PHX_HOST = 'medpack.fly.dev'
   PORT = '8080'
-
-[[mounts]]
-  source = 'name'
-  destination = '/mnt/name'
-  auto_extend_size_threshold = 80
-  auto_extend_size_increment = '1GB'
-  auto_extend_size_limit = '10GB'
 
 [http_service]
   internal_port = 8080

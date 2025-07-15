@@ -482,24 +482,6 @@ defmodule MedpackWeb.BatchEntryComponents do
   Renders entry actions (approve, edit, reject, save).
   """
   def entry_actions(assigns) do
-    ~H"""
-    <%= cond do %>
-      <% @entry.approval_status == :pending -> %>
-        <.pending_entry_actions entry={@entry} selected_for_edit={@selected_for_edit} />
-      <% @entry.approval_status == :approved -> %>
-        <.approved_entry_actions entry={@entry} />
-      <% @entry.approval_status == :rejected -> %>
-        <.rejected_entry_actions />
-      <% true -> %>
-        <div></div>
-    <% end %>
-    """
-  end
-
-  @doc """
-  Renders actions for pending entries.
-  """
-  def pending_entry_actions(assigns) do
     entry_id_normalized = normalize_entry_id(assigns.entry.id)
     selected_id_normalized = normalize_entry_id(assigns.selected_for_edit)
     is_editing = entry_id_normalized == selected_id_normalized
@@ -511,8 +493,8 @@ defmodule MedpackWeb.BatchEntryComponents do
       <.entry_edit_form entry={@entry} />
     <% else %>
       <div class="card-actions justify-center mt-4">
-        <button phx-click="approve_entry" phx-value-id={@entry.id} class="btn btn-success">
-          ✅ Approve
+        <button phx-click="save_single_entry" phx-value-id={@entry.id} class="btn btn-primary w-full">
+          💾 Save This Entry
         </button>
         <button phx-click="edit_entry" phx-value-id={@entry.id} class="btn btn-info">
           ✏️ Edit
@@ -523,55 +505,16 @@ defmodule MedpackWeb.BatchEntryComponents do
   end
 
   @doc """
-  Renders actions for approved entries.
-  """
-  def approved_entry_actions(assigns) do
-    ~H"""
-    <div class="mt-4 space-y-2">
-      <div class="alert alert-success">
-        <span>✅ Approved for saving</span>
-      </div>
-      <button phx-click="save_single_entry" phx-value-id={@entry.id} class="btn btn-primary w-full">
-        💾 Save This Entry
-      </button>
-    </div>
-    """
-  end
-
-  @doc """
-  Renders actions for rejected entries.
-  """
-  def rejected_entry_actions(assigns) do
-    ~H"""
-    <div class="alert alert-error mt-4">
-      <span>❌ Rejected</span>
-    </div>
-    """
-  end
-
-  @doc """
   Renders batch action buttons.
   """
   def batch_actions(assigns) do
     has_photos = Enum.any?(assigns.entries, &(Map.get(&1, :photos_uploaded, 0) > 0))
     has_complete = Enum.any?(assigns.entries, &(&1.ai_analysis_status == :complete))
 
-    has_pending_review =
-      Enum.any?(
-        assigns.entries,
-        &(&1.ai_analysis_status == :complete and &1.approval_status == :pending)
-      )
-
-    has_approved = Enum.any?(assigns.entries, &(&1.approval_status == :approved))
-    has_rejected = Enum.any?(assigns.entries, &(&1.approval_status == :rejected))
-
     assigns =
       assigns
       |> assign(:has_photos, has_photos)
       |> assign(:has_complete, has_complete)
-      |> assign(:has_pending_review, has_pending_review)
-      |> assign(:has_approved, has_approved)
-      |> assign(:has_rejected, has_rejected)
 
     ~H"""
     <%= if @has_photos do %>
@@ -587,24 +530,6 @@ defmodule MedpackWeb.BatchEntryComponents do
         >
           {if @analyzing, do: "🔍 Analyzing...", else: "🤖 Analyze All Photos"}
         </button>
-
-        <%= if @has_pending_review do %>
-          <button phx-click="approve_all" class="btn btn-success btn-lg">
-            ✅ Approve All
-          </button>
-        <% end %>
-
-        <%= if @has_approved do %>
-          <button phx-click="save_approved" class="btn btn-secondary btn-lg">
-            💾 Save All Approved
-          </button>
-        <% end %>
-
-        <%= if @has_rejected do %>
-          <button phx-click="clear_rejected" class="btn btn-error btn-lg">
-            🗑️ Clear Rejected
-          </button>
-        <% end %>
       </div>
     <% end %>
     """

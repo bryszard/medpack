@@ -19,12 +19,6 @@ defmodule Medpack.BatchProcessing.Entry do
     field :analyzed_at, :utc_datetime
     field :error_message, :string
 
-    # Human review
-    field :approval_status, Ecto.Enum, values: [:pending, :approved, :rejected]
-    field :reviewed_by, :string
-    field :reviewed_at, :utc_datetime
-    field :review_notes, :string
-
     # Relationships
     has_many :images, EntryImage, foreign_key: :batch_entry_id
 
@@ -40,11 +34,7 @@ defmodule Medpack.BatchProcessing.Entry do
       :ai_analysis_status,
       :ai_results,
       :analyzed_at,
-      :error_message,
-      :approval_status,
-      :reviewed_by,
-      :reviewed_at,
-      :review_notes
+      :error_message
     ])
     |> validate_required([:entry_number])
     |> validate_number(:entry_number, greater_than: 0)
@@ -55,7 +45,6 @@ defmodule Medpack.BatchProcessing.Entry do
     changeset
     |> put_change(:status, get_change(changeset, :status) || :pending)
     |> put_change(:ai_analysis_status, get_change(changeset, :ai_analysis_status) || :pending)
-    |> put_change(:approval_status, get_change(changeset, :approval_status) || :pending)
   end
 
   @doc """
@@ -85,43 +74,31 @@ defmodule Medpack.BatchProcessing.Entry do
   end
 
   @doc """
-  Returns true if the entry is approved and ready to save.
-  """
-  def ready_to_save?(%__MODULE__{} = entry) do
-    analysis_complete?(entry) and entry.approval_status == :approved
-  end
-
-  @doc """
   Returns a human-readable status for the entry.
   """
   def status_text(%__MODULE__{} = entry) do
-    case {has_photos?(entry), entry.ai_analysis_status, entry.approval_status} do
-      {false, _, _} -> "Ready for upload"
-      {true, :pending, _} -> "Photos uploaded"
-      {true, :processing, _} -> "Analyzing..."
-      {true, :complete, :pending} -> "Pending review"
-      {true, :complete, :approved} -> "Approved"
-      {true, :complete, :rejected} -> "Rejected"
-      {true, :failed, _} -> "Analysis failed"
+    case {has_photos?(entry), entry.ai_analysis_status} do
+      {false, _} -> "Ready for upload"
+      {true, :pending} -> "Photos uploaded"
+      {true, :processing} -> "Analyzing..."
+      {true, :complete} -> "Analysis complete"
+      {true, :failed} -> "Analysis failed"
     end
   end
 
   # Handle LiveView in-memory maps (backward compatibility)
   def status_text(%{
         photos_uploaded: photos_uploaded,
-        ai_analysis_status: ai_status,
-        approval_status: approval_status
+        ai_analysis_status: ai_status
       }) do
     has_photos = photos_uploaded > 0
 
-    case {has_photos, ai_status, approval_status} do
-      {false, _, _} -> "Ready for upload"
-      {true, :pending, _} -> "Photos uploaded"
-      {true, :processing, _} -> "Analyzing..."
-      {true, :complete, :pending} -> "Pending review"
-      {true, :complete, :approved} -> "Approved"
-      {true, :complete, :rejected} -> "Rejected"
-      {true, :failed, _} -> "Analysis failed"
+    case {has_photos, ai_status} do
+      {false, _} -> "Ready for upload"
+      {true, :pending} -> "Photos uploaded"
+      {true, :processing} -> "Analyzing..."
+      {true, :complete} -> "Analysis complete"
+      {true, :failed} -> "Analysis failed"
     end
   end
 
@@ -129,33 +106,28 @@ defmodule Medpack.BatchProcessing.Entry do
   Returns an emoji icon for the entry status.
   """
   def status_icon(%__MODULE__{} = entry) do
-    case {has_photos?(entry), entry.ai_analysis_status, entry.approval_status} do
-      {false, _, _} -> "⬆️"
-      {true, :pending, _} -> "📸"
-      {true, :processing, _} -> "🔍"
-      {true, :complete, :pending} -> "⏳"
-      {true, :complete, :approved} -> "✅"
-      {true, :complete, :rejected} -> "❌"
-      {true, :failed, _} -> "⚠️"
+    case {has_photos?(entry), entry.ai_analysis_status} do
+      {false, _} -> "⬆️"
+      {true, :pending} -> "📸"
+      {true, :processing} -> "🔍"
+      {true, :complete} -> "✅"
+      {true, :failed} -> "⚠️"
     end
   end
 
   # Handle LiveView in-memory maps (backward compatibility)
   def status_icon(%{
         photos_uploaded: photos_uploaded,
-        ai_analysis_status: ai_status,
-        approval_status: approval_status
+        ai_analysis_status: ai_status
       }) do
     has_photos = photos_uploaded > 0
 
-    case {has_photos, ai_status, approval_status} do
-      {false, _, _} -> "⬆️"
-      {true, :pending, _} -> "📸"
-      {true, :processing, _} -> "🔍"
-      {true, :complete, :pending} -> "⏳"
-      {true, :complete, :approved} -> "✅"
-      {true, :complete, :rejected} -> "❌"
-      {true, :failed, _} -> "⚠️"
+    case {has_photos, ai_status} do
+      {false, _} -> "⬆️"
+      {true, :pending} -> "📸"
+      {true, :processing} -> "🔍"
+      {true, :complete} -> "✅"
+      {true, :failed} -> "⚠️"
     end
   end
 
@@ -299,9 +271,7 @@ defmodule Medpack.BatchProcessing.Entry do
       entry.ai_analysis_status == :pending -> :analyze
       entry.ai_analysis_status == :processing -> :wait_for_analysis
       entry.ai_analysis_status == :failed -> :retry_analysis
-      entry.ai_analysis_status == :complete and entry.approval_status == :pending -> :review
-      entry.approval_status == :approved -> :save
-      entry.approval_status == :rejected -> :rejected
+      entry.ai_analysis_status == :complete -> :save
       true -> :unknown
     end
   end
@@ -310,14 +280,12 @@ defmodule Medpack.BatchProcessing.Entry do
   Returns the CSS classes for styling this entry's status.
   """
   def status_css_classes(%__MODULE__{} = entry) do
-    case {has_photos?(entry), entry.ai_analysis_status, entry.approval_status} do
-      {false, _, _} -> "border-gray-300 bg-gray-50"
-      {true, :pending, _} -> "border-blue-300 bg-blue-50"
-      {true, :processing, _} -> "border-yellow-300 bg-yellow-50"
-      {true, :complete, :pending} -> "border-orange-300 bg-orange-50"
-      {true, :complete, :approved} -> "border-green-300 bg-green-50"
-      {true, :complete, :rejected} -> "border-red-300 bg-red-50"
-      {true, :failed, _} -> "border-red-300 bg-red-50"
+    case {has_photos?(entry), entry.ai_analysis_status} do
+      {false, _} -> "border-gray-300 bg-gray-50"
+      {true, :pending} -> "border-blue-300 bg-blue-50"
+      {true, :processing} -> "border-yellow-300 bg-yellow-50"
+      {true, :complete} -> "border-green-300 bg-green-50"
+      {true, :failed} -> "border-red-300 bg-red-50"
     end
   end
 end

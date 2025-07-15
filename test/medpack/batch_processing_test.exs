@@ -16,7 +16,6 @@ defmodule Medpack.BatchProcessingTest do
       assert entry.entry_number == 1
       assert entry.status == :pending
       assert entry.ai_analysis_status == :pending
-      assert entry.approval_status == :pending
     end
 
     test "requires batch_id" do
@@ -129,22 +128,6 @@ defmodule Medpack.BatchProcessingTest do
       assert updated_entry.analyzed_at != nil
     end
 
-    test "can update approval status" do
-      entry = insert(:analyzed_batch_entry)
-
-      attrs = %{
-        approval_status: :approved,
-        reviewed_by: "Test Reviewer",
-        reviewed_at: DateTime.utc_now(),
-        review_notes: "Looks good"
-      }
-
-      assert {:ok, updated_entry} = BatchProcessing.update_entry(entry, attrs)
-      assert updated_entry.approval_status == :approved
-      assert updated_entry.reviewed_by == "Test Reviewer"
-      assert updated_entry.review_notes == "Looks good"
-    end
-
     test "can set error status and message" do
       entry = insert(:batch_entry)
 
@@ -248,49 +231,6 @@ defmodule Medpack.BatchProcessingTest do
       entry = hd(ready_entries)
       assert length(entry.images) == 1
       assert hd(entry.images).id == image.id
-    end
-  end
-
-  describe "list_pending_review/0" do
-    test "returns entries that are complete and pending review" do
-      # Entry complete and pending review (should be included)
-      ready_entry = insert(:analyzed_batch_entry, approval_status: :pending)
-
-      # Entry not yet complete (should not be included)
-      _incomplete_entry =
-        insert(:batch_entry,
-          ai_analysis_status: :processing,
-          approval_status: :pending
-        )
-
-      # Entry already approved (should not be included)
-      _approved_entry = insert(:analyzed_batch_entry, approval_status: :approved)
-
-      # Entry rejected (should not be included)
-      _rejected_entry = insert(:analyzed_batch_entry, approval_status: :rejected)
-
-      pending_entries = BatchProcessing.list_pending_review()
-
-      assert length(pending_entries) == 1
-      assert hd(pending_entries).id == ready_entry.id
-    end
-  end
-
-  describe "list_approved_entries/0" do
-    test "returns entries that are approved and ready to save" do
-      # Approved entry (should be included)
-      approved_entry = insert(:approved_batch_entry)
-
-      # Pending entry (should not be included)
-      _pending_entry = insert(:analyzed_batch_entry, approval_status: :pending)
-
-      # Rejected entry (should not be included)
-      _rejected_entry = insert(:analyzed_batch_entry, approval_status: :rejected)
-
-      approved_entries = BatchProcessing.list_approved_entries()
-
-      assert length(approved_entries) == 1
-      assert hd(approved_entries).id == approved_entry.id
     end
   end
 
@@ -560,28 +500,6 @@ defmodule Medpack.BatchProcessingTest do
         )
 
       assert Entry.analysis_complete?(entry) == false
-    end
-
-    test "ready_to_save?/1 returns true when entry is analyzed and approved" do
-      entry = insert(:approved_batch_entry)
-
-      assert Entry.ready_to_save?(entry) == true
-    end
-
-    test "ready_to_save?/1 returns false when entry is not approved" do
-      entry = insert(:analyzed_batch_entry, approval_status: :pending)
-
-      assert Entry.ready_to_save?(entry) == false
-    end
-
-    test "ready_to_save?/1 returns false when entry is not analyzed" do
-      entry =
-        insert(:batch_entry,
-          ai_analysis_status: :pending,
-          approval_status: :approved
-        )
-
-      assert Entry.ready_to_save?(entry) == false
     end
   end
 end

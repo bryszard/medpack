@@ -109,28 +109,6 @@ defmodule Medpack.BatchProcessing do
   end
 
   @doc """
-  Returns entries that are complete and pending review.
-  """
-  def list_pending_review() do
-    Entry
-    |> where([e], e.ai_analysis_status == :complete)
-    |> where([e], e.approval_status == :pending)
-    |> where([e], not is_nil(e.ai_results))
-    |> Repo.all()
-  end
-
-  @doc """
-  Returns entries that are approved and ready to save.
-  """
-  def list_approved_entries() do
-    Entry
-    |> where([e], e.ai_analysis_status == :complete)
-    |> where([e], e.approval_status == :approved)
-    |> where([e], not is_nil(e.ai_results))
-    |> Repo.all()
-  end
-
-  @doc """
   Generates a new batch_id as a UUID string.
   """
   def generate_batch_id do
@@ -151,7 +129,6 @@ defmodule Medpack.BatchProcessing do
           entry_number: number,
           status: :pending,
           ai_analysis_status: :pending,
-          approval_status: :pending,
           inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
           updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
         }
@@ -215,13 +192,6 @@ defmodule Medpack.BatchProcessing do
       error_message: error_message,
       analyzed_at: DateTime.utc_now()
     })
-  end
-
-  @doc """
-  Approves a batch entry.
-  """
-  def approve_entry(%Entry{} = entry) do
-    update_entry(entry, %{approval_status: :approved})
   end
 
   @doc """
@@ -378,107 +348,6 @@ defmodule Medpack.BatchProcessing do
   end
 
   @doc """
-  Gets entries that are ready for saving (approved and have analysis results).
-  """
-  def get_saveable_entries() do
-    Entry
-    |> where([e], e.approval_status == :approved)
-    |> where([e], e.ai_analysis_status == :complete)
-    |> where([e], not is_nil(e.ai_results))
-    |> Repo.all()
-  end
-
-  @doc """
-  Gets summary statistics for a batch.
-  """
-  def get_batch_summary() do
-    query = from(e in Entry)
-
-    total = Repo.aggregate(query, :count)
-
-    pending =
-      query
-      |> where([e], e.ai_analysis_status == :pending)
-      |> Repo.aggregate(:count)
-
-    processing =
-      query
-      |> where([e], e.ai_analysis_status == :processing)
-      |> Repo.aggregate(:count)
-
-    complete =
-      query
-      |> where([e], e.ai_analysis_status == :complete)
-      |> Repo.aggregate(:count)
-
-    failed =
-      query
-      |> where([e], e.ai_analysis_status == :failed)
-      |> Repo.aggregate(:count)
-
-    approved =
-      query
-      |> where([e], e.approval_status == :approved)
-      |> Repo.aggregate(:count)
-
-    rejected =
-      query
-      |> where([e], e.approval_status == :rejected)
-      |> Repo.aggregate(:count)
-
-    %{
-      total: total,
-      pending: pending,
-      processing: processing,
-      complete: complete,
-      failed: failed,
-      approved: approved,
-      rejected: rejected
-    }
-  end
-
-  @doc """
-  Saves approved batch entries as medicines in the main inventory.
-  """
-  def save_approved_medicines() do
-    approved_entries = get_saveable_entries()
-
-    if approved_entries == [] do
-      {:ok, %{saved: 0, failed: 0, results: []}}
-    else
-      # Preload images for all entries
-      entries_with_images =
-        Enum.map(approved_entries, fn entry ->
-          get_entry_with_images!(entry.id)
-        end)
-
-      results =
-        Enum.map(entries_with_images, fn entry ->
-          case save_entry_as_medicine(entry) do
-            {:ok, medicine} -> {:ok, medicine}
-            {:error, changeset} -> {:error, entry.id, changeset}
-          end
-        end)
-
-      saved = Enum.count(results, &match?({:ok, _}, &1))
-      failed = Enum.count(results, &match?({:error, _, _}, &1))
-
-      {:ok, %{saved: saved, failed: failed, results: results}}
-    end
-  end
-
-  @doc """
-  Updates an entry's approval status.
-  """
-  def update_entry_approval_status(entry_id, status)
-      when status in [:pending, :approved, :rejected] do
-    case get_entry(entry_id) do
-      nil -> {:error, :not_found}
-      entry -> update_entry(entry, %{approval_status: status})
-    end
-  end
-
-  @doc """
   Updates an entry's AI analysis results and marks as complete.
   """
   def complete_entry_analysis(entry_id, ai_results) do
@@ -493,44 +362,6 @@ defmodule Medpack.BatchProcessing do
           analyzed_at: DateTime.utc_now()
         })
     end
-  end
-
-  @doc """
-  Validates if an entry is ready to be saved as a medicine.
-  """
-  def validate_entry_for_saving(entry) do
-    cond do
-      entry.approval_status != :approved ->
-        {:error, "Entry must be approved before saving"}
-
-      entry.ai_analysis_status != :complete ->
-        {:error, "Entry analysis must be complete"}
-
-      is_nil(entry.ai_results) or map_size(entry.ai_results) == 0 ->
-        {:error, "Entry must have AI analysis results"}
-
-      true ->
-        :ok
-    end
-  end
-
-  @doc """
-  Gets comprehensive batch statistics for UI display.
-  """
-  def get_batch_display_stats() do
-    base_stats = get_batch_summary()
-
-    # Add additional computed stats
-    pending_review = base_stats.complete - base_stats.approved - base_stats.rejected
-
-    analysis_rate =
-      if base_stats.total > 0, do: round(base_stats.complete / base_stats.total * 100), else: 0
-
-    Map.merge(base_stats, %{
-      pending_review: pending_review,
-      analysis_completion_rate: analysis_rate,
-      ready_to_save: base_stats.approved
-    })
   end
 
   @doc """
@@ -638,7 +469,6 @@ defmodule Medpack.BatchProcessing do
         photo_web_paths: [],
         ai_analysis_status: :pending,
         ai_results: %{},
-        approval_status: :pending,
         validation_errors: [],
         analysis_countdown: 0,
         analysis_timer_ref: nil
@@ -664,11 +494,7 @@ defmodule Medpack.BatchProcessing do
   """
   def list_unprocessed_entries do
     Entry
-    |> where(
-      [e],
-      e.status != :complete and
-        (e.ai_analysis_status != :complete or e.approval_status not in [:approved, :rejected])
-    )
+    |> where([e], e.status != :complete and e.ai_analysis_status != :complete)
     |> order_by([e], asc: e.inserted_at)
     |> preload(:images)
     |> Repo.all()

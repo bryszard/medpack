@@ -280,8 +280,7 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
 
     case Medpack.BatchProcessing.create_entry(%{
            entry_number: entry.number,
-           ai_analysis_status: :pending,
-           approval_status: :pending
+           ai_analysis_status: :pending
          }) do
       {:ok, db_entry} ->
         Logger.info("Created database entry with ID #{db_entry.id}")

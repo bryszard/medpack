@@ -21,7 +21,6 @@ defmodule MedpackWeb.BatchMedicineLive.EntryManager do
         photo_web_paths: [],
         ai_analysis_status: :pending,
         ai_results: %{},
-        approval_status: :pending,
         validation_errors: [],
         analysis_countdown: 0,
         analysis_timer_ref: nil
@@ -94,21 +93,6 @@ defmodule MedpackWeb.BatchMedicineLive.EntryManager do
       _ ->
         nil
     end
-  end
-
-  @doc """
-  Updates an entry's approval status.
-  """
-  def update_entry_approval_status(entries, entry_id, status) do
-    normalized_id = normalize_entry_id(entry_id)
-
-    Enum.map(entries, fn entry ->
-      if normalize_entry_id(entry.id) == normalized_id do
-        %{entry | approval_status: status}
-      else
-        entry
-      end
-    end)
   end
 
   @doc """
@@ -260,7 +244,7 @@ defmodule MedpackWeb.BatchMedicineLive.EntryManager do
 
     Enum.map(entries, fn entry ->
       if normalize_entry_id(entry.id) == normalized_id do
-        %{entry | ai_results: medicine_params, approval_status: :approved}
+        %{entry | ai_results: medicine_params}
       else
         entry
       end
@@ -278,52 +262,10 @@ defmodule MedpackWeb.BatchMedicineLive.EntryManager do
   end
 
   @doc """
-  Gets approved entries ready for saving.
-  """
-  def get_approved_entries(entries) do
-    Enum.filter(entries, &(&1.approval_status == :approved))
-  end
-
-  @doc """
-  Gets rejected entries.
-  """
-  def get_rejected_entries(entries) do
-    Enum.filter(entries, &(&1.approval_status == :rejected))
-  end
-
-  @doc """
-  Gets entries with complete analysis pending review.
-  """
-  def get_entries_pending_review(entries) do
-    Enum.filter(entries, &(&1.ai_analysis_status == :complete and &1.approval_status == :pending))
-  end
-
-  @doc """
-  Approves all completed entries.
-  """
-  def approve_all_complete_entries(entries) do
-    Enum.map(entries, fn entry ->
-      if entry.ai_analysis_status == :complete and entry.approval_status == :pending do
-        %{entry | approval_status: :approved}
-      else
-        entry
-      end
-    end)
-  end
-
-  @doc """
-  Removes all rejected entries.
-  """
-  def clear_rejected_entries(entries) do
-    Enum.reject(entries, &(&1.approval_status == :rejected))
-  end
-
-  @doc """
   Validates if an entry can be saved.
   """
   def can_save_entry?(entry) do
-    entry.approval_status == :approved and
-      entry.ai_analysis_status == :complete and
+    entry.ai_analysis_status == :complete and
       not is_nil(entry.ai_results) and
       map_size(entry.ai_results) > 0
   end
@@ -337,24 +279,13 @@ defmodule MedpackWeb.BatchMedicineLive.EntryManager do
     processing = Enum.count(entries, &(&1.ai_analysis_status == :processing))
     complete = Enum.count(entries, &(&1.ai_analysis_status == :complete))
     failed = Enum.count(entries, &(&1.ai_analysis_status == :failed))
-    approved = Enum.count(entries, &(&1.approval_status == :approved))
-    rejected = Enum.count(entries, &(&1.approval_status == :rejected))
-
-    pending_review =
-      Enum.count(
-        entries,
-        &(&1.ai_analysis_status == :complete and &1.approval_status == :pending)
-      )
 
     %{
       total: total,
       with_photos: with_photos,
       processing: processing,
       complete: complete,
-      failed: failed,
-      approved: approved,
-      rejected: rejected,
-      pending_review: pending_review
+      failed: failed
     }
   end
 end

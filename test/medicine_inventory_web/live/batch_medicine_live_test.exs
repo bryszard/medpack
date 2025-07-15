@@ -185,8 +185,7 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       analyzed_entry = %{
         first_entry
         | ai_analysis_status: :complete,
-          ai_results: %{"name" => "Test Medicine"},
-          approval_status: :pending
+          ai_results: %{"name" => "Test Medicine"}
       }
 
       updated_entries = [analyzed_entry | Enum.drop(assigns.entries, 1)]
@@ -227,7 +226,6 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       updated_entry = Enum.find(assigns.entries, &(&1.id == entry_id))
       assert updated_entry.ai_results["name"] == "Custom Medicine Name"
       assert updated_entry.ai_results["notes"] == "Custom notes"
-      assert updated_entry.approval_status == :approved
 
       # Should exit edit mode
       assert assigns.selected_for_edit == nil
@@ -480,8 +478,7 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       analyzed_entry = %{
         first_entry
         | ai_analysis_status: :complete,
-          ai_results: %{"name" => "Test Medicine"},
-          approval_status: :pending
+          ai_results: %{"name" => "Test Medicine"}
       }
 
       updated_entries = [analyzed_entry | Enum.drop(assigns.entries, 1)]

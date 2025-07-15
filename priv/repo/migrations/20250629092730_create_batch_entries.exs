@@ -21,18 +21,11 @@ defmodule Medpack.Repo.Migrations.CreateBatchEntries do
       add :analyzed_at, :utc_datetime
       add :error_message, :text
 
-      # Human review
-      add :approval_status, :string, default: "pending"
-      add :reviewed_by, :string
-      add :reviewed_at, :utc_datetime
-      add :review_notes, :text
-
       timestamps()
     end
 
     # Indexes for efficient queries
     create index(:batch_entries, [:ai_analysis_status])
-    create index(:batch_entries, [:approval_status])
     create index(:batch_entries, [:status])
   end
 end

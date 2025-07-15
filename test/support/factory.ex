@@ -73,8 +73,7 @@ defmodule Medpack.Factory do
     %Entry{
       entry_number: sequence(:entry_number, & &1),
       status: :pending,
-      ai_analysis_status: :pending,
-      approval_status: :pending
+      ai_analysis_status: :pending
     }
   end
 
@@ -96,21 +95,6 @@ defmodule Medpack.Factory do
       "total_quantity" => 30.0,
       "quantity_unit" => "tablets"
     })
-  end
-
-  def approved_batch_entry_factory do
-    analyzed_batch_entry_factory()
-    |> Map.put(:approval_status, :approved)
-    |> Map.put(:reviewed_at, DateTime.utc_now())
-    |> Map.put(:reviewed_by, "Test Reviewer")
-  end
-
-  def rejected_batch_entry_factory do
-    analyzed_batch_entry_factory()
-    |> Map.put(:approval_status, :rejected)
-    |> Map.put(:reviewed_at, DateTime.utc_now())
-    |> Map.put(:reviewed_by, "Test Reviewer")
-    |> Map.put(:review_notes, "Medicine not clearly visible")
   end
 
   def failed_batch_entry_factory do

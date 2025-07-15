@@ -23,7 +23,6 @@ defmodule MedpackWeb.BatchMedicineLive do
     |> Map.put_new(:photo_web_paths, [])
     |> Map.put_new(:ai_analysis_status, :pending)
     |> Map.put_new(:ai_results, %{})
-    |> Map.put_new(:approval_status, :pending)
     |> Map.put_new(:validation_errors, [])
     |> Map.put_new(:analysis_countdown, 0)
     |> Map.put_new(:analysis_timer_ref, nil)
@@ -268,19 +267,6 @@ defmodule MedpackWeb.BatchMedicineLive do
     end
   end
 
-  # Approval events
-  def handle_event("approve_entry", %{"id" => entry_id}, socket) do
-    updated_entries =
-      EntryManager.update_entry_approval_status(socket.assigns.entries, entry_id, :approved)
-
-    {:noreply, assign(socket, entries: updated_entries)}
-  end
-
-  def handle_event("approve_all", _params, socket) do
-    updated_entries = EntryManager.approve_all_complete_entries(socket.assigns.entries)
-    {:noreply, assign(socket, entries: updated_entries)}
-  end
-
   # Edit events
   def handle_event("edit_entry", %{"id" => entry_id}, socket) do
     {:noreply, assign(socket, selected_for_edit: entry_id)}
@@ -336,29 +322,6 @@ defmodule MedpackWeb.BatchMedicineLive do
     end
   end
 
-  # Save events
-  def handle_event("save_approved", _params, socket) do
-    approved_entries = EntryManager.get_approved_entries(socket.assigns.entries)
-
-    if approved_entries == [] do
-      {:noreply, put_flash(socket, :error, "No approved entries to save")}
-    else
-      try do
-        save_results =
-          case BatchProcessing.save_approved_medicines() do
-            {:ok, %{results: results}} -> results
-            {:error, _reason} -> []
-          end
-
-        handle_save_results(socket, save_results)
-      rescue
-        e ->
-          Logger.error("Error saving approved entries: #{inspect(e)}")
-          {:noreply, put_flash(socket, :error, "Failed to save entries: #{Exception.message(e)}")}
-      end
-    end
-  end
-
   def handle_event("save_single_entry", %{"id" => entry_id}, socket) do
     case Enum.find(
            socket.assigns.entries,
@@ -367,20 +330,12 @@ defmodule MedpackWeb.BatchMedicineLive do
       nil ->
         {:noreply, put_flash(socket, :error, "Entry not found")}
 
-      entry when entry.approval_status != :approved ->
-        {:noreply, put_flash(socket, :error, "Entry must be approved before saving")}
-
       entry ->
         handle_single_entry_save(socket, entry, entry_id)
     end
   end
 
   # UI events
-  def handle_event("clear_rejected", _params, socket) do
-    updated_entries = EntryManager.clear_rejected_entries(socket.assigns.entries)
-    {:noreply, assign(socket, entries: updated_entries)}
-  end
-
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
     socket_updated =
       socket.assigns.entries
@@ -535,40 +490,6 @@ defmodule MedpackWeb.BatchMedicineLive do
         Logger.error("Error saving single entry: #{inspect(e)}")
         {:noreply, put_flash(socket, :error, "Failed to save entry: #{Exception.message(e)}")}
     end
-  end
-
-  defp handle_save_results(socket, save_results) do
-    successes = Enum.count(save_results, &match?({:ok, _}, &1))
-    failures = Enum.count(save_results, &match?({:error, _, _}, &1))
-
-    message =
-      if failures == 0 do
-        "Successfully saved #{successes} medicines to your inventory!"
-      else
-        "Saved #{successes} medicines. #{failures} failed to save. Check logs for details."
-      end
-
-    flash_type = if failures > 0, do: :error, else: :info
-
-    remaining_entries =
-      if successes > 0 do
-        Enum.reject(socket.assigns.entries, fn entry ->
-          entry.approval_status == :approved
-        end)
-        |> Enum.map(&normalize_entry/1)
-      else
-        socket.assigns.entries |> Enum.map(&normalize_entry/1)
-      end
-
-    # Broadcast updates to other clients
-    if successes > 0 do
-      Phoenix.PubSub.broadcast(Medpack.PubSub, "medicines", {:batch_medicines_created, successes})
-    end
-
-    {:noreply,
-     socket
-     |> assign(:entries, remaining_entries)
-     |> put_flash(flash_type, message)}
   end
 
   defp handle_single_save_results(socket, save_results, entry_id) do

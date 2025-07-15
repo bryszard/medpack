@@ -476,7 +476,7 @@ defmodule Medpack.BatchProcessing do
   """
   def list_unprocessed_entries do
     Entry
-    |> where([e], e.status != :complete and e.ai_analysis_status != :complete)
+    |> where([e], e.status != :complete)
     |> order_by([e], asc: e.inserted_at)
     |> preload(:images)
     |> Repo.all()

@@ -39,12 +39,8 @@ defmodule Medpack.BatchProcessing.EntryImage do
   Returns the full S3 URL for this image.
   """
   def get_s3_url(%__MODULE__{s3_key: s3_key}) do
-    if Medpack.FileManager.use_s3_storage?() do
-      Medpack.S3FileManager.get_presigned_url(s3_key)
-    else
-      # For local storage, convert s3_key to local path
-      "/uploads/" <> Path.basename(s3_key)
-    end
+    # Use the centralized FileManager function which handles both S3 and local storage correctly
+    Medpack.FileManager.get_photo_url(s3_key)
   end
 
   @doc """

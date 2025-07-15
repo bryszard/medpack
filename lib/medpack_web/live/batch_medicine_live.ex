@@ -16,11 +16,43 @@ defmodule MedpackWeb.BatchMedicineLive do
 
   # Helper to ensure all entries have in-memory fields for UI compatibility
   def normalize_entry(entry) do
+    # Check if this is a database entry with preloaded images
+    {photos_uploaded, photo_paths, photo_web_paths, photo_entries} =
+      case Map.get(entry, :images) do
+        images when is_list(images) ->
+          # Database entry with preloaded images
+          sorted_images = Enum.sort_by(images, & &1.upload_order)
+
+          photo_paths = Enum.map(sorted_images, & &1.s3_key)
+
+          photo_web_paths =
+            Enum.map(sorted_images, &Medpack.BatchProcessing.EntryImage.get_s3_url/1)
+
+          photo_entries =
+            Enum.map(sorted_images, fn image ->
+              %{
+                client_name: image.original_filename,
+                client_size: image.file_size
+              }
+            end)
+
+          {length(images), photo_paths, photo_web_paths, photo_entries}
+
+        _ ->
+          # In-memory entry or entry without images
+          existing_photos = Map.get(entry, :photos_uploaded, 0)
+          existing_paths = Map.get(entry, :photo_paths, [])
+          existing_web_paths = Map.get(entry, :photo_web_paths, [])
+          existing_entries = Map.get(entry, :photo_entries, [])
+
+          {existing_photos, existing_paths, existing_web_paths, existing_entries}
+      end
+
     entry
-    |> Map.put_new(:photos_uploaded, 0)
-    |> Map.put_new(:photo_entries, [])
-    |> Map.put_new(:photo_paths, [])
-    |> Map.put_new(:photo_web_paths, [])
+    |> Map.put(:photos_uploaded, photos_uploaded)
+    |> Map.put(:photo_entries, photo_entries)
+    |> Map.put(:photo_paths, photo_paths)
+    |> Map.put(:photo_web_paths, photo_web_paths)
     |> Map.put_new(:ai_analysis_status, :pending)
     |> Map.put_new(:ai_results, %{})
     |> Map.put_new(:validation_errors, [])

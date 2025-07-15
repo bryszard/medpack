@@ -9,7 +9,7 @@ defmodule Medpack.AI.ImageAnalyzerTest do
     test "handles file not found error" do
       # Suppress expected error logs for this test
       capture_log(fn ->
-        assert {:error, :file_not_found} =
+        assert {:error, {:file_not_found, "/tmp/non_existent_image.jpg"}} =
                  ImageAnalyzer.analyze_medicine_photo("/tmp/non_existent_image.jpg")
       end)
     end

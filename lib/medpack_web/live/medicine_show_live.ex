@@ -25,7 +25,7 @@ defmodule MedpackWeb.MedicineShowLive do
            |> assign(:show_enlarged_photo, false)
            |> assign(:enlarged_photo_index, 0)
            |> assign(:edit_mode, false)
-           |> assign(:form, to_form(Medicines.change_medicine(medicine)))
+           |> assign(:form, to_form(Medpack.Medicine.form_changeset(medicine)))
            |> assign(:analyzing, false)
            |> assign(:upload_progress, 0)
            |> assign(:slider_debounce_timer, nil)
@@ -105,7 +105,7 @@ defmodule MedpackWeb.MedicineShowLive do
       {:noreply,
        socket
        |> assign(edit_mode: false)
-       |> assign(form: to_form(Medicines.change_medicine(socket.assigns.medicine)))}
+       |> assign(form: to_form(Medpack.Medicine.form_changeset(socket.assigns.medicine)))}
     end
   end
 
@@ -113,7 +113,7 @@ defmodule MedpackWeb.MedicineShowLive do
     {:noreply,
      socket
      |> assign(edit_mode: false)
-     |> assign(form: to_form(Medicines.change_medicine(socket.assigns.medicine)))}
+     |> assign(form: to_form(Medpack.Medicine.form_changeset(socket.assigns.medicine)))}
   end
 
   def handle_event("validate", %{"medicine" => medicine_params}, socket) do
@@ -145,7 +145,7 @@ defmodule MedpackWeb.MedicineShowLive do
          socket
          |> assign(medicine: medicine)
          |> assign(edit_mode: false)
-         |> assign(form: to_form(Medicines.change_medicine(medicine)))
+         |> assign(form: to_form(Medpack.Medicine.form_changeset(medicine)))
          |> put_flash(:info, "Medicine updated successfully")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -182,7 +182,7 @@ defmodule MedpackWeb.MedicineShowLive do
            socket
            |> assign(medicine: updated_medicine)
            |> assign(selected_photo_index: new_selected_index)
-           |> assign(form: to_form(Medicines.change_medicine(updated_medicine)))
+           |> assign(form: to_form(Medpack.Medicine.form_changeset(updated_medicine)))
            |> put_flash(:info, "Photo removed successfully")}
 
         {:error, _changeset} ->
@@ -271,7 +271,7 @@ defmodule MedpackWeb.MedicineShowLive do
 
         # Apply filtered AI results to form
         updated_form =
-          to_form(Medicines.change_medicine(socket.assigns.medicine, filtered_ai_results))
+          to_form(Medpack.Medicine.form_changeset(socket.assigns.medicine, filtered_ai_results))
 
         {:noreply,
          socket
@@ -334,7 +334,7 @@ defmodule MedpackWeb.MedicineShowLive do
             {:noreply,
              socket
              |> assign(medicine: updated_medicine)
-             |> assign(form: to_form(Medicines.change_medicine(updated_medicine)))
+             |> assign(form: to_form(Medpack.Medicine.form_changeset(updated_medicine)))
              |> put_flash(:info, "Photos uploaded successfully!")}
 
           {:error, _changeset} ->
@@ -366,7 +366,7 @@ defmodule MedpackWeb.MedicineShowLive do
 
     # Apply filtered AI results to form
     updated_form =
-      to_form(Medicines.change_medicine(socket.assigns.medicine, filtered_ai_results))
+      to_form(Medpack.Medicine.form_changeset(socket.assigns.medicine, filtered_ai_results))
 
     {:noreply,
      socket
@@ -402,7 +402,7 @@ defmodule MedpackWeb.MedicineShowLive do
         {:noreply,
          socket
          |> assign(medicine: reloaded_medicine)
-         |> assign(form: to_form(Medicines.change_medicine(reloaded_medicine)))
+         |> assign(form: to_form(Medpack.Medicine.form_changeset(reloaded_medicine)))
          |> assign(slider_debounce_timer: nil)
          |> put_flash(
            :info,

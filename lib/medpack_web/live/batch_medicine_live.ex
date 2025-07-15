@@ -292,44 +292,45 @@ defmodule MedpackWeb.BatchMedicineLive do
         %{"medicine" => medicine_params, "entry_id" => entry_id},
         socket
       ) do
-    updated_entries =
-      EntryManager.update_entry_medicine_data(socket.assigns.entries, entry_id, medicine_params)
+    # Update in DB
+    case BatchProcessing.get_entry(entry_id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Entry not found in database")}
 
-    {:noreply,
-     socket
-     |> assign(:entries, updated_entries)
-     |> assign(:selected_for_edit, nil)
-     |> put_flash(:info, "Entry updated and approved")}
-  end
+      entry ->
+        # Persist the ai_results field
+        case BatchProcessing.update_entry(entry, %{ai_results: medicine_params}) do
+          {:ok, _updated_entry} ->
+            # Fetch the updated entry with images to ensure we have the latest data
+            updated_db_entry = BatchProcessing.get_entry_with_images!(entry_id)
 
-  # Alternative save handler for test compatibility
-  def handle_event("save_entry_edit", params, socket) when is_map(params) do
-    entry_id = Map.get(params, "id")
+            # Normalize the updated entry for UI compatibility
+            normalized_updated_entry =
+              updated_db_entry
+              |> Map.put(:number, updated_db_entry.entry_number)
+              |> normalize_entry()
 
-    if entry_id do
-      entry_updates = Map.drop(params, ["id"])
-
-      updated_entries =
-        Enum.map(socket.assigns.entries, fn entry ->
-          if EntryManager.normalize_entry_id(entry.id) ==
-               EntryManager.normalize_entry_id(entry_id) do
-            updates =
-              Enum.reduce(entry_updates, %{}, fn {k, v}, acc ->
-                Map.put(acc, String.to_atom(k), v)
+            # Update the entries list with the refreshed entry
+            updated_entries =
+              Enum.map(socket.assigns.entries, fn existing_entry ->
+                if EntryManager.normalize_entry_id(existing_entry.id) ==
+                     EntryManager.normalize_entry_id(entry_id) do
+                  normalized_updated_entry
+                else
+                  existing_entry
+                end
               end)
 
-            Map.merge(entry, updates)
-          else
-            entry
-          end
-        end)
+            {:noreply,
+             socket
+             |> assign(:entries, updated_entries)
+             |> assign(:selected_for_edit, nil)
+             |> put_flash(:info, "Entry updated and approved")}
 
-      {:noreply,
-       socket
-       |> assign(:entries, updated_entries)
-       |> assign(:selected_for_edit, nil)}
-    else
-      {:noreply, socket}
+          {:error, changeset} ->
+            {:noreply,
+             put_flash(socket, :error, "Failed to update entry: #{inspect(changeset.errors)}")}
+        end
     end
   end
 

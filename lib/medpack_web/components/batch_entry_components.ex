@@ -611,7 +611,8 @@ defmodule MedpackWeb.BatchEntryComponents do
       "total_quantity" => to_string(Map.get(medicine_data, "total_quantity", "")),
       "brand_name" => Map.get(medicine_data, "brand_name", ""),
       "manufacturer" => Map.get(medicine_data, "manufacturer", ""),
-      "expiration_date" => Map.get(medicine_data, "expiration_date", ""),
+      "expiration_date" =>
+        format_expiration_for_input(Map.get(medicine_data, "expiration_date", "")),
       "remaining_quantity" => to_string(Map.get(medicine_data, "remaining_quantity", ""))
     }
 
@@ -753,7 +754,7 @@ defmodule MedpackWeb.BatchEntryComponents do
                   <span class="label-text">Expiration Date</span>
                 </label>
                 <input
-                  type="date"
+                  type="month"
                   name="medicine[expiration_date]"
                   value={@form_data["expiration_date"]}
                   class="input input-bordered"
@@ -788,4 +789,23 @@ defmodule MedpackWeb.BatchEntryComponents do
     </div>
     """
   end
+
+  # Helper function for formatting expiration dates for inputs
+  defp format_expiration_for_input(nil), do: ""
+  defp format_expiration_for_input(""), do: ""
+
+  defp format_expiration_for_input(%Date{} = date) do
+    month = date.month |> Integer.to_string() |> String.pad_leading(2, "0")
+    year = date.year |> Integer.to_string()
+    "#{year}-#{month}"
+  end
+
+  defp format_expiration_for_input(date) when is_binary(date) do
+    case Date.from_iso8601(date) do
+      {:ok, parsed_date} -> format_expiration_for_input(parsed_date)
+      {:error, _} -> date
+    end
+  end
+
+  defp format_expiration_for_input(_), do: ""
 end

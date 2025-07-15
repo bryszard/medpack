@@ -273,7 +273,7 @@
                           <div class="badge badge-success">✅ Good</div>
                       <% end %>
                       <span class="text-sm text-base-content/60">
-                        Exp: {medicine.expiration_date}
+                        Exp: {format_expiration_date(medicine.expiration_date)}
                       </span>
                     <% else %>
                       <div class="badge badge-neutral">❓ Unknown</div>
@@ -445,11 +445,7 @@
                               <div class="sm:hidden flex items-center gap-1">
                                 <span class="text-red-600">⚠️</span>
                                 <span class="text-xs text-base-content/60">
-                                  {String.slice(to_string(medicine.expiration_date), 5, 2)}/{String.slice(
-                                    to_string(medicine.expiration_date),
-                                    2,
-                                    2
-                                  )}
+                                  {format_expiration_date(medicine.expiration_date)}
                                 </span>
                               </div>
                             <% Date.diff(medicine.expiration_date, Date.utc_today()) <= 30 -> %>
@@ -461,11 +457,7 @@
                               <div class="sm:hidden flex items-center gap-1">
                                 <span class="text-yellow-600">⏰</span>
                                 <span class="text-xs text-base-content/60">
-                                  {String.slice(to_string(medicine.expiration_date), 5, 2)}/{String.slice(
-                                    to_string(medicine.expiration_date),
-                                    2,
-                                    2
-                                  )}
+                                  {format_expiration_date(medicine.expiration_date)}
                                 </span>
                               </div>
                             <% true -> %>
@@ -477,17 +469,13 @@
                               <div class="sm:hidden flex items-center gap-1">
                                 <span class="text-green-600">✅</span>
                                 <span class="text-xs text-base-content/60">
-                                  {String.slice(to_string(medicine.expiration_date), 5, 2)}/{String.slice(
-                                    to_string(medicine.expiration_date),
-                                    2,
-                                    2
-                                  )}
+                                  {format_expiration_date(medicine.expiration_date)}
                                 </span>
                               </div>
                           <% end %>
                           <!-- Desktop date display -->
                           <span class="hidden sm:inline text-xs text-base-content/60">
-                            {medicine.expiration_date}
+                            {format_expiration_date(medicine.expiration_date)}
                           </span>
                         </div>
                       <% else %>

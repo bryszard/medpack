@@ -43,9 +43,31 @@ defmodule Medpack.Medicine do
     %__MODULE__{} |> changeset(attrs)
   end
 
+  @doc """
+  Returns a changeset for form display with expiration date formatted for month input.
+  """
+  def form_changeset(medicine, attrs \\ %{}) do
+    # Format expiration date for month input if it exists
+    formatted_attrs =
+      case medicine.expiration_date do
+        %Date{} = date ->
+          month = date.month |> Integer.to_string() |> String.pad_leading(2, "0")
+          year = date.year |> Integer.to_string()
+          Map.put(attrs, "expiration_date", "#{year}-#{month}")
+
+        _ ->
+          attrs
+      end
+
+    changeset(medicine, formatted_attrs)
+  end
+
   def changeset(medicine, attrs) do
+    # Handle expiration_date conversion before casting
+    converted_attrs = convert_expiration_date_in_attrs(attrs)
+
     medicine
-    |> cast(attrs, [
+    |> cast(converted_attrs, [
       :name,
       :brand_name,
       :generic_name,
@@ -68,11 +90,8 @@ defmodule Medpack.Medicine do
     |> validate_required([
       :name,
       :dosage_form,
-      :strength_value,
-      :strength_unit,
       :container_type,
-      :total_quantity,
-      :quantity_unit
+      :total_quantity
     ])
     |> validate_inclusion(:dosage_form, [
       "tablet",
@@ -108,6 +127,25 @@ defmodule Medpack.Medicine do
     |> validate_number(:remaining_quantity, greater_than_or_equal_to: 0)
     |> validate_remaining_quantity_not_greater_than_total()
   end
+
+  defp convert_expiration_date_in_attrs(attrs) when is_map(attrs) do
+    case Map.get(attrs, "expiration_date") do
+      value when is_binary(value) ->
+        # Handle YYYY-MM format by converting to first day of month
+        case Regex.match?(~r/^\d{4}-\d{2}$/, value) do
+          true ->
+            Map.put(attrs, "expiration_date", "#{value}-01")
+
+          false ->
+            attrs
+        end
+
+      _ ->
+        attrs
+    end
+  end
+
+  defp convert_expiration_date_in_attrs(attrs), do: attrs
 
   defp set_default_remaining_quantity(changeset) do
     total = get_field(changeset, :total_quantity)

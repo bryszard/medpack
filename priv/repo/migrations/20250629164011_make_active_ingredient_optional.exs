@@ -24,7 +24,7 @@ defmodule Medpack.Repo.Migrations.MakeActiveIngredientOptional do
       # e.g., 10.5
       add :strength_value, :decimal, precision: 10, scale: 3
       # mg, ml, g, IU, etc.
-      add :strength_unit, :string, null: false
+      add :strength_unit, :string
       # for mg/ml ratios
       add :strength_denominator_value, :decimal, precision: 10, scale: 3
       # ml, g, tablet, etc.
@@ -38,7 +38,7 @@ defmodule Medpack.Repo.Migrations.MakeActiveIngredientOptional do
       # current amount (NOW OPTIONAL)
       add :remaining_quantity, :decimal, precision: 10, scale: 3, null: true
       # ml, tablets, g, doses
-      add :quantity_unit, :string, null: false
+      add :quantity_unit, :string
 
       # Dates and tracking
       add :expiration_date, :date

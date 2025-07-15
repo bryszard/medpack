@@ -526,4 +526,46 @@ defmodule MedpackWeb.CoreComponents do
     </div>
     """
   end
+
+  @doc """
+  Formats an expiration date in MM/YY format for display.
+  Returns nil if the date is nil.
+  """
+  def format_expiration_date(nil), do: nil
+
+  def format_expiration_date(%Date{} = date) do
+    month = date.month |> Integer.to_string() |> String.pad_leading(2, "0")
+    year = date.year |> Integer.to_string() |> String.slice(-2, 2)
+    "#{month}/#{year}"
+  end
+
+  def format_expiration_date(date) when is_binary(date) do
+    case Date.from_iso8601(date) do
+      {:ok, parsed_date} -> format_expiration_date(parsed_date)
+      {:error, _} -> date
+    end
+  end
+
+  def format_expiration_date(_), do: nil
+
+  @doc """
+  Formats an expiration date in YYYY-MM format for form inputs.
+  Returns nil if the date is nil.
+  """
+  def format_expiration_date_for_input(nil), do: nil
+
+  def format_expiration_date_for_input(%Date{} = date) do
+    month = date.month |> Integer.to_string() |> String.pad_leading(2, "0")
+    year = date.year |> Integer.to_string()
+    "#{year}-#{month}"
+  end
+
+  def format_expiration_date_for_input(date) when is_binary(date) do
+    case Date.from_iso8601(date) do
+      {:ok, parsed_date} -> format_expiration_date_for_input(parsed_date)
+      {:error, _} -> date
+    end
+  end
+
+  def format_expiration_date_for_input(_), do: nil
 end

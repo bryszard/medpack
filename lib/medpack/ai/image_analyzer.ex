@@ -281,7 +281,7 @@ defmodule Medpack.AI.ImageAnalyzer do
       "quantity_unit": "Unit for quantities (tablets, ml, capsules, etc.)",
       "manufacturer": "Manufacturer name if visible",
       "lot_number": "Lot number if visible",
-      "expiration_date": "Expiration date if visible (YYYY-MM-DD format) - MUST be a valid future date, do not include if date is unclear, past, or cannot be clearly read"
+      "expiration_date": "Expiration date if visible (YYYY-MM format, month and year only) - MUST be a valid future date, do not include if date is unclear, past, or cannot be clearly read"
     }
 
     Guidelines:
@@ -297,8 +297,9 @@ defmodule Medpack.AI.ImageAnalyzer do
     - Extract any visible information from any of the images, even if incomplete
     - DO NOT try to estimate remaining quantity - this will be managed manually by the user
     - If you cannot identify ANY medicine information clearly from any image, return {"error": "Unable to identify medicine clearly"}
-    - For total_quantity, if it's not indicated, give your best guess
-    - For remaining_quantity, give your best guess
+    - For total_quantity, if it's not indicated, give your BEST GUESS
+    - For remaining_quantity, give your BEST GUESS
+    - For expiration_date, extract only month and year in YYYY-MM format (e.g., "2025-03" for 03/2025)
 
     Return only the JSON object, no additional text.
     """
@@ -400,8 +401,26 @@ defmodule Medpack.AI.ImageAnalyzer do
       case value do
         nil -> acc
         "" -> acc
-        _ -> Map.put(acc, key, value)
+        _ -> Map.put(acc, key, convert_field_value(key, value))
       end
     end)
   end
+
+  defp convert_field_value("expiration_date", value) when is_binary(value) do
+    # Convert YYYY-MM format to a Date (first day of the month) for database storage
+    case Regex.match?(~r/^\d{4}-\d{2}$/, value) do
+      true ->
+        case Date.from_iso8601("#{value}-01") do
+          {:ok, date} -> date
+          # Return original value if conversion fails
+          {:error, _} -> value
+        end
+
+      false ->
+        # Return original value if not in expected format
+        value
+    end
+  end
+
+  defp convert_field_value(_key, value), do: value
 end

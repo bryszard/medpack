@@ -382,7 +382,7 @@
                 <div>
                   <h3 class="text-xl font-bold text-base-content mb-4">📅 Dates & Tracking</h3>
                   <div class="grid grid-cols-2 gap-4">
-                    <.input field={@form[:expiration_date]} type="date" label="Expiration Date" />
+                    <.input field={@form[:expiration_date]} type="month" label="Expiration Date" />
                     <.input
                       field={@form[:status]}
                       type="select"
@@ -554,7 +554,9 @@
                               ✅ Good
                             </span>
                         <% end %>
-                        <span class="text-base-content">{@medicine.expiration_date}</span>
+                        <span class="text-base-content">
+                          {format_expiration_date(@medicine.expiration_date)}
+                        </span>
                       </div>
                     </div>
                   <% end %>

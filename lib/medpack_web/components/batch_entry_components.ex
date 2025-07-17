@@ -296,33 +296,49 @@ defmodule MedpackWeb.BatchEntryComponents do
   Renders a circular countdown timer with smooth animation.
   """
   def countdown_timer(assigns) do
-    # For a 5-second timer, progress is (countdown / 5) * 100
-    total = 5.0
-    countdown = assigns.countdown
+    total = 4.0
+    countdown = assigns.countdown - 1
     progress = countdown / total * 100
-    assigns = assign(assigns, :progress, progress)
+
+    # SVG circle parameters
+    radius = 16
+    circumference = 2 * :math.pi() * radius
+    dashoffset = circumference * (progress / 100)
+
+    assigns =
+      assigns
+      |> assign(:progress, progress)
+      |> assign(:radius, radius)
+      |> assign(:circumference, circumference)
+      |> assign(:dashoffset, dashoffset)
 
     ~H"""
     <div class="relative">
-      <!-- Circular Progress Bar -->
-      <svg class="w-12 h-12 transform -rotate-90 transition-all duration-1000" viewBox="0 0 36 36">
-        <path
+      <svg class="w-12 h-12" viewBox="0 0 36 36">
+        <!-- Background Circle -->
+        <circle
+          cx="18" cy="18" r={@radius}
+          fill="none"
+          stroke-width="3"
           class="text-base-200"
           stroke="currentColor"
-          stroke-width="3"
-          fill="transparent"
-          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
         />
-        <path
-          class="text-base-500"
-          stroke="currentColor"
+        <!-- Foreground Progress Circle -->
+        <circle
+          cx="18" cy="18" r={@radius}
+          fill="none"
           stroke-width="3"
-          fill="transparent"
-          stroke-dasharray={"#{@progress}, 100"}
-          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+          class="text-blue-500"
+          stroke="currentColor"
+          style={
+            "stroke-dasharray: #{@circumference}; " <>
+            "stroke-dashoffset: #{@dashoffset}; " <>
+            "transform: rotate(-90deg); " <>
+            "transform-origin: 50% 50%; " <>
+            "transition: stroke-dashoffset 1s linear;"
+          }
         />
       </svg>
-      <!-- Countdown Number -->
       <div class="absolute inset-0 flex items-center justify-center">
         <span class="text-sm font-bold text-base-600">
           {@countdown}
@@ -628,7 +644,7 @@ defmodule MedpackWeb.BatchEntryComponents do
           class="space-y-6"
         >
           <input type="hidden" name="entry_id" value={@entry.id} />
-          
+
     <!-- Essential Information -->
           <div>
             <h3 class="text-lg font-bold text-green-800 mb-3">✅ Essential Information</h3>
@@ -722,7 +738,7 @@ defmodule MedpackWeb.BatchEntryComponents do
               </div>
             </div>
           </div>
-          
+
     <!-- Additional Information -->
           <div>
             <h3 class="text-lg font-bold text-blue-800 mb-3">📋 Additional Information</h3>
@@ -774,7 +790,7 @@ defmodule MedpackWeb.BatchEntryComponents do
               </div>
             </div>
           </div>
-          
+
     <!-- Action Buttons -->
           <div class="card-actions justify-center mt-6">
             <button type="submit" class="btn btn-success">

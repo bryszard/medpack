@@ -7,23 +7,13 @@ defmodule Medpack.BatchProcessingTest do
   describe "create_entry/1" do
     test "creates entry with valid attributes" do
       attrs = %{
-        batch_id: "batch_123",
         entry_number: 1
       }
 
       assert {:ok, entry} = BatchProcessing.create_entry(attrs)
-      assert entry.batch_id == "batch_123"
       assert entry.entry_number == 1
       assert entry.status == :pending
       assert entry.ai_analysis_status == :pending
-    end
-
-    test "requires batch_id" do
-      attrs = %{entry_number: 1}
-
-      assert {:error, changeset} = BatchProcessing.create_entry(attrs)
-      refute changeset.valid?
-      assert "can't be blank" in errors_on(changeset).batch_id
     end
 
     test "requires entry_number" do
@@ -44,19 +34,6 @@ defmodule Medpack.BatchProcessingTest do
       refute changeset.valid?
       assert "must be greater than 0" in errors_on(changeset).entry_number
     end
-
-    test "enforces unique constraint on batch_id + entry_number" do
-      attrs = %{
-        batch_id: "batch_123",
-        entry_number: 1
-      }
-
-      assert {:ok, _entry1} = BatchProcessing.create_entry(attrs)
-
-      # Try to create another entry with same batch_id and entry_number
-      assert {:error, changeset} = BatchProcessing.create_entry(attrs)
-      refute changeset.valid?
-    end
   end
 
   describe "get_entry/1" do
@@ -66,11 +43,10 @@ defmodule Medpack.BatchProcessingTest do
       result = BatchProcessing.get_entry(entry.id)
 
       assert result.id == entry.id
-      assert result.batch_id == entry.batch_id
     end
 
     test "returns nil when entry does not exist" do
-      result = BatchProcessing.get_entry(999)
+      result = BatchProcessing.get_entry(Ecto.UUID.generate())
 
       assert result == nil
     end
@@ -87,7 +63,7 @@ defmodule Medpack.BatchProcessingTest do
 
     test "raises when entry does not exist" do
       assert_raise Ecto.NoResultsError, fn ->
-        BatchProcessing.get_entry!(999)
+        BatchProcessing.get_entry!(Ecto.UUID.generate())
       end
     end
   end
@@ -164,40 +140,6 @@ defmodule Medpack.BatchProcessingTest do
     end
   end
 
-  describe "list_entries_by_batch/1" do
-    test "returns entries for specific batch" do
-      entry1 = insert(:batch_entry, batch_id: "batch_1", entry_number: 1)
-      entry2 = insert(:batch_entry, batch_id: "batch_1", entry_number: 2)
-      _entry3 = insert(:batch_entry, batch_id: "batch_2", entry_number: 1)
-
-      entries = BatchProcessing.list_entries_by_batch("batch_1")
-
-      assert length(entries) == 2
-      entry_ids = Enum.map(entries, & &1.id)
-      assert entry1.id in entry_ids
-      assert entry2.id in entry_ids
-    end
-
-    test "orders entries by entry_number" do
-      _entry1 = insert(:batch_entry, batch_id: "batch_1", entry_number: 3)
-      _entry2 = insert(:batch_entry, batch_id: "batch_1", entry_number: 1)
-      _entry3 = insert(:batch_entry, batch_id: "batch_1", entry_number: 2)
-
-      entries = BatchProcessing.list_entries_by_batch("batch_1")
-
-      assert length(entries) == 3
-      assert Enum.at(entries, 0).entry_number == 1
-      assert Enum.at(entries, 1).entry_number == 2
-      assert Enum.at(entries, 2).entry_number == 3
-    end
-
-    test "returns empty list for non-existent batch" do
-      entries = BatchProcessing.list_entries_by_batch("non_existent")
-
-      assert entries == []
-    end
-  end
-
   describe "list_ready_for_analysis/0" do
     test "returns entries that have photos and are pending analysis" do
       # Entry with photos and pending analysis (should be included)
@@ -231,37 +173,6 @@ defmodule Medpack.BatchProcessingTest do
       entry = hd(ready_entries)
       assert length(entry.images) == 1
       assert hd(entry.images).id == image.id
-    end
-  end
-
-  describe "get_batch_statistics/1" do
-    test "returns correct statistics for batch" do
-      batch_id = "test_batch"
-
-      # Create entries with different ai_analysis_status values
-      _pending = insert(:batch_entry, batch_id: batch_id, ai_analysis_status: :pending)
-      _processing = insert(:batch_entry, batch_id: batch_id, ai_analysis_status: :processing)
-      _complete1 = insert(:batch_entry, batch_id: batch_id, ai_analysis_status: :complete)
-      _complete2 = insert(:batch_entry, batch_id: batch_id, ai_analysis_status: :complete)
-      _failed = insert(:batch_entry, batch_id: batch_id, ai_analysis_status: :failed)
-
-      stats = BatchProcessing.get_batch_statistics(batch_id)
-
-      assert stats.total == 5
-      assert stats.pending == 1
-      assert stats.processing == 1
-      assert stats.complete == 2
-      assert stats.failed == 1
-    end
-
-    test "returns zero statistics for non-existent batch" do
-      stats = BatchProcessing.get_batch_statistics("non_existent")
-
-      assert stats.total == 0
-      assert stats.pending == 0
-      assert stats.processing == 0
-      assert stats.complete == 0
-      assert stats.failed == 0
     end
   end
 

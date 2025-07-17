@@ -261,24 +261,6 @@ defmodule Medpack.S3FileManager do
     end
   end
 
-  defp upload_to_s3(s3_key, file_content, upload_entry) do
-    bucket_name = get_bucket_name()
-    content_type = get_content_type(upload_entry.client_name)
-
-    Logger.info("Uploading file to S3: #{s3_key} (#{byte_size(file_content)} bytes)")
-
-    case S3.put_object(bucket_name, s3_key, file_content, content_type: content_type)
-         |> ExAws.request() do
-      {:ok, response} ->
-        Logger.info("Successfully uploaded to S3: #{s3_key}")
-        {:ok, response}
-
-      {:error, reason} ->
-        Logger.error("Failed to upload to S3: #{s3_key}, reason: #{inspect(reason)}")
-        {:error, reason}
-    end
-  end
-
   defp upload_to_s3_auto(s3_key, file_content, upload_entry) do
     content_type = get_content_type(upload_entry.client_name)
 

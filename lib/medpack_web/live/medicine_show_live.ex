@@ -278,6 +278,25 @@ defmodule MedpackWeb.MedicineShowLive do
   end
 
   @impl true
+  def handle_event("set_default_photo", %{"path" => path}, socket) do
+    medicine = socket.assigns.medicine
+    if path in (medicine.photo_paths || []) do
+      case Medpack.Medicines.update_medicine(medicine, %{"default_photo_path" => path}) do
+        {:ok, updated_medicine} ->
+          {:noreply,
+           socket
+           |> assign(medicine: updated_medicine)
+           |> assign(form: to_form(Medpack.Medicine.form_changeset(updated_medicine)))
+           |> put_flash(:info, "Default photo updated!")}
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to set default photo")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Invalid photo path")}
+    end
+  end
+
+  @impl true
   def handle_async(:analyze_photos, {:ok, analysis_results}, socket) do
     case analysis_results do
       {:ok, ai_results} ->
@@ -509,22 +528,5 @@ defmodule MedpackWeb.MedicineShowLive do
     Medpack.FileManager.get_photo_url(photo_identifier)
   end
 
-  @impl true
-  def handle_event("set_default_photo", %{"path" => path}, socket) do
-    medicine = socket.assigns.medicine
-    if path in (medicine.photo_paths || []) do
-      case Medpack.Medicines.update_medicine(medicine, %{"default_photo_path" => path}) do
-        {:ok, updated_medicine} ->
-          {:noreply,
-           socket
-           |> assign(medicine: updated_medicine)
-           |> assign(form: to_form(Medpack.Medicine.form_changeset(updated_medicine)))
-           |> put_flash(:info, "Default photo updated!")}
-        {:error, _changeset} ->
-          {:noreply, put_flash(socket, :error, "Failed to set default photo")}
-      end
-    else
-      {:noreply, put_flash(socket, :error, "Invalid photo path")}
-    end
-  end
+
 end

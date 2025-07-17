@@ -389,9 +389,9 @@ defmodule MedpackWeb.MedicineShowLiveTest do
 
       # Simulate AI analysis completion message
       analysis_result = %{
-        name: "AI Detected Name",
-        brand_name: "AI Detected Brand",
-        active_ingredient: "AI Detected Ingredient"
+        "name" => "AI Detected Name",
+        "brand_name" => "AI Detected Brand",
+        "active_ingredient" => "AI Detected Ingredient"
       }
 
       send(view.pid, {:ai_analysis_complete, analysis_result})

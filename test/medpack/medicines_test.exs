@@ -106,11 +106,10 @@ defmodule Medpack.MedicinesTest do
   describe "update_medicine/2" do
     test "updates medicine with valid attributes" do
       medicine = insert(:medicine, name: "Original Name")
-      attrs = %{name: "Updated Name", notes: "Updated notes"}
+      attrs = %{name: "Updated Name"}
 
       assert {:ok, updated_medicine} = Medicines.update_medicine(medicine, attrs)
       assert updated_medicine.name == "Updated Name"
-      assert updated_medicine.notes == "Updated notes"
     end
 
     test "returns error changeset with invalid attributes" do

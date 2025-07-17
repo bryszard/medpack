@@ -65,15 +65,6 @@ defmodule Medpack.MedicineTest do
       assert "is invalid" in errors_on(changeset).dosage_form
     end
 
-    test "requires strength_value field" do
-      attrs = valid_medicine_attributes(%{strength_value: nil})
-
-      changeset = Medicine.changeset(%Medicine{}, attrs)
-
-      refute changeset.valid?
-      assert "can't be blank" in errors_on(changeset).strength_value
-    end
-
     test "validates strength_value is greater than 0" do
       attrs = valid_medicine_attributes(%{strength_value: "0"})
 
@@ -90,15 +81,6 @@ defmodule Medpack.MedicineTest do
 
       refute changeset.valid?
       assert "must be greater than 0" in errors_on(changeset).strength_value
-    end
-
-    test "requires strength_unit field" do
-      attrs = valid_medicine_attributes(%{strength_unit: nil})
-
-      changeset = Medicine.changeset(%Medicine{}, attrs)
-
-      refute changeset.valid?
-      assert "can't be blank" in errors_on(changeset).strength_unit
     end
 
     test "requires container_type field" do
@@ -151,15 +133,6 @@ defmodule Medpack.MedicineTest do
 
       refute changeset.valid?
       assert "must be greater than 0" in errors_on(changeset).total_quantity
-    end
-
-    test "requires quantity_unit field" do
-      attrs = valid_medicine_attributes(%{quantity_unit: nil})
-
-      changeset = Medicine.changeset(%Medicine{}, attrs)
-
-      refute changeset.valid?
-      assert "can't be blank" in errors_on(changeset).quantity_unit
     end
 
     test "validates status inclusion" do

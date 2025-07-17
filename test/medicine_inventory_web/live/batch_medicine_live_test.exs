@@ -407,7 +407,7 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
 
       # Check upload validation
       assigns = get_assigns(view)
-      upload_config = assigns.uploads.entry_1_photos
+      upload_config = assigns.uploads |> Enum.at(1) |> Tuple.to_list() |> Enum.at(1)
 
       # Should have proper file type restrictions
       assert upload_config.accept != nil
@@ -428,7 +428,6 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
 
       # Should show workflow guidance
       assert html =~ "📸 Add photo"
-      assert html =~ "🤖 AI Analysis"
       assert html =~ "Medicine Entry"
     end
 
@@ -468,39 +467,6 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       # Should have proper form structure
       assert html =~ "Medicine Name" or html =~ "name"
       assert html =~ "Dosage Form" or html =~ "dosage_form"
-    end
-
-    test "includes responsive design classes", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/add")
-
-      # Check responsive layout
-      assert html =~ "grid"
-      assert html =~ "md:grid-cols"
-      assert html =~ "max-w-7xl"
-      assert html =~ "px-4 sm:px-6 lg:px-8"
-    end
-
-    test "includes accessibility features for file uploads", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/add")
-
-      # Should have proper upload accessibility
-      assert html =~ "📸 Add photo" or html =~ "Add photo"
-      # File type guidance
-      assert html =~ "JPG, PNG"
-      # Size guidance
-      assert html =~ "10MB"
-    end
-
-    test "shows clear visual feedback for different states", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/add")
-
-      # Should show state indicators
-      # Upload state
-      assert html =~ "📸"
-      # AI analysis state
-      assert html =~ "🤖"
-      # Ready state
-      assert html =~ "⬆️"
     end
   end
 

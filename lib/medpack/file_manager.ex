@@ -12,19 +12,6 @@ defmodule Medpack.FileManager do
   @max_file_size 50_000_000
 
   @doc """
-  Saves an uploaded file to the appropriate location.
-
-  Returns {:ok, result} where result is either file_path (local) or %{s3_key: key, url: url} (S3)
-  """
-  def save_uploaded_file(upload_entry, entry_id) do
-    if use_s3_storage?() do
-      S3FileManager.save_uploaded_file(upload_entry, entry_id)
-    else
-      save_uploaded_file_locally(upload_entry, entry_id)
-    end
-  end
-
-  @doc """
   Saves an auto-uploaded file (from consume_uploaded_entries) to the appropriate location.
 
   For auto-uploaded files, the file content is provided via the meta parameter from consume_uploaded_entries.
@@ -35,22 +22,6 @@ defmodule Medpack.FileManager do
       S3FileManager.save_auto_uploaded_file(meta, upload_entry, entry_id)
     else
       save_auto_uploaded_file_locally(meta, upload_entry, entry_id)
-    end
-  end
-
-  @doc """
-  Saves an uploaded file locally (development mode).
-  """
-  def save_uploaded_file_locally(upload_entry, entry_id) do
-    with :ok <- validate_upload(upload_entry),
-         {:ok, file_path} <- generate_file_path(upload_entry, entry_id),
-         :ok <- ensure_directory_exists(file_path),
-         {:ok, _} <- copy_file(upload_entry.path, file_path) do
-      # Return a relative path that can be consistently processed
-      relative_path = get_relative_path(file_path)
-      {:ok, relative_path}
-    else
-      {:error, reason} -> {:error, reason}
     end
   end
 

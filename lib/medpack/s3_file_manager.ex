@@ -11,23 +11,6 @@ defmodule Medpack.S3FileManager do
   @max_file_size 50_000_000
 
   @doc """
-  Saves an uploaded file to S3 storage.
-
-  Returns {:ok, %{s3_key: key, url: url}} or {:error, reason}
-  """
-  def save_uploaded_file(upload_entry, entry_id) do
-    with :ok <- validate_upload(upload_entry),
-         {:ok, s3_key} <- generate_s3_key(upload_entry, entry_id),
-         {:ok, file_content} <- File.read(upload_entry.path),
-         {:ok, _response} <- upload_to_s3(s3_key, file_content, upload_entry) do
-      url = get_presigned_url(s3_key)
-      {:ok, %{s3_key: s3_key, url: url}}
-    else
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  @doc """
   Saves an auto-uploaded file to S3 storage.
   For auto-uploads, the file content is available via meta.path.
 

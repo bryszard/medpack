@@ -5,8 +5,8 @@ ExVCR.Config.cassette_library_dir("test/fixtures/vcr_cassettes")
 File.mkdir_p!("test/fixtures/vcr_cassettes")
 
 # Filter out sensitive data from cassettes
-ExVCR.Config.filter_sensitive_data("sk-[^\"]*", "sk-OPENAI_API_KEY_PLACEHOLDER")
-ExVCR.Config.filter_sensitive_data("Bearer sk-[^\"]*", "Bearer sk-OPENAI_API_KEY_PLACEHOLDER")
+ExVCR.Config.filter_sensitive_data("sk-[^\"\s]+", "sk-OPENAI_API_KEY_PLACEHOLDER")
+ExVCR.Config.filter_sensitive_data("Bearer sk-[^\"\s]+", "Bearer sk-OPENAI_API_KEY_PLACEHOLDER")
 
 # Configure test environment
 Application.put_env(:medpack, :file_storage_backend, :local)

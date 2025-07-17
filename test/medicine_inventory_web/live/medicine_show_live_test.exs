@@ -183,7 +183,7 @@ defmodule MedpackWeb.MedicineShowLiveTest do
       assert assigns.edit_mode == true
       assert html =~ "medicine-form"
       assert html =~ "💾 Save Changes"
-      assert html =~ "✖️ Cancel"
+      assert html =~ "❌ Cancel"
     end
 
     test "cancels edit mode without saving changes", %{conn: conn} do

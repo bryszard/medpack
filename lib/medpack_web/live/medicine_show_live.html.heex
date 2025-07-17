@@ -2,7 +2,7 @@
   <.topbar current_page={:medicine_show} />
   <div class="min-h-screen bg-base-100 py-8">
     <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-      
+
 <!-- Medicine Details Card -->
       <div class="card bg-base-100 shadow-xl border border-base-300">
         <div class="md:flex">
@@ -48,7 +48,7 @@
                         </svg>
                       </button>
                     </div>
-                    
+
 <!-- Photo Thumbnails (if more than 1 photo) -->
                     <%= if length(@medicine.photo_paths) > 1 do %>
                       <div class="grid grid-cols-3 gap-2">
@@ -76,14 +76,14 @@
                     <% end %>
                   </div>
                 <% end %>
-                
+
 <!-- Photo Upload Section -->
                 <div class="card bg-base-200 border-2 border-dashed border-base-300">
                   <div class="card-body">
                     <h3 class="card-title">
                       {if @medicine.photo_paths == [], do: "Add Photos", else: "Add More Photos"}
                     </h3>
-                    
+
 <!-- Upload Area -->
                     <%= if length(@uploads.photos.entries) < @uploads.photos.max_entries do %>
                       <form phx-change="validate" phx-submit="upload">
@@ -118,7 +118,7 @@
                         <span class="text-base-content/60">Maximum number of photos reached</span>
                       </div>
                     <% end %>
-                    
+
 <!-- Photo Previews for uploads in progress -->
                     <%= for entry <- @uploads.photos.entries do %>
                       <div class="card bg-base-100 shadow-sm mb-3 mt-4">
@@ -156,7 +156,7 @@
                         </div>
                       </div>
                     <% end %>
-                    
+
 <!-- Upload Errors -->
                     <%= for entry <- @uploads.photos.entries do %>
                       <div
@@ -168,7 +168,7 @@
                     <% end %>
                   </div>
                 </div>
-                
+
 <!-- AI Analysis Button -->
                 <%= if @medicine.photo_paths != [] do %>
                   <div class="text-center">
@@ -232,7 +232,7 @@
                     phx-value-index={@selected_photo_index || 0}
                   />
                 </div>
-                
+
 <!-- Photo Thumbnails (if more than 1 photo) -->
                 <%= if length(@medicine.photo_paths) > 1 do %>
                   <div class="grid grid-cols-3 gap-2">
@@ -254,7 +254,7 @@
               <% end %>
             <% end %>
           </div>
-          
+
 <!-- Details Section -->
           <div class="md:w-1/2 p-8">
             <%= if @edit_mode do %>
@@ -302,7 +302,7 @@
                     />
                   </div>
                 </div>
-                
+
 <!-- Strength & Dosage -->
                 <div>
                   <h3 class="text-xl font-bold text-base-content mb-4">💪 Strength & Dosage</h3>
@@ -333,7 +333,7 @@
                     />
                   </div>
                 </div>
-                
+
 <!-- Container & Quantity -->
                 <div>
                   <h3 class="text-xl font-bold text-base-content mb-4">📦 Container & Quantity</h3>
@@ -377,7 +377,7 @@
                     </div>
                   </div>
                 </div>
-                
+
 <!-- Dates & Tracking -->
                 <div>
                   <h3 class="text-xl font-bold text-base-content mb-4">📅 Dates & Tracking</h3>
@@ -396,7 +396,7 @@
                     />
                   </div>
                 </div>
-                
+
 <!-- Additional Details -->
                 <div>
                   <h3 class="text-xl font-bold text-base-content mb-4">📝 Additional Details</h3>
@@ -446,7 +446,7 @@
                     <% end %>
                   </div>
                 </div>
-                
+
 <!-- Strength & Dosage -->
                 <div>
                   <h3 class="text-xl font-bold text-base-content mb-4">💪 Strength & Dosage</h3>
@@ -459,7 +459,7 @@
                     </div>
                   </div>
                 </div>
-                
+
 <!-- Container & Quantity -->
                 <div>
                   <h3 class="text-xl font-bold text-base-content mb-4">📦 Container & Quantity</h3>
@@ -486,7 +486,7 @@
                     </div>
                   </div>
                 </div>
-                
+
 <!-- Usage Progress -->
                 <div>
                   <h3 class="text-xl font-bold text-base-content mb-4">📊 Usage</h3>
@@ -527,7 +527,7 @@
             <% end %>
           </div>
         </div>
-        
+
 <!-- Additional Information Section -->
         <div class="border-t border-base-300 p-8">
           <%= if not @edit_mode do %>
@@ -567,7 +567,7 @@
                   </div>
                 </div>
               </div>
-              
+
 <!-- Additional Details -->
               <div>
                 <h3 class="text-xl font-bold text-base-content mb-4">📝 Additional Details</h3>
@@ -590,7 +590,7 @@
             </div>
           <% end %>
         </div>
-        
+
 <!-- Action Buttons -->
         <div class="border-t border-base-300 p-6 bg-base-100">
           <div class="flex justify-center space-x-4">
@@ -599,7 +599,7 @@
                 💾 Save Changes
               </button>
               <button phx-click="cancel_edit" class="btn btn-neutral">
-                ✖️ Cancel
+                ❌ Cancel
               </button>
             <% else %>
               <button phx-click="edit_medicine" class="btn btn-primary">
@@ -618,7 +618,7 @@
       </div>
     </div>
   </div>
-  
+
 <!-- Photo Enlargement Modal -->
   <%= if @show_enlarged_photo do %>
     <div
@@ -634,7 +634,7 @@
           class="max-w-full max-h-full object-contain rounded-lg"
           phx-click={JS.dispatch("click", to: "body")}
         />
-        
+
 <!-- Close Button -->
         <button
           phx-click="close_enlarged_photo"
@@ -650,7 +650,7 @@
             </path>
           </svg>
         </button>
-        
+
 <!-- Navigation Arrows (if multiple photos) -->
         <%= if length(@medicine.photo_paths) > 1 do %>
           <!-- Previous Photo -->
@@ -668,7 +668,7 @@
               </path>
             </svg>
           </button>
-          
+
 <!-- Next Photo -->
           <button
             phx-click="next_photo"
@@ -684,7 +684,7 @@
               </path>
             </svg>
           </button>
-          
+
 <!-- Photo Counter -->
           <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
             {(@enlarged_photo_index || 0) + 1} / {length(@medicine.photo_paths)}

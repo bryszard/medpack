@@ -301,14 +301,10 @@ defmodule MedpackWeb.MedicineShowLive do
 
   @impl true
   def handle_info({:process_uploaded_files}, socket) do
-    # Process all uploaded files
+    # Process all uploaded files using the robust auto-upload handler
     file_results =
-      consume_uploaded_entries(socket, :photos, fn _meta, upload_entry ->
-        # Use FileManager to handle storage (local or S3)
-        case Medpack.FileManager.save_uploaded_file(
-               upload_entry,
-               "medicine_#{socket.assigns.medicine.id}"
-             ) do
+      consume_uploaded_entries(socket, :photos, fn meta, upload_entry ->
+        case Medpack.FileManager.save_auto_uploaded_file(meta, upload_entry, "medicine_#{socket.assigns.medicine.id}") do
           {:ok, result} when is_binary(result) ->
             # Local storage - convert to web path for storage
             web_path = Medpack.FileManager.get_photo_url(result)

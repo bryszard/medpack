@@ -19,13 +19,7 @@
                     <div class="mb-4 relative">
                       <img
                         id="main-photo"
-                        src={
-                          photo_url(
-                            (@selected_photo_index &&
-                               Enum.at(@medicine.photo_paths, @selected_photo_index)) ||
-                              hd(@medicine.photo_paths)
-                          )
-                        }
+                        src={photo_url(Enum.at(@medicine.photo_paths, @selected_photo_index || 0))}
                         alt={@medicine.name}
                         class="h-64 md:h-80 w-full object-cover rounded-lg"
                       />
@@ -69,6 +63,19 @@
                               class="btn btn-error btn-circle btn-xs absolute -top-1 -right-1"
                             >
                               ×
+                            </button>
+                            <button
+                              type="button"
+                              phx-click="set_default_photo"
+                              phx-value-path={photo_path}
+                              class="btn btn-xs btn-primary mt-1 w-full"
+                              disabled={@medicine.default_photo_path == photo_path}
+                            >
+                              <%= if @medicine.default_photo_path == photo_path do %>
+                                Default
+                              <% else %>
+                                Set as default
+                              <% end %>
                             </button>
                           </div>
                         <% end %>
@@ -219,13 +226,7 @@
                 <div class="mb-4">
                   <img
                     id="main-photo"
-                    src={
-                      photo_url(
-                        (@selected_photo_index &&
-                           Enum.at(@medicine.photo_paths, @selected_photo_index)) ||
-                          hd(@medicine.photo_paths)
-                      )
-                    }
+                    src={photo_url(Enum.at(@medicine.photo_paths, @selected_photo_index || 0))}
                     alt={@medicine.name}
                     class="h-96 md:h-[32rem] w-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                     phx-click="enlarge_photo"
@@ -237,13 +238,28 @@
                 <%= if length(@medicine.photo_paths) > 1 do %>
                   <div class="grid grid-cols-3 gap-2">
                     <%= for {photo_path, index} <- Enum.with_index(@medicine.photo_paths) do %>
-                      <img
-                        src={photo_url(photo_path)}
-                        alt={"#{@medicine.name} - Photo #{index + 1}"}
-                        class={"h-16 w-full object-cover rounded cursor-pointer transition-all #{if (@selected_photo_index || 0) == index, do: "ring-2 ring-primary", else: "hover:opacity-80"}"}
-                        phx-click="select_photo"
-                        phx-value-index={index}
-                      />
+                      <div class="relative">
+                        <img
+                          src={photo_url(photo_path)}
+                          alt={"#{@medicine.name} - Photo #{index + 1}"}
+                          class={"h-16 w-full object-cover rounded cursor-pointer transition-all #{if (@selected_photo_index || 0) == index, do: "ring-2 ring-primary", else: "hover:opacity-80"}"}
+                          phx-click="select_photo"
+                          phx-value-index={index}
+                        />
+                        <button
+                          type="button"
+                          phx-click="set_default_photo"
+                          phx-value-path={photo_path}
+                          class="btn btn-xs btn-primary mt-1 w-full"
+                          disabled={@medicine.default_photo_path == photo_path}
+                        >
+                          <%= if @medicine.default_photo_path == photo_path do %>
+                            Default
+                          <% else %>
+                            Set as default
+                          <% end %>
+                        </button>
+                      </div>
                     <% end %>
                   </div>
                 <% end %>
@@ -414,26 +430,26 @@
                   <div class="space-y-3">
                     <div class="flex justify-between">
                       <span class="font-medium text-base-content/70">Medicine Name:</span>
-                      <span class="text-base-content">{@medicine.name}</span>
+                      <span class="text-base-content text-end">{@medicine.name}</span>
                     </div>
 
                     <%= if @medicine.brand_name do %>
                       <div class="flex justify-between">
                         <span class="font-medium text-base-content/70">Brand:</span>
-                        <span class="text-base-content">{@medicine.brand_name}</span>
+                        <span class="text-base-content text-end">{@medicine.brand_name}</span>
                       </div>
                     <% end %>
 
                     <%= if @medicine.generic_name do %>
                       <div class="flex justify-between">
                         <span class="font-medium text-base-content/70">Generic:</span>
-                        <span class="text-base-content">{@medicine.generic_name}</span>
+                        <span class="text-base-content text-end">{@medicine.generic_name}</span>
                       </div>
                     <% end %>
 
                     <div class="flex justify-between">
                       <span class="font-medium text-base-content/70">Form:</span>
-                      <span class="text-base-content">
+                      <span class="text-base-content text-end">
                         {String.capitalize(@medicine.dosage_form)}
                       </span>
                     </div>
@@ -441,7 +457,7 @@
                     <%= if @medicine.active_ingredient do %>
                       <div class="flex justify-between">
                         <span class="font-medium text-base-content/70">Active Ingredient:</span>
-                        <span class="text-base-content">{@medicine.active_ingredient}</span>
+                        <span class="text-base-content text-end">{@medicine.active_ingredient}</span>
                       </div>
                     <% end %>
                   </div>

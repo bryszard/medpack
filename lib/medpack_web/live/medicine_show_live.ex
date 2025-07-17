@@ -17,13 +17,21 @@ defmodule MedpackWeb.MedicineShowLive do
            |> push_navigate(to: ~p"/inventory")}
 
         medicine ->
+          photo_paths = medicine.photo_paths || []
+          default_index =
+            if is_binary(medicine.default_photo_path) and medicine.default_photo_path in photo_paths do
+              Enum.find_index(photo_paths, &(&1 == medicine.default_photo_path)) || 0
+            else
+              0
+            end
+
           {:ok,
            socket
            |> assign(:medicine, medicine)
            |> assign(:page_title, medicine.name)
-           |> assign(:selected_photo_index, 0)
+           |> assign(:selected_photo_index, default_index)
            |> assign(:show_enlarged_photo, false)
-           |> assign(:enlarged_photo_index, 0)
+           |> assign(:enlarged_photo_index, default_index)
            |> assign(:edit_mode, false)
            |> assign(:form, to_form(Medpack.Medicine.form_changeset(medicine)))
            |> assign(:analyzing, false)
@@ -168,7 +176,14 @@ defmodule MedpackWeb.MedicineShowLive do
       end
 
       # Update the medicine in the database
-      case Medicines.update_medicine(medicine, %{"photo_paths" => updated_photo_paths}) do
+      attrs =
+        if medicine.default_photo_path == photo_to_remove do
+          %{ "photo_paths" => updated_photo_paths, "default_photo_path" => List.first(updated_photo_paths) }
+        else
+          %{ "photo_paths" => updated_photo_paths }
+        end
+
+      case Medicines.update_medicine(medicine, attrs) do
         {:ok, updated_medicine} ->
           # Adjust selected photo index if necessary
           new_selected_index =
@@ -492,5 +507,24 @@ defmodule MedpackWeb.MedicineShowLive do
   # Helper function to get displayable photo URL
   def photo_url(photo_identifier) do
     Medpack.FileManager.get_photo_url(photo_identifier)
+  end
+
+  @impl true
+  def handle_event("set_default_photo", %{"path" => path}, socket) do
+    medicine = socket.assigns.medicine
+    if path in (medicine.photo_paths || []) do
+      case Medpack.Medicines.update_medicine(medicine, %{"default_photo_path" => path}) do
+        {:ok, updated_medicine} ->
+          {:noreply,
+           socket
+           |> assign(medicine: updated_medicine)
+           |> assign(form: to_form(Medpack.Medicine.form_changeset(updated_medicine)))
+           |> put_flash(:info, "Default photo updated!")}
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to set default photo")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Invalid photo path")}
+    end
   end
 end

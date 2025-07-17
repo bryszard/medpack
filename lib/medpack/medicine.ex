@@ -31,6 +31,7 @@ defmodule Medpack.Medicine do
     # Additional information
     field :manufacturer, :string
     field :photo_paths, {:array, :string}, default: []
+    field :default_photo_path, :string
 
     # Status tracking
     field :status, :string, default: "active"
@@ -85,6 +86,7 @@ defmodule Medpack.Medicine do
       :expiration_date,
       :manufacturer,
       :photo_paths,
+      :default_photo_path,
       :status
     ])
     |> validate_required([

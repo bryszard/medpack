@@ -17,7 +17,7 @@
               />
             </form>
           </div>
-          
+
 <!-- Control Buttons -->
           <button phx-click="toggle_filters" class="btn btn-outline btn-accent">
             🔽 Filters
@@ -34,7 +34,7 @@
           </button>
         </div>
       </div>
-      
+
 <!-- Filter Panel -->
       <%= if @show_filters do %>
         <div class="mb-8">
@@ -44,7 +44,7 @@
 
               <form phx-change="filter_change" class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  
+
 <!-- Dosage Form Filter -->
                   <div class="form-control">
                     <label class="label">
@@ -73,7 +73,7 @@
                       <option value="suppository">Suppository</option>
                     </select>
                   </div>
-                  
+
 <!-- Container Type Filter -->
                   <div class="form-control">
                     <label class="label">
@@ -95,7 +95,7 @@
                       <option value="ampoule">Ampoule</option>
                     </select>
                   </div>
-                  
+
 <!-- Expiration Status Filter -->
                   <div class="form-control">
                     <label class="label">
@@ -113,7 +113,7 @@
                       <option value="unknown">❓ Unknown</option>
                     </select>
                   </div>
-                  
+
 <!-- Medicine Status Filter -->
                   <div class="form-control">
                     <label class="label">
@@ -132,7 +132,7 @@
                     </select>
                   </div>
                 </div>
-                
+
 <!-- Filter Actions -->
                 <div class="flex justify-between items-center pt-4 border-t border-base-300">
                   <div class="text-sm text-base-content/70">
@@ -151,7 +151,7 @@
           </div>
         </div>
       <% end %>
-      
+
 <!-- Medicine Display -->
       <%= if @view_mode == :cards do %>
         <!-- Card View -->
@@ -160,10 +160,18 @@
             <.link navigate={~p"/inventory/#{medicine.id}"} class="block">
               <div class="card bg-base-100 shadow-xl border border-base-300 hover:shadow-2xl transition duration-300 cursor-pointer h-full">
                 <!-- Medicine Photo -->
-                <%= if medicine.photo_paths != [] and hd(medicine.photo_paths) do %>
+                <%
+                  main_photo =
+                    if is_binary(medicine.default_photo_path) and medicine.default_photo_path in (medicine.photo_paths || []) do
+                      medicine.default_photo_path
+                    else
+                      List.first(medicine.photo_paths)
+                    end
+                %>
+                <%= if main_photo do %>
                   <figure class="h-48">
                     <img
-                      src={photo_url(hd(medicine.photo_paths))}
+                      src={photo_url(main_photo)}
                       alt={medicine.name}
                       class="h-full w-full object-cover"
                     />
@@ -173,11 +181,11 @@
                     <span class="text-6xl">💊</span>
                   </figure>
                 <% end %>
-                
+
 <!-- Medicine Info -->
                 <div class="card-body">
                   <h2 class="card-title text-base-content">{medicine.name}</h2>
-                  
+
 <!-- Search Matches -->
                   <%= if @search_query != "" do %>
                     <% matches =
@@ -244,7 +252,7 @@
                   <p class="text-base-content/70 mb-3">
                     <strong>Quantity:</strong> {Medpack.Medicine.quantity_display(medicine)}
                   </p>
-                  
+
 <!-- Usage Progress Bar -->
                   <div class="mb-3">
                     <div class="flex justify-between text-sm text-base-content/60 mb-1">
@@ -260,7 +268,7 @@
                     >
                     </progress>
                   </div>
-                  
+
 <!-- Expiration Status -->
                   <div class="card-actions justify-start">
                     <%= if medicine.expiration_date do %>
@@ -308,10 +316,18 @@
                     phx-click={JS.navigate(~p"/inventory/#{medicine.id}")}
                   >
                     <td>
-                      <%= if medicine.photo_paths != [] and hd(medicine.photo_paths) do %>
+                      <%
+                        main_photo =
+                          if is_binary(medicine.default_photo_path) and medicine.default_photo_path in (medicine.photo_paths || []) do
+                            medicine.default_photo_path
+                          else
+                            List.first(medicine.photo_paths)
+                          end
+                      %>
+                      <%= if main_photo do %>
                         <div class="avatar">
                           <div class="mask mask-squircle w-10 h-10 sm:w-12 sm:h-12">
-                            <img src={photo_url(hd(medicine.photo_paths))} alt={medicine.name} />
+                            <img src={photo_url(main_photo)} alt={medicine.name} />
                           </div>
                         </div>
                       <% else %>
@@ -327,7 +343,7 @@
                       <%= if medicine.brand_name do %>
                         <div class="text-sm text-base-content">{medicine.brand_name}</div>
                       <% end %>
-                      
+
 <!-- Search Matches for Table -->
                       <%= if @search_query != "" do %>
                         <% matches =
@@ -353,7 +369,7 @@
                           </div>
                         <% end %>
                       <% end %>
-                      
+
 <!-- Show matched fields in table -->
                       <%= if @search_query != "" do %>
                         <% matches =
@@ -491,7 +507,7 @@
           </div>
         </div>
       <% end %>
-      
+
 <!-- Empty State -->
       <%= if @medicines == [] do %>
         <div class="text-center py-12">

@@ -206,11 +206,12 @@ defmodule Medpack.BatchProcessing do
         Logger.info("Successfully copied #{length(photo_paths)} photos: #{inspect(photo_paths)}")
 
         # Merge AI results with photo paths, ensuring we override any existing photo paths
+        default_photo_path = List.first(photo_paths)
         medicine_attrs =
           entry.ai_results
-          # Remove any existing photo paths from AI results
           |> Map.delete("photo_paths")
           |> Map.put("photo_paths", photo_paths)
+          |> Map.put("default_photo_path", default_photo_path)
 
         Logger.info(
           "Creating medicine with photo_paths: #{inspect(medicine_attrs["photo_paths"])}"

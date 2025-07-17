@@ -16,8 +16,6 @@ defmodule Medpack.Medicine do
     field :active_ingredient, :string
     field :strength_value, :decimal
     field :strength_unit, :string
-    field :strength_denominator_value, :decimal
-    field :strength_denominator_unit, :string
 
     # Container/Package information
     field :container_type, :string
@@ -77,8 +75,6 @@ defmodule Medpack.Medicine do
       :active_ingredient,
       :strength_value,
       :strength_unit,
-      :strength_denominator_value,
-      :strength_denominator_unit,
       :container_type,
       :total_quantity,
       :remaining_quantity,
@@ -173,13 +169,7 @@ defmodule Medpack.Medicine do
   end
 
   def strength_display(%__MODULE__{} = medicine) do
-    base = "#{medicine.strength_value}#{medicine.strength_unit}"
-
-    if medicine.strength_denominator_value do
-      "#{base}/#{medicine.strength_denominator_value}#{medicine.strength_denominator_unit}"
-    else
-      base
-    end
+    "#{medicine.strength_value}#{medicine.strength_unit}"
   end
 
   def quantity_display(%__MODULE__{} = medicine) do

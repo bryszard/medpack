@@ -227,8 +227,6 @@ defmodule Medpack.MedicineTest do
           generic_name: "Generic Name",
           active_ingredient: "Active Ingredient",
           lot_number: "LOT123",
-          strength_denominator_value: "5.0",
-          strength_denominator_unit: "ml",
           expiration_date: ~D[2025-12-31],
           manufacturer: "Test Manufacturer",
           photo_paths: ["/uploads/photo1.jpg", "/uploads/photo2.jpg"]
@@ -248,7 +246,6 @@ defmodule Medpack.MedicineTest do
           strength_value: "12.5",
           total_quantity: "100.0",
           remaining_quantity: "75.5",
-          strength_denominator_value: "5.0"
         })
 
       changeset = Medicine.changeset(%Medicine{}, attrs)
@@ -257,7 +254,6 @@ defmodule Medpack.MedicineTest do
       assert changeset.changes.strength_value == Decimal.new("12.5")
       assert changeset.changes.total_quantity == Decimal.new("100.0")
       assert changeset.changes.remaining_quantity == Decimal.new("75.5")
-      assert changeset.changes.strength_denominator_value == Decimal.new("5.0")
     end
   end
 
@@ -290,34 +286,6 @@ defmodule Medpack.MedicineTest do
       result = Medicine.strength_display(medicine)
 
       assert result == "500.0mg"
-    end
-
-    test "displays strength with denominator" do
-      medicine =
-        build(:medicine,
-          strength_value: Decimal.new("5.0"),
-          strength_unit: "mg",
-          strength_denominator_value: Decimal.new("1.0"),
-          strength_denominator_unit: "ml"
-        )
-
-      result = Medicine.strength_display(medicine)
-
-      assert result == "5.0mg/1.0ml"
-    end
-
-    test "handles nil denominator values" do
-      medicine =
-        build(:medicine,
-          strength_value: Decimal.new("250.0"),
-          strength_unit: "mg",
-          strength_denominator_value: nil,
-          strength_denominator_unit: nil
-        )
-
-      result = Medicine.strength_display(medicine)
-
-      assert result == "250.0mg"
     end
   end
 

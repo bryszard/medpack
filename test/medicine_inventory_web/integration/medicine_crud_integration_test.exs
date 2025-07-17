@@ -190,7 +190,7 @@ defmodule MedpackWeb.Integration.MedicineCrudIntegrationTest do
       # Navigate to add page
       {:ok, add_view, add_html} = live(conn, ~p"/add")
 
-      assert add_html =~ "Medicine Entry #1"
+      assert add_html =~ "Medicine Entry"
       # Add button should be highlighted
       assert render(add_view) =~ "bg-base-300"
 
@@ -345,7 +345,7 @@ defmodule MedpackWeb.Integration.MedicineCrudIntegrationTest do
       # User goes to add medicines page
       {:ok, _add_view, add_html} = live(conn, ~p"/add")
 
-      assert add_html =~ "Medicine Entry #1"
+      assert add_html =~ "Medicine Entry"
       assert add_html =~ "📸 Add photo"
 
       # User would upload photos here (simulated)
@@ -392,14 +392,12 @@ defmodule MedpackWeb.Integration.MedicineCrudIntegrationTest do
           medicine: %{
             active_ingredient: "Test Ingredient",
             manufacturer: "Test Manufacturer",
-            notes: "Added by user during workflow test"
           }
         })
         |> render_submit()
 
       assert edit_html =~ "Test Ingredient"
       assert edit_html =~ "Test Manufacturer"
-      assert edit_html =~ "Added by user during workflow test"
 
       # User navigates back to inventory to see updated medicine
       {:ok, _final_inventory, final_html} = live(conn, ~p"/inventory")

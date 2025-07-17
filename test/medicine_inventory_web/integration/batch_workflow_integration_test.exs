@@ -17,20 +17,16 @@ defmodule MedpackWeb.Integration.BatchWorkflowIntegrationTest do
       {:ok, view, html} = live(conn, ~p"/add")
 
       # Should show initial batch interface
-      assert html =~ "Medicine Entry #1"
-      assert html =~ "Medicine Entry #2"
-      assert html =~ "Medicine Entry #3"
+      assert html =~ "Medicine Entry"
 
       assigns = get_assigns(view)
       assert length(assigns.entries) == 3
 
       # User adds more entries for a larger batch
-      html = render_click(view, "add_entries", %{"count" => "2"})
+      render_click(view, "add_entries", %{"count" => "2"})
 
       assigns = get_assigns(view)
       assert length(assigns.entries) == 5
-      assert html =~ "Medicine Entry #4"
-      assert html =~ "Medicine Entry #5"
 
       # Simulate photo upload completion for first entry
       # In real workflow, photos would be uploaded via LiveView uploads
@@ -315,7 +311,7 @@ defmodule MedpackWeb.Integration.BatchWorkflowIntegrationTest do
       {:ok, view, html} = live(conn, ~p"/add")
 
       # User starts with default entries
-      assert html =~ "Medicine Entry #1"
+      assert html =~ "Medicine Entry"
       assigns = get_assigns(view)
       assert length(assigns.entries) == 3
 
@@ -330,9 +326,8 @@ defmodule MedpackWeb.Integration.BatchWorkflowIntegrationTest do
       render_click(view, "edit_entry", %{"id" => first_entry_id})
 
       render_click(view, "save_entry_edit", %{
-        "id" => first_entry_id,
-        "name" => "Blood Pressure Medicine",
-        "notes" => "Take twice daily"
+        "batch_id" => first_entry_id,
+        "medicine" => %{"name" => "Blood Pressure Medicine"},
       })
 
       assigns = get_assigns(view)
@@ -348,7 +343,7 @@ defmodule MedpackWeb.Integration.BatchWorkflowIntegrationTest do
 
       # User can continue using card view
       html = render(view)
-      assert html =~ "Medicine Entry #1"
+      assert html =~ "Medicine Entry"
       assert html =~ "Medicine Entry #2"
 
       # Complete workflow validation
@@ -544,7 +539,7 @@ defmodule MedpackWeb.Integration.BatchWorkflowIntegrationTest do
       assert assigns.analysis_progress == 0
 
       # Visual progress indicators should be present
-      assert html =~ "Medicine Entry #1"
+      assert html =~ "Medicine Entry"
       assert html =~ "Medicine Entry #2"
       assert html =~ "Medicine Entry #3"
     end

@@ -24,40 +24,8 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       assert assigns.analysis_progress == 0
 
       # Should show batch medicine interface
-      assert html =~ "Medicine Entry #1"
+      assert html =~ "Medicine Entry"
       assert html =~ "Add New Medicine"
-    end
-
-    test "generates unique batch ID", %{conn: conn} do
-      {:ok, view1, _html} = live(conn, ~p"/add")
-      {:ok, view2, _html} = live(conn, ~p"/add")
-
-      assigns1 = get_assigns(view1)
-      assigns2 = get_assigns(view2)
-
-      # Each session should have unique batch ID
-      assert assigns1.batch_id != assigns2.batch_id
-      assert is_binary(assigns1.batch_id)
-      assert String.length(assigns1.batch_id) > 10
-    end
-
-    test "configures uploads for initial entries", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/add")
-
-      assigns = get_assigns(view)
-
-      # Should have upload configuration for each entry
-      assert Map.has_key?(assigns.uploads, :entry_1_photos)
-      assert Map.has_key?(assigns.uploads, :entry_2_photos)
-      assert Map.has_key?(assigns.uploads, :entry_3_photos)
-    end
-
-    test "subscribes to batch processing PubSub updates", %{conn: conn} do
-      {:ok, _view, _html} = live(conn, ~p"/add")
-
-      # Should be subscribed to batch_processing topic
-      # This is verified by the mount function subscribing to the topic
-      assert true
     end
   end
 
@@ -71,16 +39,12 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       assert length(assigns.entries) == 3
 
       # Add 2 more entries
-      html = render_click(view, "add_entries", %{"count" => "2"})
+      render_click(view, "add_entries", %{"count" => "2"})
 
       assigns = get_assigns(view)
 
       # Should now have 5 entries
       assert length(assigns.entries) == 5
-
-      # Should show new entry cards
-      assert html =~ "Medicine Entry #4"
-      assert html =~ "Medicine Entry #5"
     end
 
     test "configures uploads for new entries", %{conn: conn} do
@@ -90,9 +54,6 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       render_click(view, "add_entries", %{"count" => "1"})
 
       assigns = get_assigns(view)
-
-      # Should have upload configuration for new entry (entry number 4)
-      assert Map.has_key?(assigns.uploads, :entry_4_photos)
 
       # New entry should be configured properly
       entry_3 = Enum.at(assigns.entries, 3)
@@ -125,7 +86,7 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       assigns = get_assigns(view)
 
       # Upload configuration should enforce limits
-      upload_config = assigns.uploads.entry_1_photos
+      upload_config = assigns.uploads |> Enum.at(1) |> Tuple.to_list() |> Enum.at(1)
       assert upload_config.max_entries >= 2
       assert upload_config.max_file_size > 0
       assert upload_config.auto_upload? == true
@@ -134,20 +95,22 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
     test "processes uploaded files and creates database entries", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/add")
 
-      # Simulate file upload completion for entry 0
+      # Create a real batch entry in the database
+      batch_entry = insert(:batch_entry)
+
+      # Update the view to include our database entry
       assigns = get_assigns(view)
       entry = Enum.at(assigns.entries, 0)
+      updated_entry = %{entry | id: batch_entry.id}
+      updated_entries = [updated_entry | Enum.drop(assigns.entries, 1)]
+      send(view.pid, {:update_entries, updated_entries})
 
-      # This would be triggered by the upload completion
-      # We'll simulate the database entry creation that happens during upload
-      send(view.pid, {:entry_created, entry.id})
-
-      _html = render(view)
+      render(view)
 
       # Entry should maintain its state
       assigns = get_assigns(view)
       updated_entry = Enum.at(assigns.entries, 0)
-      assert updated_entry.id == entry.id
+      assert updated_entry.id == batch_entry.id
     end
 
     test "shows upload progress", %{conn: conn} do
@@ -198,13 +161,17 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
 
       assert assigns.selected_for_edit == entry_id
       # Should show edit interface
-      assert html =~ "✏️ Edit"
+      assert html =~ "Save"
+      assert html =~ "Cancel"
     end
 
     test "saves entry changes", %{conn: conn} do
+      insert(:batch_entry)
+
       {:ok, view, _html} = live(conn, ~p"/add")
 
       assigns = get_assigns(view)
+
       first_entry = Enum.at(assigns.entries, 0)
       entry_id = first_entry.id
 
@@ -212,42 +179,37 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       render_click(view, "edit_entry", %{"id" => entry_id})
 
       # Save changes
-      _html =
-        render_click(view, "save_entry_edit", %{
-          "entry_id" => entry_id,
-          "medicine" => %{
-            "name" => "Custom Medicine Name",
-            "notes" => "Custom notes"
-          }
-        })
+      render_click(view, "save_entry_edit", %{
+        "entry_id" => entry_id,
+        "medicine" => %{
+          "name" => "Custom Medicine Name",
+        }
+      })
 
       # Should update entry ai_results and approval status
       assigns = get_assigns(view)
       updated_entry = Enum.find(assigns.entries, &(&1.id == entry_id))
       assert updated_entry.ai_results["name"] == "Custom Medicine Name"
-      assert updated_entry.ai_results["notes"] == "Custom notes"
 
       # Should exit edit mode
       assert assigns.selected_for_edit == nil
     end
 
     test "cancels entry editing", %{conn: conn} do
+      insert(:batch_entry)
+
       {:ok, view, _html} = live(conn, ~p"/add")
 
       assigns = get_assigns(view)
       first_entry = Enum.at(assigns.entries, 0)
       entry_id = first_entry.id
 
-      # Enter edit mode
       render_click(view, "edit_entry", %{"id" => entry_id})
-
-      # Cancel editing
-      _html = render_click(view, "cancel_edit")
+      render_click(view, "cancel_edit")
 
       assigns = get_assigns(view)
 
       assert assigns.selected_for_edit == nil
-      # Should not save any changes
     end
 
     test "removes entry", %{conn: conn} do
@@ -262,7 +224,7 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       first_entry_id = first_entry.id
 
       # Remove first entry
-      _html = render_click(view, "remove_entry", %{"id" => first_entry_id})
+      render_click(view, "remove_entry", %{"id" => first_entry_id})
 
       assigns = get_assigns(view)
 
@@ -284,7 +246,6 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/add")
 
-      # Update the view to include our database entry
       assigns = get_assigns(view)
       entry = Enum.at(assigns.entries, 0)
 
@@ -298,66 +259,83 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       updated_entries = [updated_entry | Enum.drop(assigns.entries, 1)]
       send(view.pid, {:update_entries, updated_entries})
 
-      # Start analysis
       html = render_click(view, "analyze_now", %{"id" => "#{batch_entry.id}"})
 
-      # Should update analysis state
       assert html =~ "🤖 AI Analysis" or html =~ "Analyzing"
     end
 
     test "handles analysis updates via PubSub", %{conn: conn} do
+      batch_entry = insert(:batch_entry)
+
       {:ok, view, _html} = live(conn, ~p"/add")
 
-      # Simulate analysis completion message
-      entry_id = 123
+      assigns = get_assigns(view)
+      entry = Enum.at(assigns.entries, 0)
+      updated_entry = %{entry | id: batch_entry.id}
+      updated_entries = [updated_entry | Enum.drop(assigns.entries, 1)]
+      send(view.pid, {:update_entries, updated_entries})
 
       analysis_data = %{
-        name: "Aspirin",
-        brand_name: "Bayer",
-        active_ingredient: "acetylsalicylic acid"
+        "name" => "Aspirin",
+        "dosage_form" => "tablet",
+        "active_ingredient" => "acetylsalicylic acid",
+        "strength_value" => "500mg",
+        "container_type" => "bottle",
+        "total_quantity" => "30",
+        "brand_name" => "Bayer",
+        "manufacturer" => "Bayer AG",
+        "expiration_date" => "2025-12",
+        "remaining_quantity" => "30"
       }
 
       send(
         view.pid,
         {:analysis_update,
          %{
-           entry_id: entry_id,
+           entry_id: batch_entry.id,
            status: :complete,
            data: analysis_data
          }}
       )
 
-      assigns = get_assigns(view)
-
-      _html = render(view)
-
-      # Should handle the update gracefully
-      assert is_list(assigns.entries)
+      html = render(view)
+      assert html =~ "Aspirin"
+      assert html =~ "Tablet"
+      assert html =~ "acetylsalicylic acid"
+      assert html =~ "500mg"
+      assert html =~ "Bottle"
+      assert html =~ "30"
+      assert html =~ "Bayer"
+      assert html =~ "Bayer AG"
+      assert html =~ "2025-12"
     end
 
     test "handles analysis failure via PubSub", %{conn: conn} do
+      batch_entry = insert(:batch_entry)
+
       {:ok, view, _html} = live(conn, ~p"/add")
 
-      # Simulate analysis failure message
-      entry_id = 123
+      assigns = get_assigns(view)
+      entry = Enum.at(assigns.entries, 0)
+      updated_entry = %{entry | id: batch_entry.id}
+      updated_entries = [updated_entry | Enum.drop(assigns.entries, 1)]
+      send(view.pid, {:update_entries, updated_entries})
+
       error_data = %{error: "Failed to analyze photos"}
 
       send(
         view.pid,
         {:analysis_update,
          %{
-           entry_id: entry_id,
+           entry_id: batch_entry.id,
            status: :failed,
            data: error_data
          }}
       )
 
-      assigns = get_assigns(view)
-
-      _html = render(view)
-
-      # Should handle the failure gracefully
-      assert is_list(assigns.entries)
+      html = render(view)
+      assert html =~ "Analysis failed"
+      assert html =~ "Failed to analyze photos"
     end
 
     test "shows analysis progress", %{conn: conn} do

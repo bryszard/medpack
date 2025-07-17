@@ -298,8 +298,14 @@ defmodule MedpackWeb.BatchMedicineLive do
         {:noreply, put_flash(socket, :error, "Entry not found in database")}
 
       entry ->
-        # Persist the ai_results field
-        case BatchProcessing.update_entry(entry, %{ai_results: medicine_params}) do
+        # Merge medicine_params with existing ai_results to preserve all fields
+        merged_ai_results = Map.merge(entry.ai_results || %{}, medicine_params)
+
+        # Persist the merged ai_results field and ensure status is complete
+        case BatchProcessing.update_entry(entry, %{
+               ai_results: merged_ai_results,
+               ai_analysis_status: :complete
+             }) do
           {:ok, _updated_entry} ->
             # Fetch the updated entry with images to ensure we have the latest data
             updated_db_entry = BatchProcessing.get_entry_with_images!(entry_id)
@@ -325,7 +331,7 @@ defmodule MedpackWeb.BatchMedicineLive do
              socket
              |> assign(:entries, updated_entries)
              |> assign(:selected_for_edit, nil)
-             |> put_flash(:info, "Entry updated and approved")}
+             |> put_flash(:info, "Entry updated")}
 
           {:error, changeset} ->
             {:noreply,

@@ -55,7 +55,7 @@ defmodule Medpack.Jobs.AnalyzeMedicinePhotoJobTest do
 
     test "handles entry not found" do
       # Try to process non-existent entry
-      job = %Oban.Job{args: %{"entry_id" => 99999}}
+      job = %Oban.Job{args: %{"entry_id" => Ecto.UUID.generate()}}
 
       # Suppress expected error logs for this test
       capture_log(fn ->

@@ -45,7 +45,7 @@ defmodule Medpack.BatchProcessing do
   """
   def update_entry(%Entry{} = entry, attrs) do
     entry
-    |> Entry.changeset(attrs)
+    |> Entry.update_changeset(attrs)
     |> Repo.update()
   end
 
@@ -86,7 +86,7 @@ defmodule Medpack.BatchProcessing do
   Returns an `%Ecto.Changeset{}` for tracking entry changes.
   """
   def change_entry(%Entry{} = entry, attrs \\ %{}) do
-    Entry.changeset(entry, attrs)
+    Entry.update_changeset(entry, attrs)
   end
 
   @doc """

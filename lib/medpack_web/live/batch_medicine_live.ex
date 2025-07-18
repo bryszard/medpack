@@ -298,8 +298,19 @@ defmodule MedpackWeb.BatchMedicineLive do
         {:noreply, put_flash(socket, :error, "Entry not found in database")}
 
       entry ->
-        # Merge medicine_params with existing ai_results to preserve all fields
-        merged_ai_results = Map.merge(entry.ai_results || %{}, medicine_params)
+        # Preserve all existing ai_results and only update the specific fields from the form
+        # This ensures we don't lose any metadata or fields that weren't included in the edit form
+        existing_ai_results = entry.ai_results || %{}
+
+        # Filter out empty string values from form params to avoid overwriting existing data
+        # with empty values when user clears a field in the edit form
+        filtered_medicine_params =
+          medicine_params
+          |> Enum.filter(fn {_key, value} -> value != nil and value != "" end)
+          |> Enum.into(%{})
+
+        # Only merge the non-empty edited fields, preserving everything else
+        merged_ai_results = Map.merge(existing_ai_results, filtered_medicine_params)
 
         # Persist the merged ai_results field and ensure status is complete
         case BatchProcessing.update_entry(entry, %{

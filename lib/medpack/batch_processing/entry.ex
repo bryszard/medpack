@@ -38,10 +38,29 @@ defmodule Medpack.BatchProcessing.Entry do
     ])
     |> validate_required([:entry_number])
     |> validate_number(:entry_number, greater_than: 0)
-    |> put_default_values()
+    |> put_create_defaults()
   end
 
-  defp put_default_values(changeset) do
+  @doc """
+  Changeset for updating existing entries.
+  Does not override existing values with defaults.
+  """
+  def update_changeset(entry, attrs) do
+    entry
+    |> cast(attrs, [
+      :entry_number,
+      :status,
+      :ai_analysis_status,
+      :ai_results,
+      :analyzed_at,
+      :error_message
+    ])
+    |> validate_required([:entry_number])
+    |> validate_number(:entry_number, greater_than: 0)
+    # No defaults for updates - preserve existing values
+  end
+
+  defp put_create_defaults(changeset) do
     changeset
     |> put_change(:status, get_change(changeset, :status) || :pending)
     |> put_change(:ai_analysis_status, get_change(changeset, :ai_analysis_status) || :pending)

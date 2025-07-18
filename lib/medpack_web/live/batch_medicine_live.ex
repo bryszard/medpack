@@ -91,7 +91,10 @@ defmodule MedpackWeb.BatchMedicineLive do
      |> assign(:batch_status, :ready)
      |> assign(:selected_for_edit, nil)
      |> assign(:analyzing, false)
-     |> assign(:analysis_progress, 0)}
+     |> assign(:analysis_progress, 0)
+     |> assign(:show_enlarged_photo, false)
+     |> assign(:enlarged_photo_entry_id, nil)
+     |> assign(:enlarged_photo_index, 0)}
   end
 
   @impl true
@@ -376,6 +379,58 @@ defmodule MedpackWeb.BatchMedicineLive do
     {:noreply, socket_updated}
   end
 
+  # Photo enlargement events
+  def handle_event("enlarge_photo", %{"entry_id" => entry_id, "photo_index" => photo_index_str}, socket) do
+    photo_index = String.to_integer(photo_index_str)
+
+    {:noreply,
+     socket
+     |> assign(:show_enlarged_photo, true)
+     |> assign(:enlarged_photo_entry_id, entry_id)
+     |> assign(:enlarged_photo_index, photo_index)}
+  end
+
+  def handle_event("close_enlarged_photo", _params, socket) do
+    {:noreply, assign(socket, :show_enlarged_photo, false)}
+  end
+
+  def handle_event("previous_photo", _params, socket) do
+    entry = find_entry_by_id(socket.assigns.entries, socket.assigns.enlarged_photo_entry_id)
+
+    if entry do
+      photo_count = length(entry.photo_web_paths)
+      current_index = socket.assigns.enlarged_photo_index
+      new_index = if current_index == 0, do: photo_count - 1, else: current_index - 1
+
+      {:noreply,
+       socket
+       |> assign(:enlarged_photo_index, new_index)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("next_photo", _params, socket) do
+    entry = find_entry_by_id(socket.assigns.entries, socket.assigns.enlarged_photo_entry_id)
+
+    if entry do
+      photo_count = length(entry.photo_web_paths)
+      current_index = socket.assigns.enlarged_photo_index
+      new_index = if current_index == photo_count - 1, do: 0, else: current_index + 1
+
+      {:noreply,
+       socket
+       |> assign(:enlarged_photo_index, new_index)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("noop", _params, socket) do
+    # No operation - prevents event bubbling
+    {:noreply, socket}
+  end
+
   # File upload handling
   @impl true
   def handle_info({:process_all_uploaded_files, entry, upload_config_name}, socket) do
@@ -500,6 +555,12 @@ defmodule MedpackWeb.BatchMedicineLive do
   end
 
   # Private helper functions
+
+  defp find_entry_by_id(entries, entry_id) do
+    Enum.find(entries, fn entry ->
+      EntryManager.normalize_entry_id(entry.id) == EntryManager.normalize_entry_id(entry_id)
+    end)
+  end
 
   defp handle_single_entry_save(socket, entry, entry_id) do
     try do

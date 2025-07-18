@@ -568,4 +568,91 @@ defmodule MedpackWeb.CoreComponents do
   end
 
   def format_expiration_date_for_input(_), do: nil
+
+  @doc """
+  Renders a photo enlargement modal with navigation controls.
+  """
+  def photo_enlargement_modal(assigns) do
+    ~H"""
+    <%= if @show_enlarged_photo do %>
+      <div
+        class="fixed inset-0 bg-base-300 bg-opacity-90 flex items-center justify-center z-50"
+        phx-click="close_enlarged_photo"
+        phx-window-keydown="close_enlarged_photo"
+        phx-key="Escape"
+      >
+        <div class="relative max-w-5xl max-h-full p-8">
+          <!-- Close Button -->
+          <button
+            phx-click="close_enlarged_photo"
+            class="absolute top-4 right-4 btn btn-circle btn-sm bg-base-100 hover:bg-base-200 text-base-content border border-base-300 shadow-lg z-10"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              >
+              </path>
+            </svg>
+          </button>
+
+          <!-- Navigation Arrows (if multiple photos) -->
+          <%= if @photo_count > 1 do %>
+            <!-- Previous Photo -->
+            <button
+              phx-click="previous_photo"
+              class="absolute left-4 top-1/2 transform -translate-y-1/2 btn btn-circle btn-sm bg-base-100 hover:bg-base-200 text-base-content border border-base-300 shadow-lg z-10"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 19l-7-7 7-7"
+                >
+                </path>
+              </svg>
+            </button>
+
+            <!-- Next Photo -->
+            <button
+              phx-click="next_photo"
+              class="absolute right-4 top-1/2 transform -translate-y-1/2 btn btn-circle btn-sm bg-base-100 hover:bg-base-200 text-base-content border border-base-300 shadow-lg z-10"
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 5l7 7-7 7"
+                >
+                </path>
+              </svg>
+            </button>
+
+            <!-- Photo Counter -->
+            <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-base-100 text-base-content px-4 py-2 rounded-full text-sm font-medium border border-base-300 shadow-lg">
+              {@current_photo_index + 1} / {@photo_count}
+            </div>
+          <% end %>
+
+                              <!-- Image Container -->
+          <div
+            class="bg-base-100 rounded-xl shadow-2xl border border-base-300 p-4"
+            phx-click-away="close_enlarged_photo"
+            phx-click="noop"
+          >
+            <img
+              src={@photo_url}
+              alt={@photo_alt}
+              class="max-w-full max-h-[80vh] object-contain rounded-lg"
+            />
+          </div>
+        </div>
+      </div>
+    <% end %>
+    """
+  end
 end

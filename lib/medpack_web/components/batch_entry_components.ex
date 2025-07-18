@@ -124,7 +124,10 @@ defmodule MedpackWeb.BatchEntryComponents do
             <img
               src={photo_web_path}
               alt={"Uploaded medicine photo #{index + 1}"}
-              class="w-full h-24 object-cover rounded-lg border-2 border-base-300"
+              class="w-full h-24 object-cover rounded-lg border-2 border-base-300 cursor-pointer hover:opacity-80 transition-opacity"
+              phx-click="enlarge_photo"
+              phx-value-entry_id={@entry.id}
+              phx-value-photo_index={index}
             />
             <button
               phx-click="remove_photo"
@@ -397,11 +400,11 @@ defmodule MedpackWeb.BatchEntryComponents do
     assigns = assign(assigns, :photos_count, photos_count)
 
     ~H"""
-    <div class="alert alert-error">
+    <div class="alert alert-error flex flex-col items-center justify-center">
       <span>❌ Analysis failed. Please try again or check your photos.</span>
       <%= if @photos_count > 0 do %>
-        <button phx-click="retry_analysis" phx-value-id={@entry.id} class="btn btn-error btn-sm mt-2">
-          🔄 Retry Analysis
+        <button phx-click="retry_analysis" phx-value-id={@entry.id} class="btn btn-error mt-2">
+          🔄 Retry
         </button>
       <% end %>
     </div>
@@ -446,9 +449,11 @@ defmodule MedpackWeb.BatchEntryComponents do
           field_key="active_ingredient"
           field_name="Active Ingredient"
         />
-        <.field_status_row entry={@entry} field_key="strength_value" field_name="Strength" />
+        <.field_status_row entry={@entry} field_key="strength_value" field_name="Strength Value" />
+        <.field_status_row entry={@entry} field_key="strength_unit" field_name="Strength Unit" />
         <.field_status_row entry={@entry} field_key="container_type" field_name="Container Type" />
         <.field_status_row entry={@entry} field_key="total_quantity" field_name="Total Quantity" />
+        <.field_status_row entry={@entry} field_key="quantity_unit" field_name="Quantity Unit" />
       </div>
     </div>
 
@@ -623,8 +628,10 @@ defmodule MedpackWeb.BatchEntryComponents do
       "dosage_form" => Map.get(medicine_data, "dosage_form", ""),
       "active_ingredient" => Map.get(medicine_data, "active_ingredient", ""),
       "strength_value" => to_string(Map.get(medicine_data, "strength_value", "")),
+      "strength_unit" => Map.get(medicine_data, "strength_unit", ""),
       "container_type" => Map.get(medicine_data, "container_type", ""),
       "total_quantity" => to_string(Map.get(medicine_data, "total_quantity", "")),
+      "quantity_unit" => Map.get(medicine_data, "quantity_unit", ""),
       "brand_name" => Map.get(medicine_data, "brand_name", ""),
       "manufacturer" => Map.get(medicine_data, "manufacturer", ""),
       "expiration_date" =>
@@ -686,14 +693,39 @@ defmodule MedpackWeb.BatchEntryComponents do
               </div>
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text">Strength</span>
+                  <span class="label-text">Strength Value</span>
                 </label>
                 <input
-                  type="text"
+                  type="number"
+                  step="0.01"
                   name="medicine[strength_value]"
                   value={@form_data["strength_value"]}
                   class="input input-bordered"
-                  placeholder="e.g. 500mg"
+                  placeholder="e.g. 500"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Strength Unit</span>
+                </label>
+                <input
+                  type="text"
+                  name="medicine[strength_unit]"
+                  value={@form_data["strength_unit"]}
+                  class="input input-bordered"
+                  placeholder="e.g. mg"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Strength Unit</span>
+                </label>
+                <input
+                  type="text"
+                  name="medicine[strength_unit]"
+                  value={@form_data["strength_unit"]}
+                  class="input input-bordered"
+                  placeholder="e.g. mg"
                 />
               </div>
               <div class="form-control">
@@ -734,6 +766,30 @@ defmodule MedpackWeb.BatchEntryComponents do
                   name="medicine[total_quantity]"
                   value={@form_data["total_quantity"]}
                   class="input input-bordered"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Quantity Unit</span>
+                </label>
+                <input
+                  type="text"
+                  name="medicine[quantity_unit]"
+                  value={@form_data["quantity_unit"]}
+                  class="input input-bordered"
+                  placeholder="e.g. tablets, ml, capsules"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Quantity Unit</span>
+                </label>
+                <input
+                  type="text"
+                  name="medicine[quantity_unit]"
+                  value={@form_data["quantity_unit"]}
+                  class="input input-bordered"
+                  placeholder="e.g. mg"
                 />
               </div>
             </div>

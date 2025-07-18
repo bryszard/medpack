@@ -169,20 +169,26 @@ defmodule Medpack.Medicine do
   end
 
   def strength_display(%__MODULE__{} = medicine) do
-    "#{medicine.strength_value}#{medicine.strength_unit}"
+    strength_value = Decimal.round(medicine.strength_value, 0) |> Decimal.to_string()
+
+    "#{strength_value} #{medicine.strength_unit}"
   end
 
   def quantity_display(%__MODULE__{} = medicine) do
-    "#{medicine.remaining_quantity}/#{medicine.total_quantity} #{medicine.quantity_unit}"
+    remaining = Decimal.to_integer(medicine.remaining_quantity)
+    total = Decimal.to_integer(medicine.total_quantity)
+
+    "#{remaining}/#{total} #{medicine.quantity_unit}"
   end
 
   def usage_percentage(%__MODULE__{} = medicine) do
     if Decimal.to_float(medicine.total_quantity) > 0 do
       (Decimal.to_float(medicine.remaining_quantity) / Decimal.to_float(medicine.total_quantity) *
          100)
-      |> Float.round(1)
+      |> Float.round(0)
+      |> trunc()
     else
-      0.0
+      0
     end
   end
 

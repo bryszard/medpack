@@ -2,7 +2,7 @@
   <.topbar current_page={:add} />
   <div class="min-h-screen bg-base-100 py-8">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      
+
 <!-- Cards View -->
       <MedpackWeb.BatchEntryComponents.entry_cards_grid
         entries={@entries}
@@ -11,9 +11,23 @@
         analyzing={@analyzing}
         analysis_progress={@analysis_progress}
       />
-      
+
 <!-- Batch Action Buttons -->
       <MedpackWeb.BatchEntryComponents.batch_actions entries={@entries} analyzing={@analyzing} />
     </div>
   </div>
+
+<!-- Photo Enlargement Modal -->
+  <%= if @show_enlarged_photo and @enlarged_photo_entry_id do %>
+    <% entry = Enum.find(@entries, fn e -> MedpackWeb.BatchMedicineLive.EntryManager.normalize_entry_id(e.id) == MedpackWeb.BatchMedicineLive.EntryManager.normalize_entry_id(@enlarged_photo_entry_id) end) %>
+    <%= if entry && length(entry.photo_web_paths) > @enlarged_photo_index do %>
+      <.photo_enlargement_modal
+        show_enlarged_photo={@show_enlarged_photo}
+        photo_url={Enum.at(entry.photo_web_paths, @enlarged_photo_index)}
+        photo_alt={"Medicine photo #{@enlarged_photo_index + 1}"}
+        photo_count={length(entry.photo_web_paths)}
+        current_photo_index={@enlarged_photo_index}
+      />
+    <% end %>
+  <% end %>
 </Layouts.app>

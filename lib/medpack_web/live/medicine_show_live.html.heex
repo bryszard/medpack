@@ -479,14 +479,14 @@
                     <div class="flex justify-between">
                       <span class="font-medium text-base-content/70">Total Quantity:</span>
                       <span class="text-base-content">
-                        {@medicine.total_quantity} {@medicine.quantity_unit}
+                        {Decimal.to_integer(@medicine.total_quantity)} {@medicine.quantity_unit}
                       </span>
                     </div>
 
                     <div class="flex justify-between">
                       <span class="font-medium text-base-content/70">Remaining:</span>
                       <span class="text-base-content">
-                        {@medicine.remaining_quantity} {@medicine.quantity_unit}
+                        {Decimal.to_integer(@medicine.remaining_quantity)} {@medicine.quantity_unit}
                       </span>
                     </div>
                   </div>
@@ -507,9 +507,9 @@
                           type="range"
                           name="remaining_quantity"
                           min="0"
-                          max={Decimal.to_float(@medicine.total_quantity)}
+                          max={Decimal.to_integer(@medicine.total_quantity)}
                           step="0.1"
-                          value={Decimal.to_float(@medicine.remaining_quantity)}
+                          value={Decimal.to_integer(@medicine.remaining_quantity)}
                           class="range range-primary w-full"
                           style="background: linear-gradient(to right, #f97316 0%, #f97316 #{Medpack.Medicine.usage_percentage(@medicine)}%, #fed7aa #{Medpack.Medicine.usage_percentage(@medicine)}%, #fed7aa 100%)"
                         />
@@ -522,9 +522,9 @@
                     <div class="flex justify-between text-xs text-base-content/70 mt-1">
                       <span>0 {@medicine.quantity_unit}</span>
                       <span class="font-medium">
-                        {@medicine.remaining_quantity} / {@medicine.total_quantity} {@medicine.quantity_unit}
+                        {Decimal.to_integer(@medicine.remaining_quantity)} / {Decimal.to_integer(@medicine.total_quantity)} {@medicine.quantity_unit}
                       </span>
-                      <span>{@medicine.total_quantity} {@medicine.quantity_unit}</span>
+                      <span>{Decimal.to_integer(@medicine.total_quantity)} {@medicine.quantity_unit}</span>
                     </div>
                   </div>
                 </div>
@@ -626,76 +626,12 @@
 
 <!-- Photo Enlargement Modal -->
   <%= if @show_enlarged_photo do %>
-    <div
-      class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
-      phx-click="close_enlarged_photo"
-      phx-window-keydown="close_enlarged_photo"
-      phx-key="Escape"
-    >
-      <div class="relative max-w-4xl max-h-full p-4">
-        <img
-          src={photo_url(Enum.at(@medicine.photo_paths, @enlarged_photo_index || 0))}
-          alt={"#{@medicine.name} - Enlarged"}
-          class="max-w-full max-h-full object-contain rounded-lg"
-          phx-click={JS.dispatch("click", to: "body")}
-        />
-
-<!-- Close Button -->
-        <button
-          phx-click="close_enlarged_photo"
-          class="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75 transition-all"
-        >
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            >
-            </path>
-          </svg>
-        </button>
-
-<!-- Navigation Arrows (if multiple photos) -->
-        <%= if length(@medicine.photo_paths) > 1 do %>
-          <!-- Previous Photo -->
-          <button
-            phx-click="previous_photo"
-            class="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-3 hover:bg-opacity-75 transition-all"
-          >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M15 19l-7-7 7-7"
-              >
-              </path>
-            </svg>
-          </button>
-
-<!-- Next Photo -->
-          <button
-            phx-click="next_photo"
-            class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-3 hover:bg-opacity-75 transition-all"
-          >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5l7 7-7 7"
-              >
-              </path>
-            </svg>
-          </button>
-
-<!-- Photo Counter -->
-          <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
-            {(@enlarged_photo_index || 0) + 1} / {length(@medicine.photo_paths)}
-          </div>
-        <% end %>
-      </div>
-    </div>
+    <.photo_enlargement_modal
+      show_enlarged_photo={@show_enlarged_photo}
+      photo_url={photo_url(Enum.at(@medicine.photo_paths, @enlarged_photo_index || 0))}
+      photo_alt={"#{@medicine.name} - Enlarged"}
+      photo_count={length(@medicine.photo_paths)}
+      current_photo_index={@enlarged_photo_index || 0}
+    />
   <% end %>
 </Layouts.app>

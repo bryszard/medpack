@@ -195,6 +195,44 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
       assert assigns.selected_for_edit == nil
     end
 
+    test "saves entry changes with strength and quantity units", %{conn: conn} do
+      insert(:batch_entry)
+
+      {:ok, view, _html} = live(conn, ~p"/add")
+
+      assigns = get_assigns(view)
+
+      first_entry = Enum.at(assigns.entries, 0)
+      entry_id = first_entry.id
+
+      # Enter edit mode
+      render_click(view, "edit_entry", %{"id" => entry_id})
+
+      # Save changes including the new unit fields
+      render_click(view, "save_entry_edit", %{
+        "entry_id" => entry_id,
+        "medicine" => %{
+          "name" => "Test Medicine",
+          "strength_value" => "500",
+          "strength_unit" => "mg",
+          "total_quantity" => "30",
+          "quantity_unit" => "tablets"
+        }
+      })
+
+      # Should update entry ai_results with all fields
+      assigns = get_assigns(view)
+      updated_entry = Enum.find(assigns.entries, &(&1.id == entry_id))
+      assert updated_entry.ai_results["name"] == "Test Medicine"
+      assert updated_entry.ai_results["strength_value"] == "500"
+      assert updated_entry.ai_results["strength_unit"] == "mg"
+      assert updated_entry.ai_results["total_quantity"] == "30"
+      assert updated_entry.ai_results["quantity_unit"] == "tablets"
+
+      # Should exit edit mode
+      assert assigns.selected_for_edit == nil
+    end
+
     test "cancels entry editing", %{conn: conn} do
       insert(:batch_entry)
 

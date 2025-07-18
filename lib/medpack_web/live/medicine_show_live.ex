@@ -100,6 +100,11 @@ defmodule MedpackWeb.MedicineShowLive do
      |> assign(selected_photo_index: new_index)}
   end
 
+  def handle_event("noop", _params, socket) do
+    # No operation - prevents event bubbling
+    {:noreply, socket}
+  end
+
   def handle_event("edit_medicine", _params, socket) do
     {:noreply, assign(socket, edit_mode: true)}
   end

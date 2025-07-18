@@ -577,15 +577,20 @@ defmodule MedpackWeb.CoreComponents do
     <%= if @show_enlarged_photo do %>
       <div
         class="fixed inset-0 bg-base-300 bg-opacity-90 flex items-center justify-center z-50"
-        phx-click="close_enlarged_photo"
         phx-window-keydown="close_enlarged_photo"
         phx-key="Escape"
+        id="modal-background"
+        phx-click={JS.dispatch("click", to: "#modal-background-closer")}
       >
-        <div class="relative max-w-5xl max-h-full p-8">
+        <!-- Background click target -->
+        <div id="modal-background-closer" phx-click="close_enlarged_photo" class="absolute inset-0"></div>
+
+        <div class="relative max-w-5xl max-h-full p-8" phx-click="modal_content_click">
           <!-- Close Button -->
           <button
             phx-click="close_enlarged_photo"
             class="absolute top-4 right-4 btn btn-circle btn-sm bg-base-100 hover:bg-base-200 text-base-content border border-base-300 shadow-lg z-10"
+            style="transition: none !important;"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -604,6 +609,7 @@ defmodule MedpackWeb.CoreComponents do
             <button
               phx-click="previous_photo"
               class="absolute left-4 top-1/2 transform -translate-y-1/2 btn btn-circle btn-sm bg-base-100 hover:bg-base-200 text-base-content border border-base-300 shadow-lg z-10"
+              style="transition: none !important; transform: translateY(-50%) !important;"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -620,6 +626,7 @@ defmodule MedpackWeb.CoreComponents do
             <button
               phx-click="next_photo"
               class="absolute right-4 top-1/2 transform -translate-y-1/2 btn btn-circle btn-sm bg-base-100 hover:bg-base-200 text-base-content border border-base-300 shadow-lg z-10"
+              style="transition: none !important; transform: translateY(-50%) !important;"
             >
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -638,12 +645,8 @@ defmodule MedpackWeb.CoreComponents do
             </div>
           <% end %>
 
-                              <!-- Image Container -->
-          <div
-            class="bg-base-100 rounded-xl shadow-2xl border border-base-300 p-4"
-            phx-click-away="close_enlarged_photo"
-            phx-click="noop"
-          >
+          <!-- Image Container -->
+          <div class="bg-base-100 rounded-xl shadow-2xl border border-base-300 p-4">
             <img
               src={@photo_url}
               alt={@photo_alt}

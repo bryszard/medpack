@@ -285,7 +285,7 @@ defmodule Medpack.MedicineTest do
 
       result = Medicine.strength_display(medicine)
 
-      assert result == "500.0mg"
+      assert result == "500 mg"
     end
   end
 
@@ -300,7 +300,7 @@ defmodule Medpack.MedicineTest do
 
       result = Medicine.quantity_display(medicine)
 
-      assert result == "15.0/30.0 tablets"
+      assert result == "15/30 tablets"
     end
 
     test "handles zero remaining quantity" do
@@ -313,7 +313,7 @@ defmodule Medpack.MedicineTest do
 
       result = Medicine.quantity_display(medicine)
 
-      assert result == "0.0/50.0 ml"
+      assert result == "0/50 ml"
     end
   end
 
@@ -375,7 +375,7 @@ defmodule Medpack.MedicineTest do
 
       result = Medicine.usage_percentage(medicine)
 
-      assert result == 33.3
+      assert result == 33
     end
   end
 

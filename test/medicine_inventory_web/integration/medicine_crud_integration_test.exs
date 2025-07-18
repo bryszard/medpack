@@ -37,7 +37,7 @@ defmodule MedpackWeb.Integration.MedicineCrudIntegrationTest do
       # Should show medicine details
       assert detail_html =~ "Aspirin"
       assert detail_html =~ "Bayer"
-      assert detail_html =~ "✏️ Edit Medicine" or detail_html =~ "Edit"
+      assert detail_html =~ "✏️ Edit" or detail_html =~ "Edit"
     end
 
     test "can edit medicine details and save changes", %{conn: conn} do

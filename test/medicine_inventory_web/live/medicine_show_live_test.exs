@@ -422,7 +422,7 @@ defmodule MedpackWeb.MedicineShowLiveTest do
       {:ok, _view, html} = live(conn, ~p"/inventory/#{medicine.id}")
 
       # Should have edit button
-      assert html =~ "✏️ Edit Medicine" or html =~ "Edit"
+      assert html =~ "✏️ Edit" or html =~ "Edit"
     end
 
     test "includes analyze photos button when photos exist", %{conn: conn} do

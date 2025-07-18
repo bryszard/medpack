@@ -426,8 +426,8 @@ defmodule MedpackWeb.BatchMedicineLive do
     end
   end
 
-  def handle_event("noop", _params, socket) do
-    # No operation - prevents event bubbling
+  def handle_event("modal_content_click", _params, socket) do
+    # Prevents event bubbling to background
     {:noreply, socket}
   end
 

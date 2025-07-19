@@ -78,7 +78,7 @@ defmodule MedpackWeb.BatchMedicineLive do
       end
 
     # Configure individual uploads for each entry
-    socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, entries)
+    socket_with_uploads = UploadHandler.safe_configure_uploads_for_entries(socket, entries)
 
     # Subscribe to analysis updates
     Phoenix.PubSub.subscribe(Medpack.PubSub, "batch_processing")
@@ -121,7 +121,7 @@ defmodule MedpackWeb.BatchMedicineLive do
     new_entries = EntryManager.create_empty_entries(count, length(current_entries))
     updated_entries = current_entries ++ new_entries
 
-    socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, updated_entries)
+    socket_with_uploads = UploadHandler.safe_configure_uploads_for_entries(socket, updated_entries)
 
     {:noreply, assign(socket_with_uploads, :entries, updated_entries)}
   end
@@ -131,7 +131,7 @@ defmodule MedpackWeb.BatchMedicineLive do
     new_entry = EntryManager.create_empty_entries(1, length(current_entries))
     updated_entries = current_entries ++ new_entry
 
-    socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, updated_entries)
+    socket_with_uploads = UploadHandler.safe_configure_uploads_for_entries(socket, updated_entries)
 
     {:noreply, assign(socket_with_uploads, :entries, updated_entries)}
   end
@@ -155,7 +155,7 @@ defmodule MedpackWeb.BatchMedicineLive do
     end
 
     updated_entries = EntryManager.remove_entry(socket.assigns.entries, entry_id)
-    socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, updated_entries)
+    socket_with_uploads = UploadHandler.safe_configure_uploads_for_entries(socket, updated_entries)
 
     {:noreply, assign(socket_with_uploads, :entries, updated_entries)}
   end
@@ -178,7 +178,7 @@ defmodule MedpackWeb.BatchMedicineLive do
     updated_entries =
       EntryManager.remove_entry_photo(socket.assigns.entries, entry_id, photo_index)
 
-    socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, updated_entries)
+    socket_with_uploads = UploadHandler.safe_configure_uploads_for_entries(socket, updated_entries)
 
     {:noreply,
      socket_with_uploads
@@ -494,7 +494,7 @@ defmodule MedpackWeb.BatchMedicineLive do
       AnalysisCoordinator.handle_analysis_update(socket.assigns.entries, update_data)
       |> Enum.map(&normalize_entry/1)
 
-    socket_with_uploads = UploadHandler.configure_uploads_for_entries(socket, updated_entries)
+    socket_with_uploads = UploadHandler.safe_configure_uploads_for_entries(socket, updated_entries)
 
     flash_message =
       case update_data.status do
@@ -526,7 +526,7 @@ defmodule MedpackWeb.BatchMedicineLive do
   def handle_info({:update_entries, entries}, socket),
     do:
       {:noreply,
-       UploadHandler.configure_uploads_for_entries(socket, entries) |> assign(entries: entries)}
+       UploadHandler.safe_configure_uploads_for_entries(socket, entries) |> assign(entries: entries)}
 
   def handle_info({:progress_update, progress}, socket),
     do: {:noreply, assign(socket, analysis_progress: progress)}

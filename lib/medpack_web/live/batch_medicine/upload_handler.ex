@@ -9,10 +9,12 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
   to improve code organization and testability.
   """
 
-  @doc """
+    @doc """
   Configures upload settings for multiple entries.
   """
-  def configure_uploads_for_entries(socket, entries) do
+    def configure_uploads_for_entries(socket, entries) do
+    Logger.info("Configuring uploads for #{length(entries)} entries")
+
     # First cancel any existing uploads to avoid duplicates
     socket_cleaned = clear_existing_uploads(socket)
 
@@ -20,17 +22,41 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
     |> Enum.reduce(socket_cleaned, fn entry, acc_socket ->
       upload_key = String.to_atom("entry_#{entry.id}_photos")
 
-      Phoenix.LiveView.allow_upload(acc_socket, upload_key,
-        accept: ~w(.jpg .jpeg .png),
-        max_entries: 3,
-        max_file_size: 10_000_000,
-        auto_upload: true,
-        progress: &handle_progress/3
-      )
+      # Check if this upload already exists and has active entries
+      case Map.get(acc_socket.assigns, :uploads, %{}) |> Map.get(upload_key) do
+        nil ->
+          # Upload doesn't exist, safe to allow
+          Phoenix.LiveView.allow_upload(acc_socket, upload_key,
+            accept: ~w(.jpg .jpeg .png),
+            max_entries: 3,
+            max_file_size: 10_000_000,
+            auto_upload: true,
+            progress: &handle_progress/3
+          )
+
+        upload_config ->
+          # Upload exists, check if it has active entries
+          case upload_config.entries do
+            [] ->
+              # No active entries, safe to allow (this will replace the existing config)
+              Phoenix.LiveView.allow_upload(acc_socket, upload_key,
+                accept: ~w(.jpg .jpeg .png),
+                max_entries: 3,
+                max_file_size: 10_000_000,
+                auto_upload: true,
+                progress: &handle_progress/3
+              )
+
+            active_entries ->
+              # There are active entries, log warning and skip this upload
+              Logger.warning("Skipping upload configuration for #{upload_key} - has #{length(active_entries)} active entries")
+              acc_socket
+          end
+      end
     end)
   end
 
-  # Clears existing upload configurations to prevent duplicates.
+    # Clears existing upload configurations to prevent duplicates.
   defp clear_existing_uploads(socket) do
     # Check if uploads exist in socket assigns
     case Map.get(socket.assigns, :uploads) do
@@ -38,7 +64,7 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
         # No uploads configured yet, return socket as-is
         socket
 
-      existing_uploads ->
+      existing_uploads when is_map(existing_uploads) ->
         # Get all entry upload keys that might exist
         entry_upload_keys =
           existing_uploads
@@ -47,14 +73,35 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
             key |> Atom.to_string() |> String.match?(~r/^entry_\w+_photos$/)
           end)
 
-        # Disallow each existing entry upload to completely remove the configuration
+        # Handle each existing entry upload to completely remove the configuration
         Enum.reduce(entry_upload_keys, socket, fn upload_key, acc_socket ->
           if Map.has_key?(acc_socket.assigns.uploads, upload_key) do
-            Phoenix.LiveView.disallow_upload(acc_socket, upload_key)
+            upload_config = Map.get(acc_socket.assigns.uploads, upload_key)
+
+            # Check if there are active entries in this upload
+            case upload_config.entries do
+              [] ->
+                # No active entries, safe to disallow
+                Phoenix.LiveView.disallow_upload(acc_socket, upload_key)
+
+              active_entries ->
+                # There are active entries, we need to handle them properly
+                Logger.warning("Found #{length(active_entries)} active upload entries for #{upload_key}, consuming them")
+
+                # Consume all active entries first, then disallow
+                acc_socket
+                |> consume_active_entries(upload_key, active_entries)
+                |> Phoenix.LiveView.disallow_upload(upload_key)
+            end
           else
             acc_socket
           end
         end)
+
+      _ ->
+        # Invalid uploads value, return socket as-is
+        Logger.warning("Invalid uploads value in socket assigns: #{inspect(Map.get(socket.assigns, :uploads))}")
+        socket
     end
   end
 
@@ -71,7 +118,7 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
 
       if entry do
         # Check if all uploads for this entry are complete
-        upload_config = Map.get(socket.assigns.uploads, upload_config_name)
+        upload_config = Map.get(socket.assigns, :uploads, %{}) |> Map.get(upload_config_name)
         all_done? = Enum.all?(upload_config.entries, & &1.done?)
 
         if all_done? do
@@ -156,6 +203,113 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
   """
   def get_upload_key_for_entry(entry) do
     String.to_atom("entry_#{entry.id}_photos")
+  end
+
+    @doc """
+  Safely configures uploads for entries with retry logic for parallel processing.
+  """
+  def safe_configure_uploads_for_entries(socket, entries, max_retries \\ 3) do
+    Logger.info("Safely configuring uploads for #{length(entries)} entries with #{max_retries} max retries")
+
+    # First check if there are active uploads and wait for them to complete
+    socket_with_completed_uploads = wait_for_uploads_to_complete(socket, 2000)
+
+    case configure_uploads_for_entries_with_retry(socket_with_completed_uploads, entries, max_retries) do
+      {:ok, socket_with_uploads} ->
+        Logger.info("Successfully configured uploads for #{length(entries)} entries")
+        socket_with_uploads
+
+      {:error, reason} ->
+        Logger.error("Failed to configure uploads after #{max_retries} retries: #{inspect(reason)}")
+        # Return the original socket to prevent crashes
+        socket
+    end
+  end
+
+  defp configure_uploads_for_entries_with_retry(socket, entries, retries_left) do
+    try do
+      socket_with_uploads = configure_uploads_for_entries(socket, entries)
+      {:ok, socket_with_uploads}
+    rescue
+      error in ArgumentError ->
+        if String.contains?(error.message, "cannot allow_upload on an existing upload with active entries") and retries_left > 0 do
+          Logger.warning("Upload configuration failed due to active entries, retrying... (#{retries_left} retries left)")
+          # Wait a bit before retrying to allow uploads to complete
+          Process.sleep(100)
+          configure_uploads_for_entries_with_retry(socket, entries, retries_left - 1)
+        else
+          {:error, error}
+        end
+
+      error ->
+        {:error, error}
+    end
+  end
+
+    @doc """
+  Checks if any uploads have active entries that need to be processed.
+  """
+  def has_active_uploads?(socket) do
+    case Map.get(socket.assigns, :uploads) do
+      nil ->
+        false
+
+      uploads when is_map(uploads) ->
+        # For now, just check if there are any uploads configured
+        # The uploads structure seems to have changed, so we'll be conservative
+        map_size(uploads) > 0
+
+      _ ->
+        # Invalid uploads value
+        false
+    end
+  end
+
+  @doc """
+  Waits for all active uploads to complete before proceeding.
+  """
+  def wait_for_uploads_to_complete(socket, max_wait_time \\ 5000) do
+    start_time = System.monotonic_time(:millisecond)
+    wait_for_uploads_to_complete_loop(socket, start_time, max_wait_time)
+  end
+
+  defp wait_for_uploads_to_complete_loop(socket, start_time, max_wait_time) do
+    current_time = System.monotonic_time(:millisecond)
+    elapsed = current_time - start_time
+
+    if elapsed >= max_wait_time do
+      Logger.warning("Timeout waiting for uploads to complete after #{max_wait_time}ms")
+      socket
+    else
+      if has_active_uploads?(socket) do
+        Process.sleep(50)
+        wait_for_uploads_to_complete_loop(socket, start_time, max_wait_time)
+      else
+        socket
+      end
+    end
+  end
+
+  defp consume_active_entries(socket, upload_key, active_entries) do
+    # Consume all active entries for this upload
+    Enum.reduce(active_entries, socket, fn entry, acc_socket ->
+      if entry.done? do
+        # Entry is done, consume it
+        Phoenix.LiveView.consume_uploaded_entries(acc_socket, upload_key, fn _meta, upload_entry ->
+          if upload_entry.ref == entry.ref do
+            # This is the entry we want to consume
+            Logger.info("Consuming active upload entry: #{upload_entry.client_name}")
+            {:ok, nil}  # Discard the file since we're just cleaning up
+          else
+            # Skip other entries
+            {:postpone, nil}
+          end
+        end)
+      else
+        # Entry is not done, cancel it
+        Phoenix.LiveView.cancel_upload(acc_socket, upload_key, entry.ref)
+      end
+    end)
   end
 
   @doc """

@@ -777,19 +777,7 @@ defmodule MedpackWeb.BatchEntryComponents do
                   name="medicine[quantity_unit]"
                   value={@form_data["quantity_unit"]}
                   class="input input-bordered"
-                  placeholder="e.g. tablets, ml, capsules"
-                />
-              </div>
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Quantity Unit</span>
-                </label>
-                <input
-                  type="text"
-                  name="medicine[quantity_unit]"
-                  value={@form_data["quantity_unit"]}
-                  class="input input-bordered"
-                  placeholder="e.g. mg"
+                  placeholder="e.g. tablets, ml, mg"
                 />
               </div>
             </div>

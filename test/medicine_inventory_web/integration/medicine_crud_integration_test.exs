@@ -8,6 +8,8 @@ defmodule MedpackWeb.Integration.MedicineCrudIntegrationTest do
 
   # Need async: false because we're testing database interactions and navigation flows
 
+  setup :register_and_log_in_user
+
   describe "complete medicine CRUD workflow" do
     test "can navigate from home to inventory and view medicines", %{conn: conn} do
       # Create some test medicines

@@ -1,5 +1,5 @@
-<Layouts.app flash={@flash}>
-  <.topbar current_page={:inventory} />
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <.topbar current_page={:inventory} current_scope={@current_scope} />
   <div class="min-h-screen bg-base-100 py-8">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <!-- Search Bar and Controls -->

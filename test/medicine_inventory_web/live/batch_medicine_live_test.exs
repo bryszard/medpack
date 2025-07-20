@@ -6,6 +6,8 @@ defmodule MedpackWeb.BatchMedicineLiveTest do
 
   # Need async: false because we're testing database, file operations, and PubSub
 
+  setup :register_and_log_in_user
+
   defp get_assigns(view) do
     :sys.get_state(view.pid).socket.assigns
   end

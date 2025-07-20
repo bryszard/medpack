@@ -9,6 +9,8 @@ defmodule MedpackWeb.MedicineShowLiveTest do
 
   # Need async: false because we're testing database and file operations
 
+  setup :register_and_log_in_user
+
   # Helper function to get assigns from LiveView in Phoenix LiveView 1.0.17+
   defp get_assigns(view) do
     :sys.get_state(view.pid).socket.assigns

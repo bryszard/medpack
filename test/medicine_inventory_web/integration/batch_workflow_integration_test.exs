@@ -12,7 +12,16 @@ defmodule MedpackWeb.Integration.BatchWorkflowIntegrationTest do
   # Need async: false for database and file operations
 
   setup do
-    {:ok, conn: Phoenix.ConnTest.build_conn()}
+    conn = Phoenix.ConnTest.build_conn()
+    user = Medpack.AccountsFixtures.user_fixture()
+    scope = Medpack.Accounts.Scope.for_user(user)
+    token = Medpack.Accounts.generate_user_session_token(user)
+
+    conn = conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> Plug.Conn.put_session(:user_token, token)
+
+    {:ok, conn: conn, user: user, scope: scope}
   end
 
   defp get_assigns(view) do

@@ -474,6 +474,7 @@ defmodule MedpackWeb.CoreComponents do
   Renders the application topbar with logo and navigation icons.
   """
   attr :current_page, :atom, default: nil
+  attr :current_scope, :any, default: nil
 
   def topbar(assigns) do
     ~H"""
@@ -523,6 +524,24 @@ defmodule MedpackWeb.CoreComponents do
         </.link>
       </div>
       <div class="flex-1"></div>
+      <div class="flex items-center">
+        <.link
+          href={~p"/users/log-out"}
+          method="delete"
+          class="btn btn-circle btn-ghost"
+          title="Sign out"
+        >
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            >
+            </path>
+          </svg>
+        </.link>
+      </div>
     </div>
     """
   end

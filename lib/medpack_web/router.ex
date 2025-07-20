@@ -1,6 +1,8 @@
 defmodule MedpackWeb.Router do
   use MedpackWeb, :router
 
+  import MedpackWeb.UserAuth
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -8,6 +10,7 @@ defmodule MedpackWeb.Router do
     plug :put_root_layout, html: {MedpackWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :fetch_current_scope_for_user
   end
 
   pipeline :api do
@@ -15,12 +18,20 @@ defmodule MedpackWeb.Router do
   end
 
   scope "/", MedpackWeb do
-    pipe_through :browser
+    pipe_through [:browser]
 
     get "/", PageController, :home
-    live "/inventory", MedicineLive
-    live "/inventory/:id", MedicineShowLive
-    live "/add", BatchMedicineLive
+  end
+
+  scope "/", MedpackWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live_session :authenticated_app,
+      on_mount: [{MedpackWeb.UserAuth, :require_authenticated}] do
+      live "/inventory", MedicineLive
+      live "/inventory/:id", MedicineShowLive
+      live "/add", BatchMedicineLive
+    end
   end
 
   # Other scopes may use custom stacks.
@@ -42,6 +53,29 @@ defmodule MedpackWeb.Router do
 
       live_dashboard "/dashboard", metrics: MedpackWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
+    end
+  end
+
+  ## Authentication routes
+
+  scope "/", MedpackWeb do
+    pipe_through [:browser]
+
+    live_session :current_user,
+      on_mount: [{MedpackWeb.UserAuth, :mount_current_scope}] do
+      live "/users/log-in", UserLive.Login, :new
+    end
+
+    post "/users/log-in", UserSessionController, :create
+    delete "/users/log-out", UserSessionController, :delete
+  end
+
+  scope "/", MedpackWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live_session :authenticated_settings,
+      on_mount: [{MedpackWeb.UserAuth, :require_authenticated}] do
+      live "/users/settings", UserLive.Settings, :edit
     end
   end
 end

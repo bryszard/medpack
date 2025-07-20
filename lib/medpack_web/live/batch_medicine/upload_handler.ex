@@ -255,9 +255,18 @@ defmodule MedpackWeb.BatchMedicineLive.UploadHandler do
         false
 
       uploads when is_map(uploads) ->
-        # For now, just check if there are any uploads configured
-        # The uploads structure seems to have changed, so we'll be conservative
-        map_size(uploads) > 0
+        # Check if any upload has active entries (entries that are not done)
+        Enum.any?(uploads, fn {_key, upload_config} ->
+          case upload_config do
+            %{entries: entries} when is_list(entries) ->
+              # Check if any entry is not done
+              Enum.any?(entries, fn entry ->
+                not entry.done?
+              end)
+            _ ->
+              false
+          end
+        end)
 
       _ ->
         # Invalid uploads value

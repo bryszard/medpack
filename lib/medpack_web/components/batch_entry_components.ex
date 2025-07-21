@@ -201,29 +201,41 @@ defmodule MedpackWeb.BatchEntryComponents do
 
     ~H"""
     <form phx-change="validate" phx-submit="upload" id={"upload-form-#{@entry.id}"}>
-      <div
-        phx-drop-target={@upload_key}
-        class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center hover:border-base-400 transition duration-200"
-      >
-        <div class="text-base-600 mb-2">
-          <.icon name="hero-photo" class="mx-auto h-8 w-8" />
-        </div>
-        <div class="cursor-pointer" onclick="this.querySelector('input[type=file]').click()">
-          <span class="text-base-700 font-semibold hover:text-base-600">
-            📸 Add photo ({@remaining_slots} remaining)
-          </span>
-          <%= if @uploads[@upload_key] do %>
+      <%= if @uploads[@upload_key] do %>
+        <div
+          phx-drop-target={@uploads[@upload_key].ref}
+          class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center hover:border-base-400 transition duration-200"
+        >
+          <div class="text-base-600 mb-2">
+            <.icon name="hero-photo" class="mx-auto h-8 w-8" />
+          </div>
+          <div class="cursor-pointer" onclick="this.querySelector('input[type=file]').click()">
+            <span class="text-base-700 font-semibold hover:text-base-600">
+              📸 Add photo ({@remaining_slots} remaining)
+            </span>
             <.live_file_input
               upload={@uploads[@upload_key]}
               id={"file-input-#{@entry.id}"}
               class="sr-only"
             />
-          <% else %>
-            <span class="text-error">Upload config not ready</span>
-          <% end %>
+          </div>
+          <p class="text-base-500 text-sm mt-1">JPG, PNG up to 10MB each</p>
         </div>
-        <p class="text-base-500 text-sm mt-1">JPG, PNG up to 10MB each</p>
-      </div>
+      <% else %>
+      <div
+          class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center hover:border-base-400 transition duration-200"
+        >
+          <div class="text-base-600 mb-2">
+            <.icon name="hero-photo" class="mx-auto h-8 w-8" />
+          </div>
+          <div class="cursor-pointer" onclick="this.querySelector('input[type=file]').click()">
+            <span class="text-base-700 font-semibold hover:text-base-600">
+              📸 Wait for current upload to complete...
+            </span>
+          </div>
+          <p class="text-base-500 text-sm mt-1">JPG, PNG up to 10MB each</p>
+        </div>
+      <% end %>
     </form>
     """
   end
@@ -514,37 +526,6 @@ defmodule MedpackWeb.BatchEntryComponents do
         </button>
         <button phx-click="edit_entry" phx-value-id={@entry.id} class="btn btn-info">
           ✏️ Edit
-        </button>
-      </div>
-    <% end %>
-    """
-  end
-
-  @doc """
-  Renders batch action buttons.
-  """
-  def batch_actions(assigns) do
-    has_photos = Enum.any?(assigns.entries, &(Map.get(&1, :photos_uploaded, 0) > 0))
-    has_complete = Enum.any?(assigns.entries, &(&1.ai_analysis_status == :complete))
-
-    assigns =
-      assigns
-      |> assign(:has_photos, has_photos)
-      |> assign(:has_complete, has_complete)
-
-    ~H"""
-    <%= if @has_photos do %>
-      <div class="flex flex-wrap justify-center gap-4 mt-8">
-        <button
-          phx-click="analyze_all"
-          disabled={@analyzing}
-          class={
-            if @analyzing,
-              do: "btn btn-primary btn-lg loading",
-              else: "btn btn-primary btn-lg"
-          }
-        >
-          {if @analyzing, do: "🔍 Analyzing...", else: "🤖 Analyze All Photos"}
         </button>
       </div>
     <% end %>

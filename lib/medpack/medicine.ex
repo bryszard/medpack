@@ -169,16 +169,28 @@ defmodule Medpack.Medicine do
   end
 
   def strength_display(%__MODULE__{} = medicine) do
-    strength_value = Decimal.round(medicine.strength_value, 0) |> Decimal.to_string()
+    case medicine.strength_value do
+      nil ->
+        nil
 
-    "#{strength_value} #{medicine.strength_unit}"
+      _ ->
+        strength_value = Decimal.round(medicine.strength_value, 0) |> Decimal.to_string()
+
+        "#{strength_value} #{medicine.strength_unit}"
+    end
   end
 
   def quantity_display(%__MODULE__{} = medicine) do
-    remaining = Decimal.to_integer(medicine.remaining_quantity)
-    total = Decimal.to_integer(medicine.total_quantity)
+    case medicine.remaining_quantity do
+      nil ->
+        nil
 
-    "#{remaining}/#{total} #{medicine.quantity_unit}"
+      _ ->
+        remaining = Decimal.to_integer(medicine.remaining_quantity)
+        total = Decimal.to_integer(medicine.total_quantity)
+
+        "#{remaining}/#{total} #{medicine.quantity_unit}"
+    end
   end
 
   def usage_percentage(%__MODULE__{} = medicine) do

@@ -168,7 +168,7 @@ defmodule Medpack.S3FileManager do
     end
   end
 
-  @doc """
+    @doc """
   Gets a fixed URL for an S3 object. Access is controlled by domain restrictions.
   """
   def get_fixed_url(s3_key) when is_binary(s3_key) do
@@ -177,6 +177,42 @@ defmodule Medpack.S3FileManager do
     # For Tigris, use the fly.storage.tigris.dev host
     # Access is controlled by domain restrictions in bucket policy
     "https://fly.storage.tigris.dev/#{bucket_name}/#{s3_key}"
+  end
+
+  @doc """
+  Gets the content of a file from S3 storage.
+  Returns {:ok, content, content_type} or {:error, reason}.
+  """
+  def get_file_content(s3_key) when is_binary(s3_key) do
+    bucket_name = get_bucket_name()
+
+    case S3.get_object(bucket_name, s3_key) |> ExAws.request() do
+      {:ok, %{body: content, headers: headers}} ->
+        content_type = get_content_type_from_headers(headers) || get_content_type_from_path(s3_key)
+        {:ok, content, content_type}
+
+      {:error, reason} ->
+        Logger.error("Failed to get S3 file content for #{s3_key}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp get_content_type_from_headers(headers) do
+    headers
+    |> Enum.find(fn {key, _} -> String.downcase(key) == "content-type" end)
+    |> case do
+      {_key, value} -> value
+      nil -> nil
+    end
+  end
+
+  defp get_content_type_from_path(file_path) do
+    case Path.extname(file_path) |> String.downcase() do
+      ".jpg" -> "image/jpeg"
+      ".jpeg" -> "image/jpeg"
+      ".png" -> "image/png"
+      _ -> "application/octet-stream"
+    end
   end
 
   @doc """
@@ -285,10 +321,7 @@ defmodule Medpack.S3FileManager do
     |> ExAws.request()
   end
 
-  defp get_content_type_from_path(file_path) do
-    filename = Path.basename(file_path)
-    get_content_type(filename)
-  end
+
 
   defp get_bucket_name do
     Application.get_env(:medpack, :s3_bucket) ||

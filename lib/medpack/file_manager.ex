@@ -212,12 +212,14 @@ defmodule Medpack.FileManager do
 
   @doc """
   Gets the URL for a photo, handling both local files and S3 objects.
-  For S3, returns a fixed URL with domain restrictions for security.
+  For S3, returns a proxied URL through the Phoenix app for consistent caching.
   """
   def get_photo_url(photo_path) when is_binary(photo_path) do
     if use_s3_storage?() do
-      # For S3, return a fixed URL - access is controlled by domain restrictions
-      S3FileManager.get_fixed_url(photo_path)
+      # For S3, return a proxied URL through the Phoenix app
+      # This provides consistent URLs and better caching
+      extract_filename_from_path(photo_path)
+      |> then(fn filename -> "/images/#{filename}" end)
     else
       cond do
         # Full absolute path (starts with absolute directory)
@@ -248,6 +250,54 @@ defmodule Medpack.FileManager do
   end
 
   def get_photo_url(_), do: nil
+
+  @doc """
+  Gets the content of a file from storage, handling both local files and S3 objects.
+  Returns {:ok, content, content_type} or {:error, reason}.
+  """
+  def get_file_content(file_identifier) when is_binary(file_identifier) do
+    if use_s3_storage?() do
+      S3FileManager.get_file_content(file_identifier)
+    else
+      get_file_content_locally(file_identifier)
+    end
+  end
+
+  def get_file_content(_), do: {:error, :invalid_identifier}
+
+  defp get_file_content_locally(file_path) do
+    # For local storage, construct the full path to the file in priv/static/uploads/
+    full_path = Path.join([priv_static_uploads_path(), file_path])
+
+    case File.read(full_path) do
+      {:ok, content} ->
+        content_type = get_content_type_from_path(file_path)
+        {:ok, content, content_type}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp priv_static_uploads_path do
+    Application.get_env(:medpack, :upload_path) ||
+      Path.expand("priv/static/uploads", :code.priv_dir(:medpack))
+  end
+
+  defp get_content_type_from_path(file_path) do
+    case Path.extname(file_path) |> String.downcase() do
+      ".jpg" -> "image/jpeg"
+      ".jpeg" -> "image/jpeg"
+      ".png" -> "image/png"
+      _ -> "application/octet-stream"
+    end
+  end
+
+  defp extract_filename_from_path(path) do
+    path
+    |> String.split("/")
+    |> List.last()
+  end
 
   @doc """
   Determines whether to use S3 storage based on configuration.

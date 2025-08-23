@@ -21,6 +21,7 @@ defmodule MedpackWeb.Router do
     pipe_through [:browser]
 
     get "/", PageController, :home
+    get "/images/:path", ImageController, :show
   end
 
   scope "/", MedpackWeb do

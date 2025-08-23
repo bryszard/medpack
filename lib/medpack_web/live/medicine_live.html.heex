@@ -169,12 +169,13 @@
                     end
                 %>
                 <%= if main_photo do %>
-                  <figure class="h-48">
+                  <figure class="h-48" id={"medicine-card-photo-#{medicine.id}"} phx-update="ignore">
                     <img
                       src={photo_url(main_photo)}
                       alt={medicine.name}
                       class="h-full w-full object-cover"
                       loading="lazy"
+                      decoding="async"
                     />
                   </figure>
                 <% else %>
@@ -326,9 +327,9 @@
                           end
                       %>
                       <%= if main_photo do %>
-                        <div class="avatar">
+                        <div class="avatar" id={"medicine-photo-#{medicine.id}"} phx-update="ignore">
                           <div class="mask mask-squircle w-10 h-10 sm:w-12 sm:h-12">
-                            <img src={photo_url(main_photo)} alt={medicine.name} />
+                            <img src={photo_url(main_photo)} alt={medicine.name} loading="lazy" decoding="async" />
                           </div>
                         </div>
                       <% else %>

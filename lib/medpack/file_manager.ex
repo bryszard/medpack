@@ -212,12 +212,12 @@ defmodule Medpack.FileManager do
 
   @doc """
   Gets the URL for a photo, handling both local files and S3 objects.
-  For S3, returns a presigned URL that expires in 1 hour.
+  For S3, returns a fixed URL with domain restrictions for security.
   """
   def get_photo_url(photo_path) when is_binary(photo_path) do
     if use_s3_storage?() do
-      # For S3, the photo_path is the S3 key - return presigned URL
-      S3FileManager.get_presigned_url(photo_path)
+      # For S3, return a fixed URL - access is controlled by domain restrictions
+      S3FileManager.get_fixed_url(photo_path)
     else
       cond do
         # Full absolute path (starts with absolute directory)

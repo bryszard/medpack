@@ -169,6 +169,17 @@ defmodule Medpack.S3FileManager do
   end
 
   @doc """
+  Gets a fixed URL for an S3 object. Access is controlled by domain restrictions.
+  """
+  def get_fixed_url(s3_key) when is_binary(s3_key) do
+    bucket_name = get_bucket_name()
+
+    # For Tigris, use the fly.storage.tigris.dev host
+    # Access is controlled by domain restrictions in bucket policy
+    "https://fly.storage.tigris.dev/#{bucket_name}/#{s3_key}"
+  end
+
+  @doc """
   Copies an S3 object from one key to another within the same bucket.
   """
   def copy_object(source_key, dest_key) do

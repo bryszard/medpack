@@ -114,6 +114,7 @@ defmodule Medpack.S3FileManager do
       ".jpg" -> "image/jpeg"
       ".jpeg" -> "image/jpeg"
       ".png" -> "image/png"
+      ".webp" -> "image/webp"
       _ -> "application/octet-stream"
     end
   end
@@ -211,6 +212,7 @@ defmodule Medpack.S3FileManager do
       ".jpg" -> "image/jpeg"
       ".jpeg" -> "image/jpeg"
       ".png" -> "image/png"
+      ".webp" -> "image/webp"
       _ -> "application/octet-stream"
     end
   end

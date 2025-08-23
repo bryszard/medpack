@@ -219,9 +219,15 @@ defmodule Medpack.BatchProcessing do
 
         case Medpack.Medicines.create_medicine(medicine_attrs) do
           {:ok, medicine} ->
-            Logger.info("Successfully created medicine #{medicine.id}, cleaning up batch photos")
+            Logger.info("Successfully created medicine #{medicine.id}, triggering image processing")
+            
+            # Trigger async image processing for the new medicine photos
+            Medpack.FileManager.trigger_medicine_image_processing(medicine)
+            
+            Logger.info("Cleaning up batch photos")
             # Clean up batch photos only after successful medicine creation
             cleanup_batch_photos(entry.images)
+            
             # Mark entry as complete
             case update_entry(entry, %{status: :complete}) do
               {:ok, _updated_entry} ->

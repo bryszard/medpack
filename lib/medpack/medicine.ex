@@ -30,6 +30,7 @@ defmodule Medpack.Medicine do
     field :manufacturer, :string
     field :photo_paths, {:array, :string}, default: []
     field :default_photo_path, :string
+    field :resized_photo_paths, :map, default: %{}
 
     # Status tracking
     field :status, :string, default: "active"
@@ -83,6 +84,7 @@ defmodule Medpack.Medicine do
       :manufacturer,
       :photo_paths,
       :default_photo_path,
+      :resized_photo_paths,
       :status
     ])
     |> validate_required([
@@ -252,4 +254,69 @@ defmodule Medpack.Medicine do
   end
 
   def search_matches(%__MODULE__{}, _), do: []
+
+  @doc """
+  Returns the resized photo URL for a specific size and photo.
+  Falls back to the original photo if resized version is not available.
+  
+  Sizes: "200", "450", "600", "original"
+  """
+  def get_resized_photo_url(%__MODULE__{} = medicine, size \\ "original", photo_index \\ 0) do
+    photo_paths = medicine.photo_paths || []
+    
+    case Enum.at(photo_paths, photo_index) do
+      nil -> 
+        nil
+        
+      photo_path ->
+        # Check if we have resized versions for this photo
+        resized_paths = Map.get(medicine.resized_photo_paths || %{}, photo_path, %{})
+        
+        case Map.get(resized_paths, size) do
+          nil ->
+            # Fall back to original photo
+            Medpack.FileManager.get_photo_url(photo_path)
+          resized_path ->
+            Medpack.FileManager.get_photo_url(resized_path)
+        end
+    end
+  end
+
+  @doc """
+  Returns all available resized photo URLs for a specific photo.
+  """
+  def get_all_resized_photo_urls(%__MODULE__{} = medicine, photo_index \\ 0) do
+    photo_paths = medicine.photo_paths || []
+    
+    case Enum.at(photo_paths, photo_index) do
+      nil -> 
+        %{}
+        
+      photo_path ->
+        resized_paths = Map.get(medicine.resized_photo_paths || %{}, photo_path, %{})
+        
+        # Convert all paths to URLs
+        resized_paths
+        |> Enum.into(%{}, fn {size, path} ->
+          {size, Medpack.FileManager.get_photo_url(path)}
+        end)
+        |> Map.put("original", Medpack.FileManager.get_photo_url(photo_path))
+    end
+  end
+
+  @doc """
+  Returns true if resized versions are available for the given photo.
+  """
+  def has_resized_photos?(%__MODULE__{} = medicine, photo_index \\ 0) do
+    photo_paths = medicine.photo_paths || []
+    
+    case Enum.at(photo_paths, photo_index) do
+      nil -> 
+        false
+        
+      photo_path ->
+        resized_paths = Map.get(medicine.resized_photo_paths || %{}, photo_path, %{})
+        map_size(resized_paths) > 0
+    end
+  end
 end

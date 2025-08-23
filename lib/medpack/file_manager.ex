@@ -183,6 +183,7 @@ defmodule Medpack.FileManager do
       ".jpg" -> "image/jpeg"
       ".jpeg" -> "image/jpeg"
       ".png" -> "image/png"
+      ".webp" -> "image/webp"
       _ -> "application/octet-stream"
     end
   end
@@ -213,18 +214,32 @@ defmodule Medpack.FileManager do
   @doc """
   Gets the URL for a photo, handling both local files and S3 objects.
   For S3, returns a proxied URL through the Phoenix app for consistent caching.
+  
+  Options:
+  - size: "original" (default), "200", "450", "600" - returns URL for specific size if available
   """
-  def get_photo_url(photo_path) when is_binary(photo_path) do
+  def get_photo_url(photo_path, opts \\ [])
+  
+  def get_photo_url(photo_path, opts) when is_binary(photo_path) do
+    size = Keyword.get(opts, :size, "original")
+    
+    # If requesting a specific size other than original, modify the path
+    actual_path = if size != "original" do
+      generate_resized_photo_path(photo_path, size)
+    else
+      photo_path
+    end
+    
     if use_s3_storage?() do
       # For S3, return a proxied URL through the Phoenix app
       # This provides consistent URLs and better caching
-      extract_filename_from_path(photo_path)
+      extract_filename_from_path(actual_path)
       |> then(fn filename -> "/images/#{filename}" end)
     else
       cond do
         # Full absolute path (starts with absolute directory)
-        String.contains?(photo_path, "priv/static") ->
-          photo_path
+        String.contains?(actual_path, "priv/static") ->
+          actual_path
           |> String.replace(~r/.*priv\/static/, "")
           |> then(fn path ->
             if String.starts_with?(path, "/") do
@@ -235,21 +250,21 @@ defmodule Medpack.FileManager do
           end)
 
         # Already a web path (starts with /)
-        String.starts_with?(photo_path, "/") ->
-          photo_path
+        String.starts_with?(actual_path, "/") ->
+          actual_path
 
         # Relative path from priv/static (e.g., "uploads/2025-07-03/file.jpg")
-        String.starts_with?(photo_path, "uploads/") ->
-          "/" <> photo_path
+        String.starts_with?(actual_path, "uploads/") ->
+          "/" <> actual_path
 
         # Legacy filename only (e.g., "entry_123_456.jpg")
         true ->
-          "/uploads/" <> photo_path
+          "/uploads/" <> actual_path
       end
     end
   end
 
-  def get_photo_url(_), do: nil
+  def get_photo_url(_, _), do: nil
 
   @doc """
   Gets the content of a file from storage, handling both local files and S3 objects.
@@ -289,6 +304,7 @@ defmodule Medpack.FileManager do
       ".jpg" -> "image/jpeg"
       ".jpeg" -> "image/jpeg"
       ".png" -> "image/png"
+      ".webp" -> "image/webp"
       _ -> "application/octet-stream"
     end
   end
@@ -297,6 +313,15 @@ defmodule Medpack.FileManager do
     path
     |> String.split("/")
     |> List.last()
+  end
+
+  defp generate_resized_photo_path(original_path, size) do
+    # Resized images are stored as WebP for optimization
+    basename = Path.basename(original_path, Path.extname(original_path))
+    directory = Path.dirname(original_path)
+    
+    resized_filename = "#{basename}_#{size}.webp"
+    Path.join(directory, resized_filename)
   end
 
   @doc """
@@ -456,6 +481,36 @@ defmodule Medpack.FileManager do
         # Relative path from priv/static/ - resolve it
         Path.join(["priv", "static", stored_path])
       end
+    end
+  end
+
+  @doc """
+  Triggers async image processing for medicine photos.
+  
+  This should be called after a medicine is saved to inventory to process
+  its photos into multiple optimized sizes.
+  """
+  def trigger_medicine_image_processing(medicine) do
+    case medicine.photo_paths do
+      [] ->
+        Logger.info("Medicine #{medicine.id} has no photos to process")
+        :ok
+
+      photo_paths ->
+        Logger.info("Triggering image processing for #{length(photo_paths)} photos of medicine #{medicine.id}")
+        
+        # Process each photo
+        Enum.each(photo_paths, fn photo_path ->
+          %{
+            image_path: photo_path,
+            medicine_id: medicine.id,
+            context: "medicine"
+          }
+          |> Medpack.Jobs.ProcessImageSizesJob.new(queue: :image_processing)
+          |> Oban.insert()
+        end)
+        
+        :ok
     end
   end
 end

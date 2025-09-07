@@ -72,7 +72,7 @@ defmodule Medpack.MixProject do
       {:hackney, "~> 1.9"},
       {:sweet_xml, "~> 0.6"},
       {:live_debugger, "~> 0.3.0", only: :dev},
-      {:tidewave, "~> 0.1", only: :dev}
+      {:tidewave, "~> 0.2", only: :dev}
     ]
   end
 

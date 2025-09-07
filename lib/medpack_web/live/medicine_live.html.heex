@@ -1,6 +1,6 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
   <.topbar current_page={:inventory} current_scope={@current_scope} />
-  <div class="min-h-screen bg-base-100 py-8">
+  <div class="bg-base-100 py-8">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <!-- Search Bar and Controls -->
       <div class="mb-8">
@@ -171,7 +171,7 @@
                 <%= if length(medicine.photo_paths || []) > 0 do %>
                   <figure class="h-48" id={"medicine-card-photo-#{medicine.id}"} phx-update="ignore">
                     <img
-                      src={resized_photo_url(medicine, "450", main_photo_index)}
+                      src={resized_photo_url(medicine, "600", main_photo_index)}
                       alt={medicine.name}
                       class="h-full w-full object-cover"
                       loading="lazy"

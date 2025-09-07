@@ -214,22 +214,22 @@ defmodule Medpack.FileManager do
   @doc """
   Gets the URL for a photo, handling both local files and S3 objects.
   For S3, returns a proxied URL through the Phoenix app for consistent caching.
-  
+
   Options:
-  - size: "original" (default), "200", "450", "600" - returns URL for specific size if available
+  - size: "original" (default), "200", "600" - returns URL for specific size if available
   """
   def get_photo_url(photo_path, opts \\ [])
-  
+
   def get_photo_url(photo_path, opts) when is_binary(photo_path) do
     size = Keyword.get(opts, :size, "original")
-    
+
     # If requesting a specific size other than original, modify the path
     actual_path = if size != "original" do
       generate_resized_photo_path(photo_path, size)
     else
       photo_path
     end
-    
+
     if use_s3_storage?() do
       # For S3, return a proxied URL through the Phoenix app
       # This provides consistent URLs and better caching
@@ -319,7 +319,7 @@ defmodule Medpack.FileManager do
     # Resized images are stored as WebP for optimization
     basename = Path.basename(original_path, Path.extname(original_path))
     directory = Path.dirname(original_path)
-    
+
     resized_filename = "#{basename}_#{size}.webp"
     Path.join(directory, resized_filename)
   end
@@ -486,7 +486,7 @@ defmodule Medpack.FileManager do
 
   @doc """
   Triggers async image processing for medicine photos.
-  
+
   This should be called after a medicine is saved to inventory to process
   its photos into multiple optimized sizes.
   """
@@ -498,18 +498,32 @@ defmodule Medpack.FileManager do
 
       photo_paths ->
         Logger.info("Triggering image processing for #{length(photo_paths)} photos of medicine #{medicine.id}")
-        
-        # Process each photo
+
+        # Create image variant records for each photo
         Enum.each(photo_paths, fn photo_path ->
-          %{
-            image_path: photo_path,
-            medicine_id: medicine.id,
-            context: "medicine"
-          }
-          |> Medpack.Jobs.ProcessImageSizesJob.new(queue: :image_processing)
-          |> Oban.insert()
+          case Medpack.ImageVariants.create_variants_for_photo(medicine.id, photo_path) do
+            {:ok, _variants} ->
+              Logger.info("Created image variant records for photo: #{photo_path}")
+
+              # Process each variant that needs processing (skip original)
+              ["200", "600"]
+              |> Enum.each(fn size ->
+                %{
+                  image_path: photo_path,
+                  medicine_id: medicine.id,
+                  context: "medicine",
+                  photo_path: photo_path,
+                  variant_size: size
+                }
+                |> Medpack.Jobs.ProcessImageSizesJob.new(queue: :image_processing)
+                |> Oban.insert()
+              end)
+
+            {:error, reason} ->
+              Logger.error("Failed to create image variant records for photo #{photo_path}: #{inspect(reason)}")
+          end
         end)
-        
+
         :ok
     end
   end

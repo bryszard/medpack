@@ -478,7 +478,7 @@ defmodule MedpackWeb.CoreComponents do
 
   def topbar(assigns) do
     ~H"""
-    <div class="navbar bg-base-200 shadow-lg border-b border-base-300">
+    <div class="navbar bg-base-200 shadow-lg border-b border-base-300 w-full">
       <div class="flex-1"></div>
       <div class="flex items-center gap-4">
         <.link
@@ -523,8 +523,7 @@ defmodule MedpackWeb.CoreComponents do
           </svg>
         </.link>
       </div>
-      <div class="flex-1"></div>
-      <div class="flex items-center">
+      <div class="flex-1 flex justify-end">
         <.link
           href={~p"/users/log-out"}
           method="delete"

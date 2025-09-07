@@ -19,7 +19,7 @@ defmodule MedpackWeb.Layouts do
       <Layouts.app flash={@flash}>
         <h1>Content</h1>
       </Layout.app>
-      
+
   """
   attr :flash, :map, required: true, doc: "the map of flash messages"
 
@@ -31,9 +31,7 @@ defmodule MedpackWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <div class="min-h-screen">
-      {render_slot(@inner_block)}
-    </div>
+    {render_slot(@inner_block)}
 
     <.flash_group flash={@flash} />
     """

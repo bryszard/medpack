@@ -30,10 +30,12 @@ defmodule Medpack.Medicine do
     field :manufacturer, :string
     field :photo_paths, {:array, :string}, default: []
     field :default_photo_path, :string
-    field :resized_photo_paths, :map, default: %{}
 
     # Status tracking
     field :status, :string, default: "active"
+
+    # Relationships
+    has_many :image_variants, Medpack.ImageVariant
 
     timestamps()
   end
@@ -84,7 +86,6 @@ defmodule Medpack.Medicine do
       :manufacturer,
       :photo_paths,
       :default_photo_path,
-      :resized_photo_paths,
       :status
     ])
     |> validate_required([
@@ -258,26 +259,25 @@ defmodule Medpack.Medicine do
   @doc """
   Returns the resized photo URL for a specific size and photo.
   Falls back to the original photo if resized version is not available.
-  
-  Sizes: "200", "450", "600", "original"
+
+  Sizes: "200", "600", "original"
   """
   def get_resized_photo_url(%__MODULE__{} = medicine, size \\ "original", photo_index \\ 0) do
     photo_paths = medicine.photo_paths || []
-    
+
     case Enum.at(photo_paths, photo_index) do
-      nil -> 
+      nil ->
         nil
-        
+
       photo_path ->
-        # Check if we have resized versions for this photo
-        resized_paths = Map.get(medicine.resized_photo_paths || %{}, photo_path, %{})
-        
-        case Map.get(resized_paths, size) do
-          nil ->
+        # Get from image variants
+        case Medpack.ImageVariants.get_image_variant(medicine.id, photo_path, size) do
+          %Medpack.ImageVariant{processing_status: "completed", variant_path: variant_path} ->
+            Medpack.FileManager.get_photo_url(variant_path)
+
+          _ ->
             # Fall back to original photo
             Medpack.FileManager.get_photo_url(photo_path)
-          resized_path ->
-            Medpack.FileManager.get_photo_url(resized_path)
         end
     end
   end
@@ -287,20 +287,20 @@ defmodule Medpack.Medicine do
   """
   def get_all_resized_photo_urls(%__MODULE__{} = medicine, photo_index \\ 0) do
     photo_paths = medicine.photo_paths || []
-    
+
     case Enum.at(photo_paths, photo_index) do
-      nil -> 
+      nil ->
         %{}
-        
+
       photo_path ->
-        resized_paths = Map.get(medicine.resized_photo_paths || %{}, photo_path, %{})
-        
-        # Convert all paths to URLs
-        resized_paths
-        |> Enum.into(%{}, fn {size, path} ->
-          {size, Medpack.FileManager.get_photo_url(path)}
+        # Get from image variants
+        variants = Medpack.ImageVariants.list_image_variants_by_path(medicine.id, photo_path)
+
+        variants
+        |> Enum.filter(&Medpack.ImageVariant.completed?/1)
+        |> Enum.into(%{}, fn variant ->
+          {variant.variant_size, Medpack.FileManager.get_photo_url(variant.variant_path)}
         end)
-        |> Map.put("original", Medpack.FileManager.get_photo_url(photo_path))
     end
   end
 
@@ -309,14 +309,67 @@ defmodule Medpack.Medicine do
   """
   def has_resized_photos?(%__MODULE__{} = medicine, photo_index \\ 0) do
     photo_paths = medicine.photo_paths || []
-    
+
     case Enum.at(photo_paths, photo_index) do
-      nil -> 
+      nil ->
         false
-        
+
       photo_path ->
-        resized_paths = Map.get(medicine.resized_photo_paths || %{}, photo_path, %{})
-        map_size(resized_paths) > 0
+        # Check image variants
+        variants = Medpack.ImageVariants.list_image_variants_by_path(medicine.id, photo_path)
+
+        # Check if any variants are completed
+        Enum.any?(variants, &Medpack.ImageVariant.completed?/1)
+    end
+  end
+
+  @doc """
+  Returns the processing status for all variants of a specific photo.
+  """
+  def get_photo_processing_status(%__MODULE__{} = medicine, photo_index \\ 0) do
+    photo_paths = medicine.photo_paths || []
+
+    case Enum.at(photo_paths, photo_index) do
+      nil ->
+        %{}
+
+      photo_path ->
+        variants = Medpack.ImageVariants.list_image_variants_by_path(medicine.id, photo_path)
+
+        variants
+        |> Enum.into(%{}, fn variant ->
+          {variant.variant_size, variant.processing_status}
+        end)
+    end
+  end
+
+  @doc """
+  Returns true if all variants for a photo are completed.
+  """
+  def all_variants_completed?(%__MODULE__{} = medicine, photo_index \\ 0) do
+    photo_paths = medicine.photo_paths || []
+
+    case Enum.at(photo_paths, photo_index) do
+      nil ->
+        false
+
+      photo_path ->
+        Medpack.ImageVariants.all_variants_completed?(medicine.id, photo_path)
+    end
+  end
+
+  @doc """
+  Returns true if any variants for a photo failed.
+  """
+  def any_variants_failed?(%__MODULE__{} = medicine, photo_index \\ 0) do
+    photo_paths = medicine.photo_paths || []
+
+    case Enum.at(photo_paths, photo_index) do
+      nil ->
+        false
+
+      photo_path ->
+        Medpack.ImageVariants.any_variants_failed?(medicine.id, photo_path)
     end
   end
 end

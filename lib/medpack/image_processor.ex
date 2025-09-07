@@ -3,9 +3,8 @@ defmodule Medpack.ImageProcessor do
   Handles image processing operations including resizing and optimization.
 
   Processes images into multiple sizes:
-  - 600px width: Enlarged/modal views
-  - 450px width: Card view thumbnails
-  - 200px width: Table view & non-focused detail photos
+  - 600px width: Bigger thumbnails
+  - 200px width: Smaller thumbnails
 
   Supports both S3 and local storage backends.
   """
@@ -16,7 +15,6 @@ defmodule Medpack.ImageProcessor do
   @sizes %{
     "original" => nil,
     "600" => 600,
-    "450" => 450,
     "200" => 200
   }
 
@@ -59,7 +57,7 @@ defmodule Medpack.ImageProcessor do
 
   Examples:
     original.jpg -> original_600.webp
-    image.png -> image_450.webp
+    image.png -> image_200.webp
   """
   def generate_resized_filename(original_filename, size_name) when size_name != "original" do
     basename = Path.basename(original_filename, Path.extname(original_filename))

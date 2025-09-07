@@ -6,16 +6,15 @@ defmodule MedpackWeb.ImageController do
   @doc """
   Serves images from Tigris storage through the Phoenix app.
   This provides consistent URLs and better caching while maintaining security.
-  
+
   Supports size parameter for serving optimized image sizes:
   - ?size=200 for 200px width thumbnails
-  - ?size=450 for 450px width previews  
   - ?size=600 for 600px width enlarged views
   - No size parameter serves original
   """
   def show(conn, %{"path" => path} = params) do
     size = Map.get(params, "size", "original")
-    
+
     # Generate the appropriate file path based on size
     s3_key = case size do
       "original" -> "medicines/#{path}"
@@ -41,7 +40,7 @@ defmodule MedpackWeb.ImageController do
               |> put_resp_header("etag", generate_etag(content))
               |> put_resp_content_type(content_type)
               |> send_resp(200, content)
-              
+
             {:error, _} ->
               conn
               |> put_status(:not_found)

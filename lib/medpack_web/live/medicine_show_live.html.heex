@@ -1,6 +1,6 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
   <.topbar current_page={:medicine_show} current_scope={@current_scope} />
-  <div class="min-h-screen bg-base-100 py-8">
+  <div class="bg-base-100 py-8">
     <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
 
 <!-- Medicine Details Card -->
@@ -19,7 +19,7 @@
                     <div class="mb-4 relative">
                     <img
                       id="main-photo"
-                      src={resized_photo_url(@medicine, "450", @selected_photo_index || 0)}
+                      src={resized_photo_url(@medicine, "600", @selected_photo_index || 0)}
                       alt={@medicine.name}
                       class="h-64 md:h-80 w-full object-cover rounded-lg"
                     />
@@ -226,7 +226,7 @@
                 <div class="mb-4">
                   <img
                     id="main-photo"
-                    src={resized_photo_url(@medicine, "450", @selected_photo_index || 0)}
+                    src={resized_photo_url(@medicine, "600", @selected_photo_index || 0)}
                     alt={@medicine.name}
                     class="h-96 md:h-[32rem] w-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                     phx-click="enlarge_photo"

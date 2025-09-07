@@ -85,7 +85,8 @@ config :medpack, Oban,
   queues: [
     default: 10,
     ai_analysis: 5,
-    file_cleanup: 2
+    file_cleanup: 2,
+    image_processing: 10
   ]
 
 # Configure OpenAI

@@ -85,7 +85,12 @@ defmodule MedpackWeb.MedicineLive do
   end
 
   # Helper function to get displayable photo URL
-  def photo_url(photo_identifier) do
+  def photo_url(photo_identifier, _size \\ "original") do
     Medpack.FileManager.get_photo_url(photo_identifier)
+  end
+
+  # Helper function to get resized photo URL for a medicine
+  def resized_photo_url(medicine, size \\ "original", photo_index \\ 0) do
+    Medpack.Medicine.get_resized_photo_url(medicine, size, photo_index)
   end
 end

@@ -161,17 +161,17 @@
               <div class="card bg-base-100 shadow-xl border border-base-300 hover:shadow-2xl transition duration-300 cursor-pointer h-full">
                 <!-- Medicine Photo -->
                 <%
-                  main_photo =
+                  main_photo_index =
                     if is_binary(medicine.default_photo_path) and medicine.default_photo_path in (medicine.photo_paths || []) do
-                      medicine.default_photo_path
+                      Enum.find_index(medicine.photo_paths || [], fn path -> path == medicine.default_photo_path end) || 0
                     else
-                      List.first(medicine.photo_paths)
+                      0
                     end
                 %>
-                <%= if main_photo do %>
+                <%= if length(medicine.photo_paths || []) > 0 do %>
                   <figure class="h-48" id={"medicine-card-photo-#{medicine.id}"} phx-update="ignore">
                     <img
-                      src={photo_url(main_photo)}
+                      src={resized_photo_url(medicine, "450", main_photo_index)}
                       alt={medicine.name}
                       class="h-full w-full object-cover"
                       loading="lazy"
@@ -319,17 +319,17 @@
                   >
                     <td>
                       <%
-                        main_photo =
+                        main_photo_index =
                           if is_binary(medicine.default_photo_path) and medicine.default_photo_path in (medicine.photo_paths || []) do
-                            medicine.default_photo_path
+                            Enum.find_index(medicine.photo_paths || [], fn path -> path == medicine.default_photo_path end) || 0
                           else
-                            List.first(medicine.photo_paths)
+                            0
                           end
                       %>
-                      <%= if main_photo do %>
+                      <%= if length(medicine.photo_paths || []) > 0 do %>
                         <div class="avatar" id={"medicine-photo-#{medicine.id}"} phx-update="ignore">
                           <div class="mask mask-squircle w-10 h-10 sm:w-12 sm:h-12">
-                            <img src={photo_url(main_photo)} alt={medicine.name} loading="lazy" decoding="async" />
+                            <img src={resized_photo_url(medicine, "200", main_photo_index)} alt={medicine.name} loading="lazy" decoding="async" />
                           </div>
                         </div>
                       <% else %>

@@ -32,6 +32,7 @@ defmodule MedpackWeb.MedicineShowLive do
            |> assign(:selected_photo_index, default_index)
            |> assign(:show_enlarged_photo, false)
            |> assign(:enlarged_photo_index, default_index)
+           |> assign(:image_loading, false)
            |> assign(:edit_mode, false)
            |> assign(:form, to_form(Medpack.Medicine.form_changeset(medicine)))
            |> assign(:analyzing, false)
@@ -71,11 +72,12 @@ defmodule MedpackWeb.MedicineShowLive do
     {:noreply,
      socket
      |> assign(show_enlarged_photo: true)
-     |> assign(enlarged_photo_index: index)}
+     |> assign(enlarged_photo_index: index)
+     |> assign(image_loading: false)}
   end
 
   def handle_event("close_enlarged_photo", _params, socket) do
-    {:noreply, assign(socket, show_enlarged_photo: false)}
+    {:noreply, assign(socket, show_enlarged_photo: false, image_loading: false)}
   end
 
   def handle_event("previous_photo", _params, socket) do
@@ -86,7 +88,8 @@ defmodule MedpackWeb.MedicineShowLive do
     {:noreply,
      socket
      |> assign(enlarged_photo_index: new_index)
-     |> assign(selected_photo_index: new_index)}
+     |> assign(selected_photo_index: new_index)
+     |> assign(image_loading: true)}
   end
 
   def handle_event("next_photo", _params, socket) do
@@ -97,7 +100,12 @@ defmodule MedpackWeb.MedicineShowLive do
     {:noreply,
      socket
      |> assign(enlarged_photo_index: new_index)
-     |> assign(selected_photo_index: new_index)}
+     |> assign(selected_photo_index: new_index)
+     |> assign(image_loading: true)}
+  end
+
+  def handle_event("image_loaded", _params, socket) do
+    {:noreply, assign(socket, image_loading: false)}
   end
 
   def handle_event("modal_content_click", _params, socket) do

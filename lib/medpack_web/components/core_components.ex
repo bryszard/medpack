@@ -603,14 +603,14 @@ defmodule MedpackWeb.CoreComponents do
         <!-- Background click target -->
         <div id="modal-background-closer" phx-click="close_enlarged_photo" class="absolute inset-0"></div>
 
-        <div class="relative max-w-5xl max-h-full p-8" phx-click="modal_content_click">
+        <!-- Main Modal Container - Made bigger -->
+        <div class="relative max-w-6xl min-w-[400px] sm:min-w-[500px] md:min-w-[600px] max-h-full p-4" phx-click="modal_content_click">
           <!-- Close Button -->
           <button
             phx-click="close_enlarged_photo"
-            class="absolute top-4 right-4 btn btn-circle btn-sm bg-base-100 hover:bg-base-200 text-base-content border border-base-300 shadow-lg z-10"
-            style="transition: none !important;"
+            class="absolute top-2 right-2 bg-white hover:bg-gray-100 text-gray-900 w-10 h-10 rounded-full flex items-center justify-center shadow-lg z-20 cursor-pointer"
           >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -626,10 +626,9 @@ defmodule MedpackWeb.CoreComponents do
             <!-- Previous Photo -->
             <button
               phx-click="previous_photo"
-              class="absolute left-4 top-1/2 transform -translate-y-1/2 btn btn-circle btn-sm bg-base-100 hover:bg-base-200 text-base-content border border-base-300 shadow-lg z-10"
-              style="transition: none !important; transform: translateY(-50%) !important;"
+              class="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white hover:bg-gray-100 text-gray-900 w-12 h-12 rounded-full flex items-center justify-center shadow-lg z-20 cursor-pointer"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
@@ -643,8 +642,7 @@ defmodule MedpackWeb.CoreComponents do
             <!-- Next Photo -->
             <button
               phx-click="next_photo"
-              class="absolute right-4 top-1/2 transform -translate-y-1/2 btn btn-circle btn-sm bg-base-100 hover:bg-base-200 text-base-content border border-base-300 shadow-lg z-10"
-              style="transition: none !important; transform: translateY(-50%) !important;"
+              class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white hover:bg-gray-100 text-gray-900 w-12 h-12 rounded-full flex items-center justify-center shadow-lg z-20 cursor-pointer"
             >
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -658,17 +656,29 @@ defmodule MedpackWeb.CoreComponents do
             </button>
 
             <!-- Photo Counter -->
-            <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-base-100 text-base-content px-4 py-2 rounded-full text-sm font-medium border border-base-300 shadow-lg">
+            <div class="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-white text-gray-900 px-4 py-2 rounded-full text-sm font-medium shadow-lg z-20">
               {@current_photo_index + 1} / {@photo_count}
             </div>
           <% end %>
 
           <!-- Image Container -->
-          <div class="bg-base-100 rounded-xl shadow-2xl border border-base-300 p-4">
+          <div class="bg-base-100 rounded-xl shadow-2xl border border-base-300 p-4 w-full min-w-0">
+            <!-- Loading State -->
+            <%= if assigns[:image_loading] do %>
+              <div class="flex items-center justify-center min-h-[400px] sm:min-h-[600px] md:min-h-[1000px] min-w-[300px] sm:min-w-[600px] md:min-w-[800px] w-full">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              </div>
+            <% end %>
+
             <img
               src={@photo_url}
               alt={@photo_alt}
-              class="max-w-full max-h-[80vh] object-contain rounded-lg"
+              class={[
+                "max-w-full w-full max-h-[85vh] min-h-[400px] object-contain rounded-lg",
+                assigns[:image_loading] && "hidden"
+              ]}
+              phx-hook="ImageLoader"
+              id="enlarged-photo"
             />
           </div>
         </div>

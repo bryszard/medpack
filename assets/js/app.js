@@ -25,8 +25,24 @@ import { LiveSocket } from "phoenix_live_view";
 import topbar from "../vendor/topbar";
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+
+const Hooks = {};
+
+Hooks.ImageLoader = {
+  mounted() {
+    this.el.addEventListener('load', () => {
+      this.pushEvent('image_loaded');
+    });
+    
+    this.el.addEventListener('error', () => {
+      this.pushEvent('image_loaded');
+    });
+  }
+};
+
 const liveSocket = new LiveSocket("/live", Socket, {
   params: { _csrf_token: csrfToken },
+  hooks: Hooks
 });
 
 // Show progress bar on live navigation and form submits
